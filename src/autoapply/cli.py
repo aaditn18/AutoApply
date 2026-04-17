@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import json
 import logging
+import random
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -404,6 +406,34 @@ def apply_cmd(
     cap = limit or settings.MAX_APPLICATIONS_PER_RUN
     min_final_rank = min_rank if min_rank is not None else settings.MIN_FINAL_RANK
 
+    # Daily cap check — only enforced for real (non-dry-run) submissions so
+    # test runs don't burn into the quota.
+    if not effective_dry_run:
+        today_start = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        with session_scope(engine) as s:
+            today_count = (
+                s.query(Application)
+                .filter(
+                    Application.submitted_at >= today_start,
+                    Application.dry_run == False,  # noqa: E712
+                    Application.outcome == "ok",
+                )
+                .count()
+            )
+        if today_count >= settings.MAX_APPLICATIONS_PER_DAY:
+            typer.echo(
+                f"apply aborted — daily cap reached "
+                f"({today_count}/{settings.MAX_APPLICATIONS_PER_DAY} "
+                f"real submissions today).",
+                err=True,
+            )
+            raise typer.Exit(code=0)
+        # Reduce this run's cap so we don't exceed the daily limit.
+        remaining_today = settings.MAX_APPLICATIONS_PER_DAY - today_count
+        cap = min(cap, remaining_today)
+
     with session_scope(engine) as s:
         rows = (
             s.query(Job)
@@ -504,6 +534,14 @@ def apply_cmd(
             elif result.outcome == "ok":
                 job.status = "applied_ok"
                 applied += 1
+                # Pace real submissions: random delay so we don't hammer ATS.
+                if not effective_dry_run:
+                    delay = random.uniform(
+                        settings.APPLY_DELAY_SECONDS_MIN,
+                        settings.APPLY_DELAY_SECONDS_MAX,
+                    )
+                    log.debug("pacing: sleeping %.0fs before next submission", delay)
+                    time.sleep(delay)
             elif result.outcome == "captcha":
                 job.status = "applied_captcha"
                 failures += 1

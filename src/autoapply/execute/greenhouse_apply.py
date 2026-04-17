@@ -164,16 +164,73 @@ class GreenhouseApplicator(Applicator):
     # ---- Submit --------------------------------------------------------
 
     def submit(self, job: Job, payload: dict[str, Any]) -> ApplyResult:
-        """Real submit. NOT invoked by default — orchestrator must pass
-        `dry_run=False`. Even then, for MVP we refuse to submit and return
-        a `failed` result with `error_code='submit_disabled'`, because real
-        GH submissions require anti-bot token harvesting we haven't wired
-        yet. Playwright fallback is Phase 2."""
+        """Submit via Playwright (stealth browser).
+
+        Called only when dry_run=False. Navigates
+        boards.greenhouse.io/<token>/jobs/<id>, fills every resolved field,
+        uploads the resume PDF, and clicks submit. Returns:
+            outcome="ok"      — success confirmed on the post-submit page.
+            outcome="captcha" — CAPTCHA wall encountered; job goes to review.
+            outcome="failed"  — any other error.
+        """
+        from autoapply.execute.playwright_submit import (
+            CaptchaDetected,
+            SubmitFailed,
+            submit_greenhouse,
+        )
+
+        try:
+            result = submit_greenhouse(
+                board_token=job.board_token,
+                job_id=str(job.source_id),
+                data=payload.get("data", {}),
+                files=payload.get("files", {}),
+                headless=True,
+            )
+        except CaptchaDetected as exc:
+            log.warning("CAPTCHA detected for job %s: %s", job.canonical_key, exc)
+            return ApplyResult(
+                outcome="captcha",
+                error_code="captcha",
+                error_message=str(exc),
+            )
+        except SubmitFailed as exc:
+            log.error("submit failed for job %s: %s", job.canonical_key, exc)
+            return ApplyResult(
+                outcome="failed",
+                error_code="submit_failed",
+                error_message=str(exc),
+            )
+        except Exception as exc:
+            log.exception("unexpected error submitting job %s", job.canonical_key)
+            return ApplyResult(
+                outcome="failed",
+                error_code="playwright_error",
+                error_message=str(exc),
+            )
+
+        if result["ok"]:
+            log.info(
+                "submitted OK: job=%s url=%s field_errors=%s",
+                job.canonical_key,
+                result["url"],
+                result["field_errors"],
+            )
+            return ApplyResult(
+                outcome="ok",
+                answers=payload.get("data", {}),
+                artifacts={
+                    "final_url": result["url"],
+                    "field_errors": result["field_errors"],
+                },
+            )
+
         return ApplyResult(
             outcome="failed",
-            error_code="submit_disabled",
-            error_message=(
-                "greenhouse HTTP submit disabled in MVP; use Playwright path "
-                "or enable after harvesting CSRF token"
-            ),
+            error_code="no_confirmation",
+            error_message=result.get("error") or "no success signal on post-submit page",
+            artifacts={
+                "final_url": result["url"],
+                "field_errors": result["field_errors"],
+            },
         )

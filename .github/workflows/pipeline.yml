@@ -30,7 +30,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       PYTHONUNBUFFERED: "1"
       PYTHONPATH: src
@@ -43,12 +43,22 @@ jobs:
       AES_KEY_B64: ${{ secrets.AES_KEY_B64 }}
 
     steps:
-      - name: Checkout AutoApply + resumes submodule
+      # Step 1: checkout AutoApply with the default GITHUB_TOKEN (which has
+      # write access to this repo). SUBMODULE_PAT is NOT used here — it only
+      # covers the private resume submodule, not AutoApply itself.
+      - name: Checkout AutoApply
         uses: actions/checkout@v4
         with:
-          submodules: true
-          token: ${{ secrets.SUBMODULE_PAT }}
           fetch-depth: 1
+
+      # Step 2: init the resumes submodule using SUBMODULE_PAT (fine-grained
+      # PAT with read-only access to aaditn18/aadit_nilay_resume_swe).
+      - name: Init resumes submodule
+        run: |
+          git config --global \
+            url."https://x-access-token:${{ secrets.SUBMODULE_PAT }}@github.com/".insteadOf \
+            "https://github.com/"
+          git submodule update --init --depth 1 resumes
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -59,9 +69,10 @@ jobs:
       - name: Install uv
         run: pip install --upgrade uv
 
-      - name: Install project (no browser deps for fast path)
+      - name: Install project + Playwright browser
         run: |
           uv pip install --system -e .
+          playwright install --with-deps chromium
 
       - name: Initialise DB schema (idempotent)
         run: python -m autoapply.cli init-db
