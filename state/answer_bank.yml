@@ -11,32 +11,37 @@
 #   * LLM_REQUIRED and REVIEW_REQUIRED types are intentionally absent; the
 #     bank is only consulted for types outside those policy sets.
 #
-# User: please review every value below (especially sponsorship and salary)
-# before flipping DRY_RUN off.
+# User: review every value before flipping DRY_RUN off, especially the
+# visa / sponsorship block and salary numbers.
 
 # -- Work authorization ------------------------------------------------------
+# F-1 student with post-completion OPT after May 20 2026 graduation.
+# OPT authorizes US work without employer sponsorship for up to 12 months
+# (24-month STEM extension thereafter), but H-1B sponsorship is eventually
+# needed for long-term employment.
 
 work_authorized_us:
-  _default: "Yes"
+  _default: "Yes"            # OPT is valid US work authorization
 
 require_sponsorship_now:
-  _default: "No"
+  _default: "No"             # OPT covers the initial employment period
 
 require_sponsorship_future:
-  # TODO(aadit): confirm future-sponsorship answer. Most US new-grad hires
-  # with green card / citizen say "No"; F-1/OPT students typically say "Yes".
-  _default: "No"
+  _default: "Yes"            # H-1B sponsorship will be required after OPT
 
 visa_status:
-  _default: "U.S. Citizen"
+  _default: "F-1 (OPT)"     # snap_to_option will match "F-1", "OPT", etc.
 
 citizenship:
-  _default: "United States"
+  # TODO(aadit): fill in your actual country of citizenship below.
+  # This field routes to review when left as REVIEW — the agent will open
+  # a GitHub Issue asking you to confirm the answer before submitting.
+  _default: "India"         # << FILL IN: e.g. "India", "Pakistan", etc.
 
 # -- Experience (general) ---------------------------------------------------
 
 yoe_general:
-  _default: "2"  # internship + research experience; update if asked for FTE-only
+  _default: "2"              # internship + research; update if asked FTE-only
 
 # -- Location / logistics ---------------------------------------------------
 
@@ -47,10 +52,13 @@ willing_to_relocate:
   _default: "Yes"
 
 available_start_date:
-  _default: "June 2026"
+  _default: "June 2026"      # after May 20 2026 graduation
 
 notice_period:
-  _default: "None — new graduate, available on or after graduation."
+  _default: "None — new graduate, available June 2026 or later."
+
+graduation_date:
+  _default: "May 2026"       # displayed on forms that ask separately
 
 # -- Compensation -----------------------------------------------------------
 
@@ -94,8 +102,6 @@ how_heard_about:
   _default: "Company careers page"
 
 # -- Demographics (EEO) -----------------------------------------------------
-# Defaults mirror Aadit's stated preference to decline self-id on everything
-# except what is legally required to answer. Override per-track if needed.
 
 demo_gender:
   _default: "Decline to self-identify"
@@ -127,8 +133,6 @@ previously_employed_here:
   _default: "No"
 
 currently_employed_elsewhere:
-  # College Park-based student; current role is research/intern context,
-  # not full-time employment.
   _default: "No"
 
 # -- Consents ---------------------------------------------------------------

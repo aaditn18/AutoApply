@@ -208,7 +208,8 @@ def test_classifier_snaps_yes_no_to_option(profile, bank):
         options=["Yes", "No"],
     )
     r = resolve_field(spec, profile=profile, bank=bank, track="swe")
-    assert r.value == "No"
+    # F-1/OPT student will require future H-1B sponsorship → "Yes"
+    assert r.value == "Yes"
 
 
 def test_llm_required_field_routes_to_review(profile, bank):
@@ -479,7 +480,7 @@ def test_lever_apply_dry_run_resolves_custom_questions(profile, bank, tmp_path):
     )
     assert result.outcome == "dry_run", result
     answers = result.answers
-    assert answers["cards[q-12]"] == "No"    # sponsorship → No
+    assert answers["cards[q-12]"] == "Yes"   # future sponsorship required (F-1/OPT → H-1B)
     assert answers["cards[q-13]"] == "3.975"  # GPA from profile
 
 

@@ -44,6 +44,10 @@ class Settings(BaseSettings):
 
     # --- Operational ---
     DRY_RUN: bool = True
+    # When True (default), the ingest command only pulls from `test_safe`
+    # companies. Set to False only when you're confident the pipeline works
+    # and ready to ingest quant funds / top AI labs / elite HPC targets.
+    TEST_SAFE_ONLY: bool = True
     MAX_APPLICATIONS_PER_RUN: int = 5
     MAX_APPLICATIONS_PER_DAY: int = 60
     MAX_REVIEWS_PER_DAY: int = 20

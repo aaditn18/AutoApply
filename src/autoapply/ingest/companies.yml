@@ -1,87 +1,98 @@
-# Seed list of board tokens for Greenhouse + Lever.
+# AutoApply — board token registry
 #
-# - `greenhouse:` entries are the slug after boards.greenhouse.io/<slug>
-#   e.g. boards.greenhouse.io/airbnb → "airbnb"
-# - `lever:` entries are the slug after jobs.lever.co/<slug>
-#   e.g. jobs.lever.co/netflix → "netflix"
+# Two sections per ATS:
+#   test_safe:  Used in both DRY_RUN testing AND live runs.
+#               Lower-stakes companies — OK to surface in the review queue
+#               even before you've fully validated the pipeline.
+#   live_only:  Only ingested when TEST_SAFE_ONLY=false in Settings.
+#               Your highest-priority targets (quant funds, elite HPC shops,
+#               top AI labs). Don't touch these until you're confident
+#               the pipeline is working correctly.
 #
-# Keep this list focused on US-headquartered firms with active new-grad /
-# early-career SWE, ML, HPC, and quant postings. Tokens are case-sensitive.
+# Token = the slug after boards.greenhouse.io/<slug> or jobs.lever.co/<slug>.
 # Run `autoapply ingest --source greenhouse --board <slug>` to sanity-check
-# before adding at scale.
+# a new token before adding it here.
 
 greenhouse:
-  # -- Big Tech / unicorns ------------------------------------------------
-  - airbnb
-  - asana
-  - dropbox
-  - figma
-  - gitlab
-  - instacart
-  - lyft
-  - notion
-  - pinterest
-  - reddit
-  - robinhood
-  - samsara
-  - snowflake
-  - stripe
-  - twilio
-  - zoominfo
-  # -- AI labs -----------------------------------------------------------
-  - anthropic
-  - openai
-  - scaleai
-  - databricks
-  - huggingface
-  - perplexity
-  # -- Infra / devtools --------------------------------------------------
-  - anyscale
-  - confluent
-  - fivetran
-  - hashicorp
-  - mongodb
-  - rippling
-  - vercel
-  # -- Quant / finance --------------------------------------------------
-  - twosigma
-  - citadel
-  - jumptrading
-  - drwholdings
-  - janestreet       # Jane Street uses their own ATS but posts some roles here
-  - optiver
-  - imc
-  - hrt             # Hudson River Trading
-  - akunacapital
-  - cubistsystematic
-  - pdtpartners
-  - qube
-  # -- HPC / hardware ---------------------------------------------------
-  - nvidia
-  - cerebras
-  - groq
-  - sambanovasystems
-  - tenstorrent
+
+  test_safe:
+    # -- Standard SWE / product companies ------------------------------------
+    - airbnb
+    - asana
+    - dropbox
+    - figma
+    - gitlab
+    - instacart
+    - lyft
+    - notion
+    - pinterest
+    - reddit
+    - robinhood
+    - samsara
+    - snowflake
+    - stripe
+    - twilio
+    - zoominfo
+    - rippling
+    - confluent
+    - fivetran
+    - hashicorp
+    - mongodb
+    - vercel
+    - anyscale
+    # -- AI / ML (not top-tier labs) -----------------------------------------
+    - huggingface
+    - perplexity
+
+  live_only:
+    # -- Top AI labs (high-signal; validate pipeline first) ------------------
+    - anthropic
+    - openai
+    - scaleai
+    - databricks
+    # -- Quant / HFT (most important; absolutely no test runs) ---------------
+    - twosigma
+    - citadel
+    - jumptrading
+    - drwholdings
+    - janestreet
+    - optiver
+    - imc
+    - hrt
+    - akunacapital
+    - cubistsystematic
+    - pdtpartners
+    - qube
+    # -- HPC / AI hardware (highly desired; validate first) ------------------
+    - nvidia
+    - cerebras
+    - groq
+    - sambanovasystems
+    - tenstorrent
 
 lever:
-  # -- AI / infra --------------------------------------------------------
-  - mistral
-  - writer
-  - together
-  - runway
-  - weaviate
-  # -- SaaS / fintech ----------------------------------------------------
-  - ramp
-  - gusto
-  - plaid
-  - mercury
-  - checkr
-  # -- Web3 / edge cases ------------------------------------------------
-  - anchorage
-  - chainalysis
-  # -- Others with active early-career postings -------------------------
-  - netflix
-  - shopify            # HQ CA but US-remote common
-  - benchling
-  - attentive
-  - getmatch
+
+  test_safe:
+    # -- AI / infra ----------------------------------------------------------
+    - mistral
+    - writer
+    - together
+    - runway
+    - weaviate
+    # -- SaaS / fintech ------------------------------------------------------
+    - ramp
+    - gusto
+    - plaid
+    - mercury
+    - checkr
+    # -- Others --------------------------------------------------------------
+    - netflix
+    - shopify
+    - benchling
+    - attentive
+    - getmatch
+    - anchorage
+    - chainalysis
+
+  live_only: []
+    # Add quant / HPC / elite companies that use Lever here as discovered.

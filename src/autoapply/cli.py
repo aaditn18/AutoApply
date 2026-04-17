@@ -42,6 +42,7 @@ from autoapply.security.injection_guard import scan
 from autoapply.select.dedup import canonical_key, filter_hard
 from autoapply.select.location_filter import is_us_location, nyc_bonus
 from autoapply.select.pay_extractor import extract_pay, pay_signal as pay_signal_fn
+from autoapply.select.scorer import freshness_signal
 from autoapply.select.track_picker import pick_track
 from autoapply.tracker.db import create_engine_from_settings, init_db, session_scope
 from autoapply.tracker.models import (
@@ -74,12 +75,31 @@ def _configure_logging(settings: Settings) -> None:
 
 
 def _read_companies_yaml(settings: Settings) -> tuple[list[str], list[str]]:
+    """Return (greenhouse_tokens, lever_tokens).
+
+    When TEST_SAFE_ONLY=True (the default), only the `test_safe` sub-list is
+    returned. When False, both `test_safe` and `live_only` are merged.
+    """
     import yaml
+
     path = Path(__file__).resolve().parent / "ingest" / "companies.yml"
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    gh = list(data.get("greenhouse") or [])
-    lv = list(data.get("lever") or [])
-    return [str(t) for t in gh], [str(t) for t in lv]
+
+    def _tokens(ats_block: dict | list | None) -> list[str]:
+        if ats_block is None:
+            return []
+        # Old flat-list format (backwards compat).
+        if isinstance(ats_block, list):
+            return [str(t) for t in ats_block]
+        safe = [str(t) for t in (ats_block.get("test_safe") or [])]
+        live = [str(t) for t in (ats_block.get("live_only") or [])]
+        if settings.TEST_SAFE_ONLY:
+            return safe
+        return safe + live
+
+    gh = _tokens(data.get("greenhouse"))
+    lv = _tokens(data.get("lever"))
+    return gh, lv
 
 
 def _raw_to_job_kwargs(raw: RawJob) -> dict:
@@ -224,6 +244,25 @@ def score_cmd(
     profiles = _load_profiles_or_exit(settings)
     today = datetime.now(timezone.utc).date()
 
+    # Build per-company last-application map for the 60-day cap.
+    # Only counts non-dry-run applications so test runs don't poison the cap.
+    from datetime import date as _date
+    from sqlalchemy import func as _func
+    with session_scope(engine) as s:
+        cutoff_dt = datetime.now(timezone.utc) - timedelta(days=60)
+        rows_recent = (
+            s.query(Job.company, _func.max(Application.submitted_at).label("latest"))
+            .join(Application, Application.job_id == Job.id)
+            .filter(Application.submitted_at >= cutoff_dt, Application.dry_run == False)  # noqa: E712
+            .group_by(Job.company)
+            .all()
+        )
+    recent_company_apps: dict[str, _date] = {
+        row.company.lower().strip(): row.latest.date()
+        for row in rows_recent
+        if row.latest is not None
+    }
+
     scored = 0
     rejected_loc = 0
     rejected_inj = 0
@@ -258,24 +297,24 @@ def score_cmd(
                         )
                     )
 
-            # 2) Hard filters: US location + injection block for auto tier
+            # 2) Hard filters: US location + injection + 60-day company cap.
             us = is_us_location(job.location)
             hard = filter_hard(
                 is_us=us,
                 injection_detected=job.injection_detected,
                 company=job.company,
-                recent_company_applications=[],
+                recent_company_applications=recent_company_apps,
                 today=today,
             )
             if not hard.accepted:
-                if hard.reason and hard.reason.startswith("rejected_by_location"):
+                if hard.reason == "rejected_by_location":
                     job.status = "rejected_by_location"
                     rejected_loc += 1
-                elif hard.reason and hard.reason.startswith("rejected_by_injection"):
+                elif hard.reason == "rejected_by_injection":
                     job.status = "rejected_by_injection"
                     rejected_inj += 1
                 else:
-                    job.status = "rejected_by_company_cap"
+                    job.status = hard.reason  # rejected_by_company_cap etc.
                 job.us_eligible = us
                 scored += 1
                 continue
@@ -289,18 +328,24 @@ def score_cmd(
             )
             job.track = decision.track if decision.track in ("swe", "ml", "hpc", "quant") else None
 
-            # 4) Pay + location signals.
+            # 4) Pay + location + freshness signals.
             pay = extract_pay(job.description or "")
             if pay is not None:
                 job.pay_midpoint = pay.midpoint
             job.pay_signal = pay_signal_fn(pay.midpoint if pay else None)
             job.loc_signal = nyc_bonus(job.location or "")
+            job.freshness_signal = freshness_signal(job.posted_at or "")
 
-            # 5) Base fit — deterministic placeholder. Real fit-score would
-            #    call Gemini Flash; wire that inside `scorer.py` later.
+            # 5) Base fit — deterministic placeholder (0.5). Gemini fit-score
+            #    will replace this when wired; stored separately for offline re-rank.
             job.base_fit = 0.5
 
-            job.final_rank = (job.base_fit or 0.0) + job.pay_signal + job.loc_signal
+            job.final_rank = (
+                (job.base_fit or 0.0)
+                + (job.pay_signal or 0.0)
+                + (job.loc_signal or 0.0)
+                + (job.freshness_signal or 0.0)
+            )
             job.us_eligible = us
             job.status = "scored"
             s.add(

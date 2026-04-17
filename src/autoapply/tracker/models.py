@@ -74,6 +74,7 @@ class Job(Base):
     pay_midpoint: Mapped[float | None] = mapped_column(Float, nullable=True)
     pay_signal: Mapped[float | None] = mapped_column(Float, nullable=True)
     loc_signal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    freshness_signal: Mapped[float | None] = mapped_column(Float, nullable=True)
     final_rank: Mapped[float | None] = mapped_column(Float, nullable=True)
     us_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
     injection_detected: Mapped[bool] = mapped_column(Boolean, default=False)
