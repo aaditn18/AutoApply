@@ -291,6 +291,33 @@ plan is the target, this log is the current state.
 
 ## Current test tally: 486 passing (109 injection + 22 parser + 75 answer bank + 122 select + 55 yoe_filter + 17 ingest + 17 tracker + 24 execute + 32 review + 13 congregate)
 
+## 🎉 First Live Dry-Run: SUCCESS (2026-04-17)
+
+**End-to-end pipeline validated with real Greenhouse + Lever APIs:**
+
+```
+ingest done — seen=36 inserted=34 skipped=2 (18 GH + 16 Lever)
+score done  — ok=24  rej_yoe=10  rej_location=0  rej_injection=0
+apply done  — applied=6  reviews=0  failures=0  (dry_run=True)
+```
+
+**Additional fixes landed during first run:**
+- `track_picker`: broadened SWE/ML title patterns (`developer`, `devops`,
+  `cloud engineer`, `systems engineer`, `data scientist`) so FreedomConsulting
+  IT roles stopped falling through to track=None
+- `standard_fields`: extended machine-key regex to match `resume_text` field;
+  added inline placeholder so the Greenhouse textarea-resume field resolves
+  without blocking
+- `classifier` + `types`: added SECURITY_CLEARANCE_HAVE / SECURITY_CLEARANCE_LEVEL
+  types; added "address" patterns to CURRENT_LOCATION rule
+- `answer_bank`: security_clearance_have="No", security_clearance_level="None"
+
+**Dry-run payload (Applications Developer / FreedomConsulting / SWE track):**
+- All profile fields correct (name, email, phone, LinkedIn, address)
+- Resume PDF path → correct swe PDF
+- Security clearance → "No" / "None"
+- Cover letter generated with SWE track narrative
+
 ## Build status: MVP COMPLETE (2026-04-16)
 
 All plan items through Phase 1 are done. Phase 2 (Playwright executor for real submissions)
