@@ -1,22 +1,90 @@
 # AutoApply — board token registry
 #
-# Two sections per ATS:
-#   test_safe:  Used in both DRY_RUN testing AND live runs.
-#               Lower-stakes companies — OK to surface in the review queue
-#               even before you've fully validated the pipeline.
-#   live_only:  Only ingested when TEST_SAFE_ONLY=false in Settings.
-#               Your highest-priority targets (quant funds, elite HPC shops,
-#               top AI labs). Don't touch these until you're confident
-#               the pipeline is working correctly.
+# PHILOSOPHY (read before editing):
+#   test_safe:  Companies used while validating the pipeline.
+#               Either (a) require US citizenship so F-1 applications will be
+#               rejected regardless, or (b) genuinely low-stakes companies
+#               where a malformed application doesn't burn a bridge.
+#               Keep this list SMALL and targeted until the pipeline is proven.
 #
-# Token = the slug after boards.greenhouse.io/<slug> or jobs.lever.co/<slug>.
-# Run `autoapply ingest --source greenhouse --board <slug>` to sanity-check
-# a new token before adding it here.
+#   live_only:  High-value targets — quant funds, elite AI labs, FAANG+,
+#               top HPC shops. Only ingested when TEST_SAFE_ONLY=false.
+#               DO NOT flip until:
+#                 1. DRY_RUN=false
+#                 2. form-field mapping verified on ≥5 test_safe runs
+#                 3. answer bank fully confirmed
+#
+# ── ATS COVERAGE NOTE ────────────────────────────────────────────────────────
+# Most major defense contractors listed in the original design doc
+# (Lockheed Martin, Raytheon/RTX, Northrop Grumman, Boeing, GDIT, MITRE,
+# Booz Allen Hamilton, NASA) use Workday, Brassring, or USAJobs — NOT
+# Greenhouse or Lever. They are unreachable until a Workday connector is built.
+# The `test_safe` section uses the subset of defense/gov contractors that DO
+# post on Greenhouse/Lever, supplemented with low-stakes SaaS/adtech companies.
+# ─────────────────────────────────────────────────────────────────────────────
 
 greenhouse:
 
   test_safe:
-    # -- Standard SWE / product companies ------------------------------------
+
+    # ── Defense / government contractors (citizenship typically required) ────
+    # F-1/OPT applications will be auto-rejected → safe to test form mappings.
+
+    - freedomconsulting    # Freedom Technology Solutions Group — gov IT,
+                           # Annapolis Junction MD / Springfield VA / Denver.
+                           # 82 active jobs. Heavily cleared work.
+
+    - trueanomalyinc       # True Anomaly — defense/space startup,
+                           # Denver CO / Long Beach CA. 170 active jobs.
+                           # Designs orbital vehicles for DoD missions.
+
+    - rebelliondefense     # Rebellion Defense — defense AI/software,
+                           # DC area. No openings currently but include
+                           # for when they post.
+
+    - axon                 # Axon — police/surveillance tech.
+                           # Some roles require US person status for
+                           # government contracts. 514 active jobs.
+
+    # ── Low-stakes SaaS / adtech (not target companies, high volume) ────────
+    # Not citizenship-gated but Aadit doesn't care about these roles —
+    # safe to have imperfect applications here.
+
+    - ispottv              # iSpot.tv — TV ad measurement, Seattle/NYC.
+                           # Confirmed on Simplify.jobs new-grad list.
+
+    - mthreerecruitingportal  # mthree — coding bootcamp / tech staffing.
+                              # Entry-level pipeline, low stakes.
+
+    - smartsheet           # Smartsheet — project management SaaS.
+                           # Fine company, not a target. Remote roles.
+
+    - loop                 # Loop Returns — logistics/returns SaaS.
+                           # SF/Chicago/NYC. New-grad confirmed.
+
+    - perpay               # Perpay — buy-now-pay-later fintech,
+                           # Philadelphia PA.
+
+    - ophelia              # Ophelia — addiction treatment telehealth,
+                           # Remote US. Niche healthcare startup.
+
+    - remodelhealth        # Remodel Health — health insurance SaaS,
+                           # Indianapolis IN.
+
+    - thetradedesk         # The Trade Desk — programmatic adtech,
+                           # Irvine CA. Good company but not Aadit's track.
+
+  live_only:
+
+    # ── Top AI labs ─────────────────────────────────────────────────────────
+    - anthropic
+    - openai
+    - scaleai
+    - databricks
+    - huggingface
+    - perplexity
+
+    # ── Big Tech / unicorns ─────────────────────────────────────────────────
     - airbnb
     - asana
     - dropbox
@@ -40,17 +108,8 @@ greenhouse:
     - mongodb
     - vercel
     - anyscale
-    # -- AI / ML (not top-tier labs) -----------------------------------------
-    - huggingface
-    - perplexity
 
-  live_only:
-    # -- Top AI labs (high-signal; validate pipeline first) ------------------
-    - anthropic
-    - openai
-    - scaleai
-    - databricks
-    # -- Quant / HFT (most important; absolutely no test runs) ---------------
+    # ── Quant / HFT (most important; no test runs ever) ─────────────────────
     - twosigma
     - citadel
     - jumptrading
@@ -63,7 +122,8 @@ greenhouse:
     - cubistsystematic
     - pdtpartners
     - qube
-    # -- HPC / AI hardware (highly desired; validate first) ------------------
+
+    # ── HPC / AI hardware (highly desired) ──────────────────────────────────
     - nvidia
     - cerebras
     - groq
@@ -73,19 +133,34 @@ greenhouse:
 lever:
 
   test_safe:
-    # -- AI / infra ----------------------------------------------------------
+
+    # ── Government contractors (citizenship typically required) ──────────────
+    - wyetechllc           # Wyetech — gov contractor, Halethorpe MD.
+                           # Confirmed on Simplify.jobs. Cleared work.
+
+    - pingwind             # PingWind — gov contractor, Alexandria VA.
+                           # Confirmed on Simplify.jobs. BI/data work.
+
+    # ── Low-stakes startups ─────────────────────────────────────────────────
+    - whoop                # WHOOP — fitness wearables, Boston MA.
+                           # Decent company but not Aadit's domain.
+
+    - revefi               # Revefi — data observability startup, Seattle.
+                           # Confirmed on Simplify.jobs.
+
+  live_only:
+
+    # ── Good companies to unlock after pipeline validation ───────────────────
     - mistral
     - writer
     - together
     - runway
     - weaviate
-    # -- SaaS / fintech ------------------------------------------------------
     - ramp
     - gusto
     - plaid
     - mercury
     - checkr
-    # -- Others --------------------------------------------------------------
     - netflix
     - shopify
     - benchling
@@ -93,6 +168,3 @@ lever:
     - getmatch
     - anchorage
     - chainalysis
-
-  live_only: []
-    # Add quant / HPC / elite companies that use Lever here as discovered.
