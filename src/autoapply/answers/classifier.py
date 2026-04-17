@@ -277,6 +277,27 @@ _RULES: list[_Rule] = [
         None,
     ),
 
+    # -- Security clearance (government / defense roles) -----------------
+    (
+        QuestionType.SECURITY_CLEARANCE_LEVEL,
+        re.compile(
+            r"(?:clearance|clearance\s+level|security\s+clearance)\s+"
+            r"(?:level|type|status|hold|possess)"
+            r"|current\s+(?:security\s+)?clearance\s+level"
+            r"|what\s+is\s+your\s+(?:current\s+)?(?:security\s+)?clearance"
+        ),
+        None,
+    ),
+    (
+        QuestionType.SECURITY_CLEARANCE_HAVE,
+        re.compile(
+            r"(?:do\s+you\s+have|possess|hold)\s+(?:an?\s+)?(?:active\s+)?security\s+clearance"
+            r"|active\s+security\s+clearance"
+            r"|security\s+clearance\s+(?:held|required|eligible)"
+        ),
+        None,
+    ),
+
     # -- Location ---------------------------------------------------------
     (
         QuestionType.WILLING_TO_RELOCATE,
@@ -289,8 +310,12 @@ _RULES: list[_Rule] = [
     (
         QuestionType.CURRENT_LOCATION,
         re.compile(
-            r"current\s+(?:location|city)|where\s+(?:do\s+you\s+live|are\s+you\s+based|are\s+you\s+located)"
+            r"current\s+(?:location|city|address|residence|home\s+address)"
+            r"|where\s+(?:do\s+you\s+live|are\s+you\s+based|are\s+you\s+located)"
             r"|where\s+are\s+you\s+currently"
+            r"|your\s+(?:current\s+)?(?:mailing\s+)?address"
+            r"|(?:home|mailing|residential)\s+address"
+            r"|city\s+(?:and\s+state|,\s*state)"
         ),
         None,
     ),

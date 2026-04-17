@@ -83,6 +83,10 @@ class QuestionType(str, Enum):
     DEMO_PRONOUNS = "demo_pronouns"
     DEMO_HISPANIC_LATINO = "demo_hispanic_latino"
 
+    # -- Security clearance (government / defense roles) ----------------
+    SECURITY_CLEARANCE_HAVE = "security_clearance_have"
+    SECURITY_CLEARANCE_LEVEL = "security_clearance_level"
+
     # -- Prior / current employment --------------------------------------
     PREVIOUSLY_EMPLOYED = "previously_employed_here"
     CURRENTLY_EMPLOYED = "currently_employed_elsewhere"

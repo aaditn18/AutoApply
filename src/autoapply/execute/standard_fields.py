@@ -76,7 +76,7 @@ _MACHINE_KEY_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^name$", re.I), "full_name"),
     (re.compile(r"^email(?:[_\-]?address)?$", re.I), "email"),
     (re.compile(r"^phone(?:[_\-]?number)?$", re.I), "phone"),
-    (re.compile(r"^resume(?:_file)?$", re.I), "resume"),
+    (re.compile(r"^resume(?:_file|_text|_doc|_upload)?$", re.I), "resume"),
     (re.compile(r"^cv$", re.I), "resume"),
     (re.compile(r"^cover[_\-]?letter$", re.I), "cover_letter"),
     (re.compile(r"linkedin", re.I), "linkedin_url"),
@@ -151,6 +151,14 @@ def resolve_field(
     if attr == "cover_letter":
         return ResolvedField(
             spec.name, spec.label, cover_letter_text or "", "machine_key"
+        )
+    # Text-area variant of resume upload (e.g. Greenhouse `resume_text`).
+    # The PDF is the real artifact; return a brief placeholder so this field
+    # resolves without blocking the pipeline. Playwright submission handles
+    # the actual text paste in Phase 2.
+    if attr == "resume" and spec.kind in ("text", "textarea"):
+        return ResolvedField(
+            spec.name, spec.label, "See attached PDF resume.", "machine_key"
         )
     if attr:
         val = _profile_value(attr, profile)

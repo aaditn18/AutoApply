@@ -41,12 +41,25 @@ _ML_STRONG_TITLE = (
     "ml engineer", "machine learning", "ai engineer",
     "research engineer", "nlp", "computer vision",
     "llm ", "deep learning", "mlops",
+    # Data-science titles — "data scientist" is ML-adjacent
+    "data scientist", "data science",
+    # Applied AI / generative AI roles
+    "applied scientist", "applied ml", "generative ai",
 )
 
 _SWE_STRONG_TITLE = (
     "software engineer", "swe", "backend", "front end", "frontend",
     "full stack", "full-stack", "platform engineer",
     "infrastructure", "sre", "site reliability",
+    # Broader engineering/developer titles
+    "software developer", "application developer", "applications developer",
+    "web developer", "web engineer", "cloud engineer", "cloud developer",
+    "systems engineer", "systems developer",
+    "devops", "devsecops", "dev ops",
+    "data engineer",          # pipelines/infra → closer to SWE than ML
+    # Generic "developer" covers roles like "Cyber Support Developer", etc.
+    # Must come LAST so specific titles above are checked first.
+    " developer",             # space-prefix avoids matching "front-end developer" wrong
 )
 
 

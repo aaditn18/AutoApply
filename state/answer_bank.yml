@@ -127,6 +127,15 @@ demo_pronouns:
 demo_hispanic_latino:
   _default: "No"
 
+# -- Security clearance (government / defense roles) -------------------------
+# Aadit is an F-1 student; no US government security clearance.
+
+security_clearance_have:
+  _default: "No"
+
+security_clearance_level:
+  _default: "None"            # snap_to_option will try "None", "No Clearance", etc.
+
 # -- Prior / current employment --------------------------------------------
 
 previously_employed_here:
