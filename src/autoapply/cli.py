@@ -44,6 +44,7 @@ from autoapply.select.location_filter import is_us_location, nyc_bonus
 from autoapply.select.pay_extractor import extract_pay, pay_signal as pay_signal_fn
 from autoapply.select.scorer import freshness_signal
 from autoapply.select.track_picker import pick_track
+from autoapply.select.yoe_filter import is_yoe_eligible
 from autoapply.tracker.db import create_engine_from_settings, init_db, session_scope
 from autoapply.tracker.models import (
     Application,
@@ -266,6 +267,7 @@ def score_cmd(
     scored = 0
     rejected_loc = 0
     rejected_inj = 0
+    rejected_yoe = 0
     scored_ok = 0
 
     with session_scope(engine) as s:
@@ -319,6 +321,14 @@ def score_cmd(
                 scored += 1
                 continue
 
+            # 2.5) YOE filter — reject jobs that explicitly require > 2 years.
+            if not is_yoe_eligible(job.description or ""):
+                job.status = "rejected_by_yoe"
+                job.us_eligible = us
+                rejected_yoe += 1
+                scored += 1
+                continue
+
             # 3) Track pick — content-only, no firm list.
             decision = pick_track(
                 title=job.title,
@@ -365,7 +375,8 @@ def score_cmd(
 
     typer.echo(
         f"score done — total={scored} ok={scored_ok} "
-        f"rej_location={rejected_loc} rej_injection={rejected_inj}"
+        f"rej_location={rejected_loc} rej_injection={rejected_inj} "
+        f"rej_yoe={rejected_yoe}"
     )
 
 

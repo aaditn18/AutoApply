@@ -199,6 +199,15 @@ plan is the target, this log is the current state.
 
 - [x] **`select/location_filter.py`** + **`select/pay_extractor.py`** + **`select/track_picker.py`** + **`select/scorer.py`** + **`select/dedup.py`** (2026-04-16) — 122 tests green
 
+- [x] **`select/yoe_filter.py`** (2026-04-17) — 55 tests green
+  - `extract_min_yoe(text)` → int | None: two-phase regex extraction (strong patterns always fire; contextual patterns require a pre-context requirement word within 300 chars)
+  - Strong patterns: `N+`, `minimum N`, `at least N`, `N or more`, range `N-M of experience`, `N years of experience required/needed/minimum`
+  - Contextual patterns: `N years of professional/relevant/… experience` (needs nearby "require/qualifications/must have")
+  - Soft-marker exclusions: "preferred", "nice to have", "a plus", "ideally", "desired", "bonus if", "not required" — any of these within 80 chars (same sentence) suppresses the match
+  - Sentence-boundary awareness: soft markers from a prior sentence (separated by `.`, `!`, `?`, `;`, `\n`) do NOT suppress a hard requirement in the current sentence
+  - `is_yoe_eligible(text)` → True when no requirement found OR min ≤ 2; False when min > 2
+  - Wired into `cli.py` `score` command between hard-filters and track picking; adds `rej_yoe=N` to score output; uses `rejected_by_yoe` status (already in STATUSES)
+
 - [x] **`ingest/base.py` + `ingest/greenhouse.py` + `ingest/lever.py` + `ingest/companies.yml`** (2026-04-16) — 17 tests green, 60 seed board tokens
 
 - [x] **`tracker/models.py` + `tracker/db.py` + Alembic migrations** (2026-04-16)
@@ -260,7 +269,7 @@ plan is the target, this log is the current state.
 - **Private AutoApply repo + combined pipeline + polled approvals** keeps GH Actions usage under the 2000 min/mo cap (~1,990 min/mo projected).
 - **Submodule, not copy.** `resumes/` is pinned to a SHA; user bumps with a single commit when recompiling resumes.
 - **`DRY_RUN=True` by default** — caller must explicitly opt-out to submit.
-- **YOE hard filter: 0–2 years only.** Jobs that explicitly require ≥3 years of experience are hard-rejected (`rejected_by_yoe`). Ambiguous / no-YOE-stated postings are kept. Logic: extract `(\d+)\+?\s*years?\s*(of\s*)?experience` from JD; if parsed min > 2 → reject. To implement as `select/yoe_filter.py` + wired into `score` CLI command. (Noted 2026-04-17, implementation in next sprint.)
+- **YOE hard filter: 0–2 years only.** Jobs that explicitly require ≥3 years of experience are hard-rejected (`rejected_by_yoe`). Ambiguous / no-YOE-stated postings are kept. Implemented in `select/yoe_filter.py`; wired into `score` CLI command (2026-04-17). Soft markers ("preferred", "nice to have", etc.) suppress the filter. Sentence-boundary-aware so a prior bullet's soft marker doesn't cancel a hard requirement in the next bullet.
 
 ---
 
@@ -269,7 +278,7 @@ plan is the target, this log is the current state.
 - Run injection tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_injection_guard.py -v`
 - Run parser tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_tex_parser.py -v`
 - Run answer-bank tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_answer_bank.py -v`
-- Run select tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_location_filter.py tests/test_pay_extractor.py tests/test_track_picker.py tests/test_dedup.py tests/test_scorer.py -v`
+- Run select tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_location_filter.py tests/test_pay_extractor.py tests/test_track_picker.py tests/test_dedup.py tests/test_scorer.py tests/test_yoe_filter.py -v`
 - Run ingest tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_ingest.py -v`
 - Run tracker tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_tracker.py -v`
 - Run execute tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_execute.py -v`
@@ -280,7 +289,7 @@ plan is the target, this log is the current state.
 - Rebuild profile (once CLI exists): `python -m autoapply.cli profile-build`
 - Security report (once CLI exists): `python -m autoapply.cli security-report`
 
-## Current test tally: 431 passing (109 injection + 22 parser + 75 answer bank + 122 select + 17 ingest + 17 tracker + 24 execute + 32 review + 13 congregate)
+## Current test tally: 486 passing (109 injection + 22 parser + 75 answer bank + 122 select + 55 yoe_filter + 17 ingest + 17 tracker + 24 execute + 32 review + 13 congregate)
 
 ## Build status: MVP COMPLETE (2026-04-16)
 
