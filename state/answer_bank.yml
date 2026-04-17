@@ -1,0 +1,143 @@
+# AutoApply — Deterministic Answer Bank
+#
+# Keys are QuestionType enum values (see src/autoapply/answers/types.py).
+# Each entry may specify `_default` and/or per-track overrides (swe/ml/hpc/quant).
+# Per-track values win over `_default`.
+#
+# RULES:
+#   * Never put secrets, SSN, DOB, or bank info here.
+#   * Never put values sourced from Profile here (email, phone, GPA, school,
+#     YOE, etc.) — those come from state/profile.json at resolution time.
+#   * LLM_REQUIRED and REVIEW_REQUIRED types are intentionally absent; the
+#     bank is only consulted for types outside those policy sets.
+#
+# User: please review every value below (especially sponsorship and salary)
+# before flipping DRY_RUN off.
+
+# -- Work authorization ------------------------------------------------------
+
+work_authorized_us:
+  _default: "Yes"
+
+require_sponsorship_now:
+  _default: "No"
+
+require_sponsorship_future:
+  # TODO(aadit): confirm future-sponsorship answer. Most US new-grad hires
+  # with green card / citizen say "No"; F-1/OPT students typically say "Yes".
+  _default: "No"
+
+visa_status:
+  _default: "U.S. Citizen"
+
+citizenship:
+  _default: "United States"
+
+# -- Experience (general) ---------------------------------------------------
+
+yoe_general:
+  _default: "2"  # internship + research experience; update if asked for FTE-only
+
+# -- Location / logistics ---------------------------------------------------
+
+current_location:
+  _default: "College Park, MD"
+
+willing_to_relocate:
+  _default: "Yes"
+
+available_start_date:
+  _default: "June 2026"
+
+notice_period:
+  _default: "None — new graduate, available on or after graduation."
+
+# -- Compensation -----------------------------------------------------------
+
+salary_expectation:
+  _default: "Open — targeting market-rate new-grad SWE compensation; happy to discuss range."
+  swe:   "Open — targeting market-rate new-grad SWE compensation; happy to discuss range."
+  ml:    "Open — targeting market-rate new-grad ML/Research Engineer compensation; happy to discuss range."
+  hpc:   "Open — targeting market-rate new-grad performance/systems engineer compensation; happy to discuss."
+  quant: "Open — targeting market-rate new-grad quant-dev / quant-researcher compensation; happy to discuss."
+
+hourly_rate:
+  _default: "Open — prefer annualized salary; happy to discuss."
+
+# -- Freeform essays (non-LLM) ----------------------------------------------
+
+why_role:
+  swe: |
+    I'm drawn to backend systems and developer-platform problems. My PayPal
+    work optimizing $1.5B/day transaction pipelines and my full-stack work
+    at Sociable AI give me a foundation in scalable, low-latency design, and
+    I'm excited to keep building systems at that scale.
+  ml: |
+    My PSSG research on LLM-based performance explanations (submitted to
+    SC '26) and my CVPRW 2026 paper reflect my focus on applied ML at scale.
+    I'm excited to work on problems where model quality and production
+    latency both matter.
+  hpc: |
+    I've written CUDA kernels for rolling-window signal processing and
+    profiled Rodinia benchmarks with Nsight Compute as part of my PSSG work.
+    GPU and systems performance is where I spend most of my time and where
+    I want to keep growing.
+  quant: |
+    My quant-dev work spans MPI + OpenMP Monte Carlo simulations, CUDA
+    signal kernels, and C++ backtesting engines with SIMD and lock-free
+    queues. That low-latency research-engineering profile is exactly the
+    kind of work I want to do full-time.
+
+# -- Referral / source ------------------------------------------------------
+
+how_heard_about:
+  _default: "Company careers page"
+
+# -- Demographics (EEO) -----------------------------------------------------
+# Defaults mirror Aadit's stated preference to decline self-id on everything
+# except what is legally required to answer. Override per-track if needed.
+
+demo_gender:
+  _default: "Decline to self-identify"
+
+demo_race:
+  _default: "Decline to self-identify"
+
+demo_veteran:
+  _default: "I am not a protected veteran"
+
+demo_disability:
+  _default: "I do not wish to answer"
+
+demo_sexual_orientation:
+  _default: "Decline to self-identify"
+
+demo_transgender:
+  _default: "Decline to self-identify"
+
+demo_pronouns:
+  _default: "He/Him"
+
+demo_hispanic_latino:
+  _default: "No"
+
+# -- Prior / current employment --------------------------------------------
+
+previously_employed_here:
+  _default: "No"
+
+currently_employed_elsewhere:
+  # College Park-based student; current role is research/intern context,
+  # not full-time employment.
+  _default: "No"
+
+# -- Consents ---------------------------------------------------------------
+
+agree_to_terms:
+  _default: "Yes"
+
+agree_to_comms:
+  _default: "Yes"
+
+background_check_consent:
+  _default: "Yes"

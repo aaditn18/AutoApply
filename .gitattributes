@@ -1,0 +1,2 @@
+state/jobs.sqlite binary
+state/archive/*.sqlite.gz binary

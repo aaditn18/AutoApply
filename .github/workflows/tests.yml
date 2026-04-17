@@ -1,0 +1,57 @@
+name: tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    env:
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: src
+      # Tests must run entirely offline. Deliberately unset any secrets.
+      DRY_RUN: "true"
+
+    steps:
+      - name: Checkout (no submodules — tests use fixtures)
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install project + dev deps
+        run: |
+          pip install --upgrade uv
+          uv pip install --system -e ".[dev]"
+
+      - name: Ruff (lint)
+        run: ruff check src tests
+        continue-on-error: true
+
+      - name: Pytest
+        run: pytest -q --maxfail=5
+
+      - name: CLI smoke
+        run: python -m autoapply.cli --help

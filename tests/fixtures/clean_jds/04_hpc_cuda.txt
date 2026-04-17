@@ -1,0 +1,12 @@
+GPU Performance Engineer
+
+Work on our high-performance compute stack. You'll profile CUDA kernels
+with Nsight Compute, optimize memory access patterns, and collaborate
+with compiler teams on PTX code generation.
+
+What you'll do:
+- Profile and optimize CUDA kernels for H100 and B200
+- Design parallel algorithms for sparse linear algebra
+- Write performance-critical code that must meet strict latency SLAs
+
+Requirements: 3+ years CUDA, strong C++, experience with HPC workloads.

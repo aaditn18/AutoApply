@@ -1,0 +1,18 @@
+Software Engineer — Backend
+
+We're hiring backend engineers to work on our core API platform.
+
+Requirements:
+- 2+ years of backend experience in Python or Go
+- Strong SQL and relational database skills
+- You must have experience with distributed systems at scale
+- Comfortable writing production-grade code
+
+Nice to have:
+- Experience with Kafka or similar event streaming
+- Familiarity with Kubernetes
+
+We offer competitive compensation. Our benefits include health,
+dental, vision, 401k matching, and unlimited PTO. If you are
+interested, please submit your resume and a short cover letter
+describing why you want to join.

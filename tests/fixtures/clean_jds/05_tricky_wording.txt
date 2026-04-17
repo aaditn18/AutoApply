@@ -1,0 +1,18 @@
+Senior Full-Stack Engineer
+
+We're hiring a senior full-stack engineer to work on customer-facing
+dashboards and the backing services.
+
+Requirements:
+- You must have 4+ years of production experience
+- You must have shipped a React or Vue app at scale
+- Strong SQL skills; bonus if you've worked with Postgres
+- Comfortable with systems prompts and LLM APIs (we build AI features)
+
+Nice to have:
+- You'll override the default configuration for staging occasionally
+- We ignore legacy IE-only code paths
+- Experience bypassing the load balancer for emergency debugging
+
+Benefits: health, dental, unlimited PTO. We believe engineers should be
+able to think for themselves and not just follow instructions blindly.

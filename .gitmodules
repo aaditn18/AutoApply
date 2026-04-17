@@ -1,0 +1,4 @@
+[submodule "resumes"]
+	path = resumes
+	url = https://github.com/aaditn18/aadit_nilay_resume_swe.git
+	branch = main

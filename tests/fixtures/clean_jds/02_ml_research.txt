@@ -1,0 +1,15 @@
+Machine Learning Engineer
+
+Join our applied ML team building recommendation systems used by 50M
+monthly users. You'll train large language models on proprietary data
+and deploy them to production.
+
+Responsibilities:
+- Design and train ML models for ranking and retrieval
+- Work with data scientists on experimentation
+- You must have published research or shipped production ML
+
+Required: Python, PyTorch, 3+ years ML experience.
+
+About us: We're a 300-person company headquartered in SF. Our assistant
+product helps small businesses manage operations.

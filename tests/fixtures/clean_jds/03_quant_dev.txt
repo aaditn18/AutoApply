@@ -1,0 +1,16 @@
+Quantitative Developer — NYC
+
+Join our systematic trading desk building low-latency market-making
+infrastructure. You'll implement execution algorithms in C++ and work
+closely with quant researchers on alpha signal productionization.
+
+What you'll do:
+- Build and maintain tick-data pipelines
+- Implement FIX protocol adapters for new venues
+- Optimize hot-path C++ with SIMD and lock-free queues
+- Collaborate with researchers to deploy new trading strategies
+
+Requirements: 5+ years C++, experience with market microstructure,
+order book dynamics, or statistical arbitrage.
+
+Base pay: $200,000 to $275,000 + bonus.
