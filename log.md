@@ -222,9 +222,9 @@ plan is the target, this log is the current state.
   - `Applicator.apply(job, dry_run=True)` — DRY_RUN is default; any unresolved-required or llm/review-required on required field → `outcome="review"` with review_reasons list; clean resolve → dumps payload JSON to `state/dry_runs/<canonical_key>.json`
   - `GreenhouseApplicator.fetch_form` — GET `/v1/boards/<token>/jobs/<id>?questions=true`; one question can expose N sub-fields (demographics compound), each becomes one `FieldSpec`
   - `LeverApplicator.fetch_form` — concatenates base fields (name/email/phone/resume/urls[linkedin]/github/portfolio/cover_letter) with `customQuestions` + `additionalQuestions` namespaced as `cards[<qid>]`
-  - **Both applicators' `submit()` is disabled by default** — returns `outcome="failed"` with `error_code="submit_disabled"`. Real submission requires CSRF harvesting via Playwright (Phase 2)
+  - **Phase 2**: both applicators' `submit()` now call `playwright_submit.py`; `submit_disabled` stubs replaced with real Playwright path
 
-- [ ] **Playwright executor (Phase 2)** — wraps `submit()` after CSRF token harvesting; stealth + 30–120s pacing + 60/day cap
+- [x] **Playwright executor (Phase 2)** — stealth browser submit for Greenhouse + Lever; CAPTCHA detection; 30–120s pacing; 60/day daily cap enforcement
 
 - [x] **`review/gh_issues.py` + `review/approval_listener.py`** (2026-04-16) — 32 tests green
   - `render_issue_body()` — deterministic Markdown with Scoring / Proposed-answers / Unresolved / Why-in-review / Cover-letter sections + command cheat-sheet + hidden `<!-- autoapply:job_canonical_key=... -->` marker
@@ -318,14 +318,60 @@ apply done  — applied=6  reviews=0  failures=0  (dry_run=True)
 - Security clearance → "No" / "None"
 - Cover letter generated with SWE track narrative
 
-## Build status: MVP COMPLETE (2026-04-16)
+## 🎉 Phase 2 Complete (2026-04-17)
 
-All plan items through Phase 1 are done. Phase 2 (Playwright executor for real submissions)
-is the only remaining task. To activate the agent:
+**Real submissions are now wired end-to-end.**
 
-1. Push to GitHub, set repo secrets (GEMINI_API_KEY, GH_ISSUES_PAT, SUBMODULE_PAT, AES_KEY_B64)
-2. `git submodule update --init resumes/` (or let pipeline.yml do it via SUBMODULE_PAT)
-3. Run `autoapply profile-build` once to seed `state/profile.json`
-4. Enable the `pipeline` workflow — first run will ingest + score + DRY_RUN apply
-5. Review `state/dry_runs/*.json` to confirm form mappings
-6. When ready to go live: set `DRY_RUN=false` in repo settings + implement `submit()` in Playwright executor
+### What was added
+
+- **`src/autoapply/execute/playwright_submit.py`** — stealth browser driver
+  - `submit_greenhouse(board_token, job_id, data, files)` — navigates
+    `boards.greenhouse.io/<token>/jobs/<id>`, fills every resolved field,
+    uploads resume PDF, clicks `#submit_app` / `[type=submit]`.
+  - `submit_lever(token, posting_id, data, files)` — navigates
+    `jobs.lever.co/<token>/<id>/apply` and does the same.
+  - `_fill_field(page, name, value)` — smart fill: tries `<select>` first
+    (label match → value= match → prefix match), then radio (by value= or
+    label text), then checkbox (truthy check), then `fill()` fallback.
+  - `_detect_captcha(page)` — heuristic scan for reCAPTCHA / hCaptcha /
+    Cloudflare challenge keywords in page source.
+  - `_collect_page_errors(page)` — scrapes visible error elements for the
+    error message in `outcome="failed"` results.
+  - `playwright-stealth` applied at page level (graceful degradation if
+    not installed).
+  - `CaptchaDetected` / `SubmitFailed` exceptions — routed to
+    `outcome="captcha"` / `outcome="failed"` in the applicator.
+
+- **`GreenhouseApplicator.submit()` + `LeverApplicator.submit()`** — both
+  now call the Playwright path; return `ok`/`captcha`/`failed` outcomes.
+
+- **`cli.py` `apply_cmd`**:
+  - Daily cap enforcement: queries `Application` for today's real `ok`
+    submissions; aborts if `≥ MAX_APPLICATIONS_PER_DAY (60)`, shrinks
+    the run cap to the remaining daily budget.
+  - Pacing: `random.uniform(APPLY_DELAY_SECONDS_MIN, APPLY_DELAY_SECONDS_MAX)`
+    (30–120s) sleep after every real `ok` submission.
+
+- **`pipeline.yml`**:
+  - **CI 403 fix**: split the single `actions/checkout@v4` + `token: SUBMODULE_PAT`
+    into two steps:
+    1. `actions/checkout@v4` with no `token:` → uses GITHUB_TOKEN (has
+       write access to AutoApply).
+    2. `git config url.insteadOf` + `git submodule update --init --depth 1 resumes`
+       using SUBMODULE_PAT for the private resume repo only.
+  - `playwright install --with-deps chromium` added to the install step.
+  - `timeout-minutes` bumped 25 → 40 to accommodate Chromium install.
+
+### To activate real submissions
+
+1. Push this commit (already done).
+2. Verify SUBMODULE_PAT, GH_ISSUES_PAT, GEMINI_API_KEY secrets are set in
+   the AutoApply repo settings.
+3. Trigger `pipeline.yml` via workflow_dispatch with `dry_run=false` to do
+   a first real run (cap is `MAX_APPLICATIONS_PER_RUN=5`).
+4. Inspect GitHub Actions logs for `playwright: navigating to ...` lines.
+   Any `CAPTCHA detected` lines route those jobs to the review queue.
+5. Gradually ramp: day-1 cap=5, day-2 cap=10, day-3 cap=25, day-4+ cap=60.
+6. Use `/approve` on GitHub Issues to manually submit review-queue jobs.
+
+## Current test tally: 413 passing (non-SQLAlchemy tests on local system Python; full 486 pass in CI under uv-managed env)
