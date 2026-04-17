@@ -408,7 +408,10 @@ def test_greenhouse_apply_routes_to_review_on_llm_required(profile, bank, tmp_pa
     assert any("llm:question_why" in r for r in result.review_reasons)
 
 
-def test_greenhouse_submit_is_disabled_by_default(profile, bank, tmp_path):
+def test_greenhouse_submit_playwright_ok(profile, bank, tmp_path):
+    """submit() calls the Playwright path; mock it returning success."""
+    from unittest.mock import patch
+
     resume = tmp_path / "resume.pdf"
     resume.write_bytes(b"%PDF-1.4\n")
     client = httpx.Client(transport=_mock_transport(200, _GH_FORM_PAYLOAD))
@@ -416,9 +419,50 @@ def test_greenhouse_submit_is_disabled_by_default(profile, bank, tmp_path):
         client=client, profile=profile, bank=bank, track="swe",
         resume_path=str(resume), dry_runs_dir=tmp_path / "dry",
     )
-    result = app.apply(_job(), dry_run=False)
+    mock_result = {"ok": True, "url": "https://boards.greenhouse.io/acme/jobs/123/confirmation", "error": None, "field_errors": []}
+    with patch("autoapply.execute.playwright_submit.submit_greenhouse", return_value=mock_result):
+        result = app.apply(_job(), dry_run=False)
+    assert result.outcome == "ok"
+    assert result.error_code == ""
+
+
+def test_greenhouse_submit_playwright_captcha(profile, bank, tmp_path):
+    """submit() routes to outcome='captcha' when CaptchaDetected is raised."""
+    from unittest.mock import patch
+    from autoapply.execute.playwright_submit import CaptchaDetected
+
+    resume = tmp_path / "resume.pdf"
+    resume.write_bytes(b"%PDF-1.4\n")
+    client = httpx.Client(transport=_mock_transport(200, _GH_FORM_PAYLOAD))
+    app = GreenhouseApplicator(
+        client=client, profile=profile, bank=bank, track="swe",
+        resume_path=str(resume), dry_runs_dir=tmp_path / "dry",
+    )
+    with patch(
+        "autoapply.execute.playwright_submit.submit_greenhouse",
+        side_effect=CaptchaDetected("hCaptcha detected"),
+    ):
+        result = app.apply(_job(), dry_run=False)
+    assert result.outcome == "captcha"
+    assert result.error_code == "captcha"
+
+
+def test_greenhouse_submit_playwright_no_confirmation(profile, bank, tmp_path):
+    """submit() returns outcome='failed' when Playwright sees no success signal."""
+    from unittest.mock import patch
+
+    resume = tmp_path / "resume.pdf"
+    resume.write_bytes(b"%PDF-1.4\n")
+    client = httpx.Client(transport=_mock_transport(200, _GH_FORM_PAYLOAD))
+    app = GreenhouseApplicator(
+        client=client, profile=profile, bank=bank, track="swe",
+        resume_path=str(resume), dry_runs_dir=tmp_path / "dry",
+    )
+    mock_result = {"ok": False, "url": "https://boards.greenhouse.io/acme/jobs/123", "error": "no success signal", "field_errors": []}
+    with patch("autoapply.execute.playwright_submit.submit_greenhouse", return_value=mock_result):
+        result = app.apply(_job(), dry_run=False)
     assert result.outcome == "failed"
-    assert result.error_code == "submit_disabled"
+    assert result.error_code == "no_confirmation"
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +528,10 @@ def test_lever_apply_dry_run_resolves_custom_questions(profile, bank, tmp_path):
     assert answers["cards[q-13]"] == "3.975"  # GPA from profile
 
 
-def test_lever_submit_is_disabled_by_default(profile, bank, tmp_path):
+def test_lever_submit_playwright_ok(profile, bank, tmp_path):
+    """submit() calls the Playwright path; mock it returning success."""
+    from unittest.mock import patch
+
     resume = tmp_path / "resume.pdf"
     resume.write_bytes(b"%PDF-1.4\n")
     client = httpx.Client(transport=_mock_transport(200, _LEVER_POSTING))
@@ -492,11 +539,56 @@ def test_lever_submit_is_disabled_by_default(profile, bank, tmp_path):
         client=client, profile=profile, bank=bank, track="swe",
         resume_path=str(resume), dry_runs_dir=tmp_path / "dry",
     )
-    result = app.apply(
-        _job(source="lever", token="netflix", sid="abc123"), dry_run=False
+    mock_result = {"ok": True, "url": "https://jobs.lever.co/netflix/abc123/confirmation", "error": None, "field_errors": []}
+    with patch("autoapply.execute.playwright_submit.submit_lever", return_value=mock_result):
+        result = app.apply(
+            _job(source="lever", token="netflix", sid="abc123"), dry_run=False
+        )
+    assert result.outcome == "ok"
+    assert result.error_code == ""
+
+
+def test_lever_submit_playwright_captcha(profile, bank, tmp_path):
+    """submit() routes to outcome='captcha' when CaptchaDetected is raised."""
+    from unittest.mock import patch
+    from autoapply.execute.playwright_submit import CaptchaDetected
+
+    resume = tmp_path / "resume.pdf"
+    resume.write_bytes(b"%PDF-1.4\n")
+    client = httpx.Client(transport=_mock_transport(200, _LEVER_POSTING))
+    app = LeverApplicator(
+        client=client, profile=profile, bank=bank, track="swe",
+        resume_path=str(resume), dry_runs_dir=tmp_path / "dry",
     )
+    with patch(
+        "autoapply.execute.playwright_submit.submit_lever",
+        side_effect=CaptchaDetected("reCAPTCHA detected"),
+    ):
+        result = app.apply(
+            _job(source="lever", token="netflix", sid="abc123"), dry_run=False
+        )
+    assert result.outcome == "captcha"
+    assert result.error_code == "captcha"
+
+
+def test_lever_submit_playwright_no_confirmation(profile, bank, tmp_path):
+    """submit() returns outcome='failed' when Playwright sees no success signal."""
+    from unittest.mock import patch
+
+    resume = tmp_path / "resume.pdf"
+    resume.write_bytes(b"%PDF-1.4\n")
+    client = httpx.Client(transport=_mock_transport(200, _LEVER_POSTING))
+    app = LeverApplicator(
+        client=client, profile=profile, bank=bank, track="swe",
+        resume_path=str(resume), dry_runs_dir=tmp_path / "dry",
+    )
+    mock_result = {"ok": False, "url": "https://jobs.lever.co/netflix/abc123/apply", "error": "no success signal", "field_errors": ["upload:resume:TimeoutError"]}
+    with patch("autoapply.execute.playwright_submit.submit_lever", return_value=mock_result):
+        result = app.apply(
+            _job(source="lever", token="netflix", sid="abc123"), dry_run=False
+        )
     assert result.outcome == "failed"
-    assert result.error_code == "submit_disabled"
+    assert result.error_code == "no_confirmation"
 
 
 # ---------------------------------------------------------------------------
