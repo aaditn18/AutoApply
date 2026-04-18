@@ -1,545 +1,476 @@
 # AutoApply — Implementation Log
 
-Living record of what's been built and what works. Updated as work progresses.
-Pair with `/Users/aaditnilay/.claude/plans/drifting-snuggling-harbor.md` — the
-plan is the target, this log is the current state.
+Chronological record of work. For architecture, setup, and usage docs, see
+[`README.md`](./README.md). The corresponding target is
+[`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
+
+**Current test tally: 495 passing.**
 
 ---
 
-## ✅ Done
+## 2026-04-16 — Phase 1 foundations (day 1)
 
-### Phase 1 — Bootstrap
+Built the bottom of the stack end-to-end. All modules land with tests.
 
-- **Repo scaffolding** (2026-04-16)
-  - `pyproject.toml` (Python ≥3.11, all MVP deps declared, entrypoint `autoapply=autoapply.cli:app`, pytest pythonpath=src)
-  - `.gitignore`, `.gitattributes` (sqlite marked binary), `.env.example`, `README.md`
-  - `.gitmodules` pinning `resumes/` to `git@github.com:aaditn18/aadit_nilay_resume_swe.git` branch main
-  - Full `src/autoapply/` package tree with `__init__.py` stubs for: `answers/`, `congregate/`, `execute/`, `ingest/`, `profile/`, `review/`, `security/`, `select/`, `tracker/`
-  - `state/dry_runs/.gitkeep` placeholder
-  - `.venv/` created locally with pytest installed (not committed)
+- **Bootstrap** — repo scaffolding (`pyproject.toml`, `.gitmodules` pinning
+  the private resume repo as `resumes/` submodule, `.env.example`),
+  `src/autoapply/` package tree, Pydantic `Settings` singleton with
+  env-driven config.
+- **Security** — `injection_guard.py` with 12 injection kinds, three-layer
+  defense (scan → sanitize → validate_output). **109 tests** including a
+  30-fixture attack corpus with 100% detection and 5 clean-JD false-positive
+  negatives. Zero canary leaks in output on all 30 attacks.
+- **Profile** — Pydantic `Profile` schema, Jake-Gutierrez `.tex` parser
+  (brace-balanced arg extraction, date-range parsing, union-of-intervals
+  YOE math), `build.py` orchestrator writing `state/profile.json` with all
+  4 tracks. **22 tests.**
+- **Answers** — `QuestionType` enum (50+ values) with `PROFILE_SOURCED` /
+  `LLM_REQUIRED` / `REVIEW_REQUIRED` policy frozensets; rule-table
+  classifier (~50 regexes, specific-first); `AnswerBank` with per-track
+  override + `_default` fallback; `state/answer_bank.yml` seeded with
+  ~25 entries. **75 tests.**
+- **Selection** — `location_filter` (US-only hard gate + NYC bonus),
+  `pay_extractor` (regex + focus-window anti-false-positive, tiered
+  signal), `track_picker` (title rules → quant-description promotion →
+  skill overlap → LLM tiebreaker; no firm list), `scorer` (deterministic
+  combiner), `dedup` (canonical_key + 60-day per-company cap). **122 tests.**
+- **Ingest** — `RawJob` + `JobSource` ABC, Greenhouse JSON client,
+  Lever JSON client, `companies.yml` seeded with ~60 board tokens.
+  **17 tests** using `httpx.MockTransport`.
+- **Tracker** — SQLAlchemy 2.0 declarative models (`Job`, `Application`,
+  `AnswerBankEntry`, `Event`, `SecurityEvent`), WAL + foreign-keys
+  PRAGMAs, Alembic wiring with initial revision `0001_initial`. **17 tests.**
+- **Execute** — `Applicator` ABC + `ApplyResult`, `standard_fields.resolve_all`,
+  Greenhouse + Lever applicators (HTTP form-fetch + DRY_RUN payload dump).
+  **24 tests.**
+- **Review** — `gh_issues.render_issue_body` + `GitHubIssueClient`;
+  `approval_listener.parse_command` + `handle_comment_event` with actor
+  gate. **32 tests.**
+- **Congregate** — `cover_letter.draft_cover_letter` with pluggable
+  `Generator` protocol + `TemplateGenerator` (deterministic per-track
+  narratives), `payload.build_submit_payload` with secret-field scrubbing.
+  **13 tests.**
+- **CLI** — `cli.py` Typer app with 7 commands (`init-db`, `profile-build`,
+  `ingest`, `score`, `apply`, `security-report`, `review-handle`).
+  Daily cap + pacing enforced in `apply`.
+- **GitHub Actions** — `pipeline.yml` (cron */6h combined ingest+score+apply),
+  `review-listener.yml` (on issue_comment with actor gate),
+  `nightly.yml` (DB vacuum + archive + digest), `tests.yml` (PR matrix).
 
-- **`src/autoapply/config.py`** — central Pydantic-settings Settings class; env-driven; singleton `get_settings()`; properties `database_url`, `profile_json_path`, `answer_bank_path`
+**Design decisions pinned this day** (unchanged since — kept for reference):
 
-### Security layer (the CRITICAL module)
+- **No predetermined quant firm list.** Track picking uses title keywords
+  + description signal-weighting (strong=2, medium=1, threshold ≥4 promotes
+  to quant) + LLM tiebreaker.
+- **Deterministic answers first.** LLM only touches (a) cover letters and
+  (b) novel unknown-type questions → the latter *always* route to review.
+- **YOE never from LLM.** Computed at profile-build from the earliest
+  resume mention per skill (union-of-intervals).
+- **3-layer injection defense** (scanner → prompt hardening → output re-scan).
+- **Private AutoApply repo + combined pipeline + polled approvals** keeps
+  GH Actions usage under the 2000 min/mo cap.
+- **Submodule, not copy.** `resumes/` is pinned to a SHA; user bumps with a
+  single commit when recompiling resumes.
+- **`DRY_RUN=True` by default.**
 
-- **`src/autoapply/security/injection_guard.py`** — three-layer prompt-injection guard
-  - `InjectionKind` enum (12 kinds): AI_ADDRESS, IGNORE_INSTRUCTIONS, DISREGARD_PROMPT, SYSTEM_PROMPT_LEAK, FORCED_RESPONSE, INCLUDE_CANARY, VERBATIM_COPY, CHAT_TEMPLATE_TOKEN, JAILBREAK_MARKER, ZERO_WIDTH_UNICODE, ROLE_HIJACK, MARKDOWN_SYSTEM
-  - `InjectionHit`, `InjectionReport`, `InjectionDetected` dataclasses/exception
-  - Public API: `scan()` (detect), `sanitize()` (strip zero-width + NFKC + redact), `validate_output()` (post-LLM canary re-scan, raises)
-  - AI_ADDRESS pattern extended after test failures: now also catches `note to any LLM`, `any AI reading`, `dear LLM`, etc. (not just `if you are an AI`)
-  - FORCED_RESPONSE pattern extended to capture the full quoted canary (e.g., `you must begin with "PINEAPPLE"` now fully redacts PINEAPPLE, not just the verb)
-  - INCLUDE_CANARY pattern now allows unquoted ALL_CAPS canaries (`ROOT_ACCESS`, etc.)
-
-- **`tests/test_injection_guard.py`** — 109 tests, all passing
-  - 30 synthetic injected JDs at `tests/fixtures/injection_jds/NN_<slug>.txt`, 100% detection
-  - 5 clean JDs at `tests/fixtures/clean_jds/` (incl. tricky wording like "you must have 4+ years", "override the default configuration"), 0 false positives
-  - Redaction tests: every injection fixture has `[REDACTED]` marker OR zero-width chars stripped
-  - "Canary-enclosed" tests: for 6 fixtures where the regex span fully covers the canary word (FORCED_RESPONSE and INCLUDE_CANARY kinds), assert the canary is completely removed
-  - `validate_output()` raises on chat-template tokens or detected injection markers
-  - Span-offset sanity check (scan spans index into original text)
-  - Empty/whitespace edge cases
-
-**Verification:** `PYTHONPATH=src .venv/bin/python -m pytest tests/test_injection_guard.py -v` → **109 passed**
-
----
-
-### Phase 1 — Answers layer (2026-04-16)
-
-- **`src/autoapply/answers/types.py`** — `QuestionType` enum with 50+ values
-  covering identity, contact, work-auth, YOE, education, compensation,
-  essays, referral, demographics, prior employment, consents, and UNKNOWN
-  fallback. Three policy frozensets: `PROFILE_SOURCED` (18 types pulled
-  from parsed Profile), `LLM_REQUIRED` (why_company, cover_letter_body),
-  `REVIEW_REQUIRED` (unknown, strengths, weaknesses, referral fields).
-
-- **`src/autoapply/answers/classifier.py`** — rule-table classifier.
-  - `ClassifiedQuestion` dataclass (type, confidence, slot, match_text, original, source)
-  - `_SKILL_ALIASES` dict (~35 aliases: py→Python, cpp→C++, k8s→Kubernetes, etc.)
-  - `_canon_skill()` canonicalizer + `_SKILL_STOPWORDS` noise filter
-  - `_RULES` — ~50 ordered regex rules, specific-first
-  - Rule-firing order audit: YOE_LANGUAGE explicit → YOE_GENERAL → YOE_LANGUAGE bare → sponsorship (future then now) → work-auth → visa → citizenship → contact → identity → location → availability → education → compensation → demographics (hispanic_latino FIRST to avoid "ethnicity" collision) → prior employment → referrals → essays → consents
-  - `classify()` entrypoint; YOE_LANGUAGE match is rejected if captured skill is a generic stopword ("work", "relevant", etc.) and falls through to YOE_GENERAL
-  - `_embedding_fallback()` stub — deferred
-
-- **`src/autoapply/answers/bank.py`** — `Answer` dataclass + `AnswerBank` class
-  - Routing priority: REVIEW_REQUIRED → LLM_REQUIRED → PROFILE_SOURCED → bank lookup
-  - `lookup(qt, track)` returns (value, source) with per-track over `_default`
-  - `answer(cq, profile, track)` is the main entrypoint; returns `Answer` with exactly one of `value` / `requires_llm` / `requires_review`
-  - `resolve_raw(raw, ...)` classify-and-resolve in one shot for tests
-  - `_from_profile()` maps PROFILE_SOURCED types to Profile fields:
-    - name splitting (first/last/preferred), email, phone, linkedin, github
-    - education[0] → school/degree/major/minor/gpa/graduation_date
-    - YOE_LANGUAGE → `profile.years_of_experience[slot.skill]` with case-insensitive lookup; missing skills return "0" (forms need numeric)
-  - `_format_yoe(years)` — "3" for whole years (within 0.1 tolerance), "1.5" for fractional; under-1 positive rounds up to "1"
-  - `_extract_major()` — strips "B.S.", "Bachelor of Science in", etc.
-
-- **`state/answer_bank.yml`** — seed with ~25 entries covering all
-  bank-routed types: work_authorized_us, sponsorship (now/future),
-  visa_status, citizenship, yoe_general, current_location,
-  willing_to_relocate, available_start_date, notice_period,
-  salary_expectation (per-track), hourly_rate, why_role (per-track),
-  how_heard_about, demographics (all "Decline to self-identify"),
-  previously_employed_here, currently_employed_elsewhere, consents.
-
-- **`tests/test_answer_bank.py`** — 75 tests, all passing
-  - 55 classifier paraphrase cases across 22 question types
-  - Slot extraction tests for skill aliases (py/cpp/k8s)
-  - UNKNOWN routing for truly novel questions
-  - Policy routing: REVIEW_REQUIRED (5 types) and LLM_REQUIRED (2 types) honored
-  - PROFILE_SOURCED resolution: email, LinkedIn, GPA, school, degree, first/last name
-  - Graduation date formatting ("May 2026" from DateRange)
-  - YOE_LANGUAGE profile lookup + case-insensitive fallback + unknown-skill "0"
-  - Bank per-track-beats-default check on WHY_ROLE
-  - Bank `_default` fallback check on CURRENT_LOCATION
-  - Synthetic missing-entry test → routes to review
-  - Raw end-to-end: "Are you authorized to work in the US?" → "Yes"
-  - WHY_COMPANY forced through LLM even though bank could answer
-  - Coverage check: every non-policy type has a bank entry
-  - `_format_yoe` rounding edge cases; `_extract_major` parsing
-
-**Verification:** `PYTHONPATH=src .venv/bin/python -m pytest tests/test_answer_bank.py -v` → **75 passed**
+End-of-day tally: **328 tests passing.**
 
 ---
 
-### Phase 1 — Selection / ranking (2026-04-16)
+## 2026-04-17 — Phase 2: real submissions land
 
-- **`src/autoapply/select/location_filter.py`** — US-only hard filter + NYC bonus
-  - `country_from_location(raw)` — ISO code lookup; handles 40+ non-US country/region markers (UK, Canada, India, EMEA, etc.) AND US cities/states/abbreviations/"Remote (US)" forms
-  - `is_us_location(raw)` — True for US markers; True for bare "Remote" (no country signal) to avoid dropping ambiguous postings; False only for unambiguous non-US
-  - `nyc_bonus(raw)` → 0.15 for NYC-adjacent postings (Manhattan, Brooklyn, Jersey City, etc.), 0.0 otherwise
+- **YOE hard filter** (`select/yoe_filter.py`). `extract_min_yoe` with
+  strong vs. contextual patterns, soft-marker exclusions
+  ("preferred"/"nice to have"/"a plus" — within 80 chars of the match),
+  sentence-boundary awareness so a prior sentence's soft marker doesn't
+  cancel a hard requirement in the next. Wired into `score` CLI. **55 tests.**
+- **Playwright executor** — `execute/playwright_submit.py` with
+  `submit_greenhouse` + `submit_lever`, stealth browser (playwright-stealth
+  v1/v2 compat), `_fill_field` cascade (select → radio → checkbox → input
+  with id/name fallbacks and case-insensitive CSS), `_fill_combobox`
+  (React-Select with dynamic `aria-controls` scoping), `_detect_captcha`
+  (reCAPTCHA / hCaptcha / Cloudflare keyword scan), IMAP OTP fetching
+  (`_fetch_imap_verification_code`) with line-by-line code extractor
+  and 8-box OTP layout support.
+- **First real Greenhouse submission** — Applications Developer @
+  Freedom Consulting. `/confirmation` URL reached; `Application` row
+  written with `outcome="ok"`. Root causes hit and fixed: React-Select
+  country field, `multi_value_single_select_fields` kind mapping, CSS
+  attribute-selector `[]` escaping, Gmail UNSEEN search bug, 8-box OTP
+  detection, HTML-only email body extraction.
+- **Lever submission fixes** — extensive iteration. Root causes fixed:
+  Lever hiding "file exceeds 100MB" error on 33KB PDFs (fixed by
+  waiting for "Analyzing resume…" to disappear), React re-render wiping
+  text fields after resume upload (reordered to upload → wait → fill),
+  camelCase `urls[LinkedIn]` / `urls[GitHub]` DOM names (fixed `_BASE_FIELDS`
+  + case-insensitive CSS), Lever qualifying-question cards in DOM but not
+  in API (added `_fill_lever_cards` dynamic card resolver +
+  `_card_heuristic_answer` rule table), EEO option mismatches (semantic
+  fallback in `_fill_select`), ITAR eligibility select (`_snap_to_option`
+  US-person-marker detection + "Not currently" fallback), Gemini 429s
+  (extended template fallback in `llm_fallback.py`).
+- **IMAP UTC timezone fix** — `SINCE` filter in `_fetch_imap_verification_code`
+  was using UTC; local-date minus 1 day is more forgiving.
+- **11 real Greenhouse submissions back-to-back.** All
+  `field_errors=[]`. Confirmed: form-fetch → resolve_all → file upload →
+  combobox fill → submit → OTP via IMAP → confirmation URL → `outcome="ok"`.
+- **Remaining blocker identified** — Lever hCaptcha silently rejecting
+  all submissions server-side. `HCAPTCHA_ACCESSIBILITY_TOKEN` injection
+  plumbing added but token not yet obtained.
 
-- **`src/autoapply/select/pay_extractor.py`** — deterministic pay extraction
-  - `PayInfo` dataclass (low/high/midpoint annualized USD + original unit + source_span)
-  - Regex handles ranges ($120,000 - $160,000, $120k-$180k, $50-$70/hour), em/en-dashes, "between X and Y", single-value-with-unit ($175k/year)
-  - `_focus_window` restricts scanning to salary-keyword neighborhoods (kills false positives on "$1.5B in fees saved")
-  - Sanity range 30k–2M annual; hourly × 2080 for annualization
-  - `pay_signal(midpoint)` → tiers: ≥200k=0.30, ≥160k=0.22, ≥130k=0.14, ≥100k=0.08, <100k=0.0, None=0.10 (neutral)
-
-- **`src/autoapply/select/track_picker.py`** — resume-track selection (NO firm list)
-  - `TrackDecision` dataclass (track/reason/stage/quant_weight/scores)
-  - Ladder: strong title keyword → quant-description promotion (weight ≥4) → skill-overlap margin (≥0.15) → LLM tiebreaker → tie
-  - Title tables: _QUANT_STRONG_TITLE (quant/quantitative/trader/hft/systematic/alpha researcher...), _HPC_STRONG_TITLE (cuda/gpu/compiler/performance eng...), _ML_STRONG_TITLE (ml engineer/research engineer/nlp/cv/llm/deep learning), _SWE_STRONG_TITLE (software engineer/backend/full stack/platform/sre)
-  - QUANT_DESC signals: 15 strong (weight=2: alpha/market making/stat arb/order book/tick data/FIX/microstructure/backtest/sharpe/pnl/execution algos/low-latency trading), 12 medium (weight=1: derivatives/options/volatility/portfolio optimization/hedging/monte carlo/bps/liquidity/bid-ask/trading strategy/quant research)
-  - Injection flag short-circuits with track=None (route to review)
-
-- **`src/autoapply/select/scorer.py`** — deterministic combiner
-  - `score_job(base_fit, description, location)` → `ScoredJob` with pay_midpoint/pay_signal/loc_signal/final_rank + human-readable reasons
-  - final_rank = base_fit + pay_signal + loc_signal when US, 0.0 when non-US
-  - Every factor stored separately → offline re-ranking without re-calling LLM
-
-- **`src/autoapply/select/dedup.py`** — canonical key + hard filters
-  - `canonical_key(company, title, location)` → 16-char SHA256 prefix; strips title noise (Remote/Hybrid/On-site/I/II/III/senior/sr/jr/lead/staff/principal/new grad) so parallel postings collapse
-  - Senior/Staff/Jr. prefixes stripped iteratively (handles "Senior Staff Engineer")
-  - `filter_hard(is_us, injection_detected, company, recent_company_applications, today)` → FilterResult; 60-day per-company cap; location filter runs first (saves a scoring LLM call)
-
-- **Tests — 122 new, all passing**
-  - `tests/test_location_filter.py` — 18 US accepts + 12 non-US rejects + country_from_location + NYC bonus + edge cases (45 tests)
-  - `tests/test_pay_extractor.py` — 22 tests: ranges, k-suffix, em-dashes, hourly annualization, "between X and Y", single-with-unit, false-positive avoidance, pay_signal tiers
-  - `tests/test_track_picker.py` — 38 tests: 30 strong-title assertions (6 SWE, 8 ML, 6 HPC, 9 quant titles), 5 quant-in-description promotion (generic titles + trading-heavy desc), injection block, LLM tiebreaker, REVIEW passthrough
-  - `tests/test_dedup.py` — 11 tests: canonical key collapse, title-noise strip, seniority collapse, company+title distinction, hard-filter 4-way matrix
-  - `tests/test_scorer.py` — 4 end-to-end combinations (non-US zero, US+NYC+pay stack, undisclosed neutral, low pay)
-
-**Verification:** `PYTHONPATH=src .venv/bin/python -m pytest -v` → **328 passed**
-
----
-
-### Phase 1 — Ingest layer (2026-04-16)
-
-- **`src/autoapply/ingest/base.py`** — `RawJob` dataclass + `JobSource` ABC
-  - RawJob fields: source, source_id, board_token, url, title, company, location, department, description, posted_at, updated_at, employment_type, metadata
-  - Every source yields uniform RawJobs
-
-- **`src/autoapply/ingest/greenhouse.py`** — public JSON API client
-  - Endpoint: `https://boards-api.greenhouse.io/v1/boards/<token>/jobs?content=true`
-  - `_strip_html` — preserves word boundaries (block-level tags → newlines), handles common entities, collapses whitespace
-  - `_first_location` handles both `location.name` and `offices[].name` shapes
-  - `_company_from_metadata` falls back to prettified board_token
-  - httpx.Client with User-Agent + 20s timeout; HTTP errors logged + yielded empty
-
-- **`src/autoapply/ingest/lever.py`** — public JSON API client
-  - Endpoint: `https://api.lever.co/v0/postings/<token>?mode=json`
-  - `_flatten_description` concatenates `descriptionPlain` + `lists[]` (header + content) + `additionalPlain`
-  - `_location` handles both scalar and list `allLocations`
-  - `_department` joins department/team/commitment
-
-- **`src/autoapply/ingest/companies.yml`** — 60 seed board tokens
-  - Greenhouse (~45): Big tech (Airbnb, Figma, Stripe, Reddit, Notion...), AI labs (Anthropic, OpenAI, Scale AI, Databricks, HuggingFace, Perplexity), infra (HashiCorp, MongoDB, Vercel, Anyscale), quant (Two Sigma, Citadel, Jump Trading, DRW, Optiver, IMC, HRT, Akuna, Cubist, PDT, Qube), HPC (NVIDIA, Cerebras, Groq, SambaNova, Tenstorrent)
-  - Lever (~15): AI (Mistral, Writer, Together, Runway), SaaS/fintech (Ramp, Gusto, Plaid, Mercury, Checkr), Netflix, Benchling, Attentive
-
-- **Tests — 17 new, all passing via `httpx.MockTransport`**
-  - HTML strip (5): basic tags, word boundaries preserved, entity decoding, whitespace collapse, empty
-  - Greenhouse helpers (5): first_location (dict/offices/missing), company_from_metadata (payload/token-fallback)
-  - Greenhouse end-to-end (2): happy path parses 2 mock jobs with full RawJob shape; HTTP 500 yields empty
-  - Lever end-to-end (2): happy path 2 mock jobs with list/description concatenation; location list flattening
-  - Lever helpers (2): location list, description concatenation
-  - Base contract (2): JobSource is abstract, RawJob defaults
-
-**Verification:** `PYTHONPATH=src .venv/bin/python -m pytest tests/test_ingest.py -v` → **17 passed**
+End-of-day tally: **486 tests passing.**
 
 ---
 
-## 🟡 In progress
+## 2026-04-18 — Lever captcha + infrastructure work
 
-(nothing — ingest layer complete; moving to tracker + execute)
+Intense day. Most of it was a deep dive trying to make Lever work from a
+home IP; the code came out cleaner, but the conclusion is that Lever is
+deferred (needs Bright Data). Work broken down by theme below.
 
----
+### A. Double-apply dedup fix
 
-## ⏳ Remaining (from plan, in rough order)
+Previous `scripts/apply_best_per_company.py` could re-submit to the same
+company if an earlier `Application` row had a non-`ok` outcome. Now
+excludes any job that appears in the `Application` table *at all*, belt-
+and-suspenders filter for jobs with a real OK application even if their
+status field was reverted by a transaction rollback.
 
-- [x] **`profile/schema.py` + `profile/tex_parser.py` + `profile/build.py`** (2026-04-16)
-  - `schema.py`: Pydantic models for DateRange, Experience, Project, Education, Skills, Profile
-  - `tex_parser.py`: brace-balanced arg extractor; section-body splitter; macro iterators for `\eduSubheading`, `\resumeSubheading`, `\resumeProjectHeading`, `\resumeItem`; date-range parser ("May 2025 -- Aug 2025", "Feb 2026 -- Present", "CVPRW 2026"); `_strip_latex` for `\textbf`/`\emph`/`\underline`/`\textit`/`\text`/`\href`/escape chars; skills-category extractor
-  - `build.py`: orchestrates all 4 tracks, writes `state/profile.json` keyed by track
-  - YOE computed via union-of-intervals across overlapping experiences (e.g., AWS appears in 3 experiences on SWE resume → 0.9y union, not sum)
-  - Smoke-tested against real `.tex` files: swe (4 exp / 3 proj / 3 skill buckets), ml (4 exp / 0 proj), hpc (4 exp / 0 proj), quant (5 exp / 3 proj)
-  - **22 tests in `tests/test_tex_parser.py`, all passing** (low-level helpers + date parsing + YOE math + 4 end-to-end real-resume tests + idempotency check)
+### B. Rigorous submit-success detector
 
-- [x] **`answers/types.py` + `answers/bank.py` + `answers/classifier.py` + `state/answer_bank.yml`** (2026-04-16)
-  - 75 tests green; embeddings fallback stubbed (not wired until a paraphrase leaks past the rule table)
+`playwright_submit._detect_submit_success()` replaced the loose "URL
+contains /confirmation" check with a 5-stage decision ladder:
 
-- [x] **`select/location_filter.py`** + **`select/pay_extractor.py`** + **`select/track_picker.py`** + **`select/scorer.py`** + **`select/dedup.py`** (2026-04-16) — 122 tests green
+1. Hard-fail gates — visible error nodes or explicit failure phrases
+   (e.g., `"please correct the"`, `"there were errors"`).
+2. URL signal — `urlparse(page.url).path` contains a dedicated confirmation
+   segment (`_STRONG_SUCCESS_URL_PATHS`) OR the query string contains a
+   success marker (`_SUCCESS_QUERY_MARKERS`).
+3. Strong phrase signal — page body contains a phrase from
+   `_STRONG_SUCCESS_PHRASES` (18 entries) AND the submit button is no
+   longer visible (guards against pre-submit hero copy).
+4. Medium — submit button gone + generic affirmative wording
+   ("thank you" / "submitted" / "received").
+5. Legacy caller-provided fragments (lowest confidence).
 
-- [x] **`select/yoe_filter.py`** (2026-04-17) — 55 tests green
-  - `extract_min_yoe(text)` → int | None: two-phase regex extraction (strong patterns always fire; contextual patterns require a pre-context requirement word within 300 chars)
-  - Strong patterns: `N+`, `minimum N`, `at least N`, `N or more`, range `N-M of experience`, `N years of experience required/needed/minimum`
-  - Contextual patterns: `N years of professional/relevant/… experience` (needs nearby "require/qualifications/must have")
-  - Soft-marker exclusions: "preferred", "nice to have", "a plus", "ideally", "desired", "bonus if", "not required" — any of these within 80 chars (same sentence) suppresses the match
-  - Sentence-boundary awareness: soft markers from a prior sentence (separated by `.`, `!`, `?`, `;`, `\n`) do NOT suppress a hard requirement in the current sentence
-  - `is_yoe_eligible(text)` → True when no requirement found OR min ≤ 2; False when min > 2
-  - Wired into `cli.py` `score` command between hard-filters and track picking; adds `rej_yoe=N` to score output; uses `rejected_by_yoe` status (already in STATUSES)
+Failure phrases (`_FAILURE_PHRASES`) kept deliberately narrow — generic
+"required field" would match static form help text.
 
-- [x] **`ingest/base.py` + `ingest/greenhouse.py` + `ingest/lever.py` + `ingest/companies.yml`** (2026-04-16) — 17 tests green, 60 seed board tokens
+### C. SQLAlchemy 2.x environment upgrade
 
-- [x] **`tracker/models.py` + `tracker/db.py` + Alembic migrations** (2026-04-16)
-  - SQLAlchemy 2.0 declarative models: Job (unique canonical_key), Application (dry_run default True), AnswerBankEntry, Event, SecurityEvent (append-only)
-  - `db.py`: WAL + foreign_keys PRAGMAs on real engine; in-memory engine for tests; `session_scope()` context manager
-  - Alembic wired via `alembic.ini` + `migrations/env.py` (reads URL from Settings, `render_as_batch=True` for SQLite ALTER); initial revision `0001_initial.py`
-  - 17 tests green: canonical_key uniqueness, cascade delete, (question_type, track_key) uniqueness, rollback on exception, status round-trip
+The anaconda base Python had SQLAlchemy 1.x; project needs 2.x. Upgraded
+in-place so `python -m pytest` works without `.venv` activation, keeping
+the same behavior inside `.venv`.
 
-- [x] **`execute/base.py` + `execute/standard_fields.py` + `execute/greenhouse_apply.py` + `execute/lever_apply.py`** (2026-04-16) — 24 tests green
-  - `standard_fields.resolve_field()` — machine-key → profile attr first, then classifier → bank/profile. Required + no answer raises `UnresolvedField`; optional + no answer returns empty. LLM/review-required only blocks for required fields
-  - `_snap_to_option()` — select fields get snapped to case-insensitive substring match of available options (e.g., "Yes" bank value → "Yes" option literal)
-  - `Applicator.apply(job, dry_run=True)` — DRY_RUN is default; any unresolved-required or llm/review-required on required field → `outcome="review"` with review_reasons list; clean resolve → dumps payload JSON to `state/dry_runs/<canonical_key>.json`
-  - `GreenhouseApplicator.fetch_form` — GET `/v1/boards/<token>/jobs/<id>?questions=true`; one question can expose N sub-fields (demographics compound), each becomes one `FieldSpec`
-  - `LeverApplicator.fetch_form` — concatenates base fields (name/email/phone/resume/urls[linkedin]/github/portfolio/cover_letter) with `customQuestions` + `additionalQuestions` namespaced as `cards[<qid>]`
-  - **Phase 2**: both applicators' `submit()` now call `playwright_submit.py`; `submit_disabled` stubs replaced with real Playwright path
+### D. Companies additions
 
-- [x] **Playwright executor (Phase 2)** — stealth browser submit for Greenhouse + Lever; CAPTCHA detection; 30–120s pacing; 60/day daily cap enforcement
+- **Greenhouse `test_safe` additions (8):** `captivation`, `jjsnackfoods`,
+  `commerceiq`, `ethoslife`, `ketryx`, `risingtidessolutionsllc`, `540`,
+  `fanaticscollectibles`.
+- **Lever `test_safe` additions (5):** `eightsleep`, `matterport`,
+  `clipboardhealth`, `envoy`, `getro`.
 
-- [x] **`review/gh_issues.py` + `review/approval_listener.py`** (2026-04-16) — 32 tests green
-  - `render_issue_body()` — deterministic Markdown with Scoring / Proposed-answers / Unresolved / Why-in-review / Cover-letter sections + command cheat-sheet + hidden `<!-- autoapply:job_canonical_key=... -->` marker
-  - `build_payload()` — labels: `autoapply:review`, `track:<track>`, `security:injection-detected` (when flagged), `has-cover-letter`
-  - `GitHubIssueClient` — REST wrapper (`create_issue`, `close_issue`, `add_labels`); caller-supplied client gets auth headers injected via `setdefault`
-  - `approval_listener.parse_command` — `/approve`, `/approve --track=ml`, `/reject <reason>`, `/snooze`; command MUST be on first non-empty line; invalid track flag still approves but drops override
-  - `handle_comment_event()` — full webhook payload parser; gates on `action ∈ (created, edited)`, actor matches `Settings.GH_REPO_OWNER` (case-insensitive), issue body carries canonical-key marker
+### E. LLM fallback template expansion
 
-- [x] **`congregate/cover_letter.py` + `congregate/payload.py`** (2026-04-16) — 13 tests green
-  - `draft_cover_letter()` — sanitizes JD via `injection_guard.sanitize` → `<UNTRUSTED>`-wrapped prompt → generator (pluggable `Generator` protocol: default `TemplateGenerator` is LLM-free; LLM wrappers plug in at `cli.py` when API key is set) → `scan()` output → raises `CoverLetterRejected(report)` on output injection hit so orchestrator can log `SecurityEvent` and route to review
-  - `TemplateGenerator` — deterministic per-track narratives (swe/ml/hpc/quant) wired to Aadit's actual experience (PayPal, PSSG, CUDA, MPI+OpenMP Monte Carlo)
-  - `build_submit_payload()` — merges applicator `{data, files}` + cover-letter text + resume path; scrubs secret-keyed fields (`password`, `token`, `api_key`, `session_cookie` — case-insensitive)
-  - `to_log_dict()` truncates long values for audit logs without breaking semantics
+`answers/llm_fallback.py` template branches added for onsite-willingness
+("willing to work onsite" → "Yes"), full-address, street, line-2 / apt,
+city, state, zip. Matching `state/answer_bank.yml` entries seeded
+(`current_city`, `current_state`, `current_zip`, `street_address`,
+`address_line_2`, `full_address`).
 
-- [x] **`cli.py`** (2026-04-16) — Typer app with 7 commands
-  - `init-db` — idempotent `Base.metadata.create_all`; call once then hand off to Alembic
-  - `profile-build` — delegates to `profile.build.run()`; writes `state/profile.json`
-  - `ingest --source greenhouse|lever --board TOKEN --limit N` — fetches boards from `companies.yml`, upserts jobs per canonical_key, emits `Event(kind="ingested")`, each job in own `session_scope` for fault isolation
-  - `score --limit N` — for each `status='new'` job: `scan()` + SecurityEvent on hit + `filter_hard()` + `pick_track()` + `extract_pay()` + `pay_signal()` + `nyc_bonus()` + `base_fit=0.5` placeholder; sets status=`scored`/`rejected_*`
-  - `apply --no-dry-run --limit N --min-rank F` — iterates `scored` by `final_rank desc`; drafts cover letter (catches `CoverLetterRejected` → SecurityEvent + `queued_review`); dispatches to `GreenhouseApplicator` or `LeverApplicator`; logs `Application` row + `Event`; DRY_RUN=true by default
-  - `security-report --days N` — dumps SecurityEvent rows as JSON within the window
-  - `review-handle --event <path>` — parses `GITHUB_EVENT_PATH` JSON → `handle_comment_event()` → prints decision JSON; real apply gated behind `GH_ISSUES_PAT`
+### F. Lever `curl_cffi` + generalized apply script
 
-- [x] **`.github/workflows/`** (2026-04-16) — all 4 workflows YAML-validated
-  - `pipeline.yml` — combined ingest→score→apply, cron `0 */6 * * *`, concurrency-group `autoapply-pipeline`, auto-commits `state/jobs.sqlite`; `workflow_dispatch` inputs for `dry_run` + `skip_apply`
-  - `review-listener.yml` — on `issue_comment (created|edited)`, YAML pre-filter on slash-command prefix, actor gate vs `GITHUB_REPOSITORY_OWNER`; serializes in same `autoapply-pipeline` concurrency group to prevent SQLite write races
-  - `nightly.yml` — cron 05:00 UTC: `VACUUM + ANALYZE`, 90-day archive, profile rebuild, 7-day security report, auto-commit
-  - `tests.yml` — on PR and push to main, matrix Python 3.11+3.12, ruff lint + pytest + CLI smoke; concurrency cancel-in-progress per branch
+- `LeverApplicator` + `LeverSource` switched from `httpx` to `curl_cffi`
+  with `impersonate="chrome124"`. Cause: `api.lever.co` edge silently
+  hangs connections whose TLS handshake matches Python/OpenSSL's JA3
+  fingerprint. With Chrome impersonation, requests return in 1–5 s.
+  Tests still inject `httpx.MockTransport` clients via the existing
+  `client=` kwarg — test path unchanged.
+- Bumped Lever timeouts: API 20 → 45 s, Playwright `page.goto` 30 → 60 s.
+- `scripts/apply_best_per_company.py` generalized with
+  `--source greenhouse|lever|both` and `--board-token TOKEN` flags.
+  `_best_per_company` keys by `source:company` so the same company on two
+  boards doesn't collapse.
 
-- [x] **DRY_RUN end-to-end smoke test** (2026-04-16)
-  - 4 synthetic jobs seeded: Jane Street (quant, NYC, $215k → rank 0.950), NVIDIA (HPC, CA, $175k → rank 0.720), Acme London (rejected_by_location), BadCorp injected JD (rejected_by_injection)
-  - `Applicator.apply(dry_run=True)` verified end-to-end: mock Greenhouse form → `resolve_all` → `_dump_dry_run` → `state/dry_runs/<ck>.json` with keys `[applicator, job, payload, resolved, resume_path, track, ts]`
+### G. US citizenship question split
 
----
+`answers/types.QuestionType` added `US_CITIZEN` (yes/no), distinct from
+`CITIZENSHIP` (country of citizenship). Classifier rule ordered before
+the `CITIZENSHIP` regex so "Are you a U.S. citizen?" routes to the
+new type with `_default: "No"`. `answer_bank.yml` updated.
+`playwright_submit._card_heuristic_answer` fixed: citizenship returns
+**No**, work-authorization returns **Yes**. Previously both returned
+"Yes" because the single regex conflated them.
 
-## 🧠 Design decisions pinned (for future-me)
+### H. CAPTCHA solver infrastructure
 
-- **No predetermined quant firm list.** Track picking uses title keywords + description signal-weighting (`QUANT_DESC_SIGNALS`, strong=2 medium=1, threshold ≥4 promotes to quant) + LLM tiebreaker. Design requirement confirmed by user.
-- **Deterministic answers first.** LLM only touches (a) cover letters and (b) novel unknown-type questions → the latter always route to review queue.
-- **YOE never from LLM.** Computed at profile-build from the earliest resume mention per skill.
-- **3-layer injection defense** (scanner → prompt hardening → output re-scan). The canary-survival test is intentionally scoped to "enclosed" fixtures — for attack kinds where the regex span doesn't cover the canary word, detection alone + review-queue routing is the contract.
-- **Private AutoApply repo + combined pipeline + polled approvals** keeps GH Actions usage under the 2000 min/mo cap (~1,990 min/mo projected).
-- **Submodule, not copy.** `resumes/` is pinned to a SHA; user bumps with a single commit when recompiling resumes.
-- **`DRY_RUN=True` by default** — caller must explicitly opt-out to submit.
-- **YOE hard filter: 0–2 years only.** Jobs that explicitly require ≥3 years of experience are hard-rejected (`rejected_by_yoe`). Ambiguous / no-YOE-stated postings are kept. Implemented in `select/yoe_filter.py`; wired into `score` CLI command (2026-04-17). Soft markers ("preferred", "nice to have", etc.) suppress the filter. Sentence-boundary-aware so a prior bullet's soft marker doesn't cancel a hard requirement in the next bullet.
+Large new subsystem — four providers, smart routing, two 2Captcha task
+families.
 
----
+- **`execute/captcha_types.py` (new, ~200 LOC).** `detect_captcha(page)`
+  returns `CaptchaDetection(kind, site_key)` with kinds
+  `hcaptcha_image`, `hcaptcha_token`, `recaptcha_v2`, `turnstile`.
+  Detection signals: iframe host (`challenges.cloudflare.com`,
+  `google.com/recaptcha/api2`, `hcaptcha`), site-key extraction from
+  `data-sitekey` DOM attributes and iframe query strings, and text-scan
+  inside hCaptcha frames for puzzle phrases to distinguish image-grid
+  from idle widget.
+- **`execute/captcha_solver.py` (new, ~450 LOC).** Four providers:
+  `anticaptcha`, `capsolver`, `capmonster`, `2captcha`. All use JSON v2
+  create/poll protocol. Public entry points:
+  `solve_hcaptcha(provider, ...)`, `solve_recaptcha_v2_2captcha(...)`,
+  `solve_turnstile_2captcha(...)`, `solve_2captcha_task(task_type, ...)`.
+  **Explicit break:** `solve_hcaptcha(provider="2captcha")` raises
+  `SolverError("2captcha no longer supports hCaptcha token solving …")`
+  because 2Captcha has dropped hCaptcha from their current docs entirely
+  (verified 2026-04-18 at https://2captcha.com/api-docs — hCaptcha is
+  not listed on the index; attempts via legacy `method=hcaptcha` return
+  `ERROR_METHOD_CALL`).
+- **`execute/captcha_coords.py` (new, ~940 LOC).** hCaptcha image-puzzle
+  solver — two task types depending on prompt classification:
+  - **`GridTask`** (3×3 / 4×4 grids, "click each image containing X") →
+    solution `click: [tile indices]` → convert to pixel centers + click.
+  - **`CoordinatesTask`** (shape matching, "click the TWO shapes that are
+    identical") → solution `coordinates: [{x, y}, ...]` → click pixel
+    pairs.
+  - `_classify_challenge(prompt)` inspects prompt text against
+    `_GRID_PROMPT_PHRASES` and `_COORDS_PROMPT_PHRASES` (grid checked
+    first to avoid "click each image" collisions).
+  - Multi-round (up to 5), ~$0.0012 per round; real run today cost
+    $0.0048 total to clear a 4-round shape puzzle.
+  - `_find_puzzle_area_in_iframe` walks hCaptcha frames' inner DOM to
+    locate the actual puzzle container inside the full-viewport enclave
+    overlay (handles `#challenge`, `[role=dialog]`, `.challenge-view`,
+    etc.; falls back to largest non-fullscreen visible element).
+  - Annotated diagnostic screenshots — Pillow draws red circles at
+    2Captcha's chosen click points before we click. Saved to
+    `state/failed_submits/coords_clicks_<hash>.png` for visual
+    verification on rejection. Pillow is a soft dep; if missing, raw
+    PNG saves with no annotation.
+  - `_dump_hcaptcha_state(page, tag)` — full state dump on solver abort:
+    all hCaptcha iframe URLs + bounding boxes + inner text + submit
+    button visibility + screenshot. Critical for understanding *why* a
+    puzzle didn't render.
+  - `_click_hcaptcha_checkbox` fallback — clicks the "I am human"
+    widget if the puzzle doesn't render within 6 s.
+- **Smart dispatcher** in `playwright_submit._maybe_solve_and_retry_captcha`:
+  - `CAPTCHA_SOLVER=2captcha` auto-routes by detected kind: hCaptcha
+    (any variant) → Grid path; reCAPTCHA v2 → token; Turnstile → token.
+  - `CAPTCHA_SOLVER=2captcha_coords` forces the Grid/Coords path.
+  - Other providers (anti-captcha / capsolver / capmonster) → token path
+    for hCaptcha only.
+- **`_wait_for_captcha(page, timeout=12s)`** — post-submit polling window
+  because hCaptcha's challenge modal can take 5–15 s to mount.
+- **`_wait_for_prompt(page, max_wait=30s)`** — patience inside the grid
+  solver for the prompt text to actually render, plus the checkbox-click
+  fallback.
 
-## 🛠️ Commands to remember
+### I. Diagnostic instrumentation
 
-- Run injection tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_injection_guard.py -v`
-- Run parser tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_tex_parser.py -v`
-- Run answer-bank tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_answer_bank.py -v`
-- Run select tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_location_filter.py tests/test_pay_extractor.py tests/test_track_picker.py tests/test_dedup.py tests/test_scorer.py tests/test_yoe_filter.py -v`
-- Run ingest tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_ingest.py -v`
-- Run tracker tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_tracker.py -v`
-- Run execute tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_execute.py -v`
-- Run review tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_review.py -v`
-- Run congregate tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest tests/test_congregate.py -v`
-- Run all tests: `cd AutoApply && PYTHONPATH=src .venv/bin/python -m pytest -v` (431 passing as of last update)
-- Apply migrations: `cd AutoApply && PYTHONPATH=src .venv/bin/alembic upgrade head`
-- Rebuild profile (once CLI exists): `python -m autoapply.cli profile-build`
-- Security report (once CLI exists): `python -m autoapply.cli security-report`
+- Pre-submit field-state dump (Lever only): every `[name]` input's value,
+  `unfilled_required` check with radio-group de-duping (so the "No" radio
+  in a group where "Yes" is checked doesn't flag as unfilled).
+- Post-submit screenshot + visible-error probe + hCaptcha iframe
+  enumeration saved to `state/failed_submits/lever_<hash>.png` whenever
+  the success detector reports failure.
 
-## Current test tally: 486 passing (109 injection + 22 parser + 75 answer bank + 122 select + 55 yoe_filter + 17 ingest + 17 tracker + 24 execute + 32 review + 13 congregate)
+### J. hCaptcha accessibility cookie path
 
-## 🎉 First Live Dry-Run: SUCCESS (2026-04-17)
+- Correct signup URL (the 2026-04-17 log entry pointed at
+  `accounts.hcaptcha.com/accessibility` — that's a 404; the right one is
+  **`https://dashboard.hcaptcha.com/signup?type=accessibility`**).
+- Injection plumbing in `submit_lever` (pre-navigation cookie on
+  `.hcaptcha.com` domain with the env-configured
+  `HCAPTCHA_ACCESSIBILITY_TOKEN`) confirmed working — when set, hCaptcha
+  silent-passes without a challenge (no CAPTCHA detected in the run log,
+  no solver invoked, no cost).
 
-**End-to-end pipeline validated with real Greenhouse + Lever APIs:**
+### K. ReviewFlag persistence
+
+New `tracker.models.ReviewFlag` table:
 
 ```
-ingest done — seen=36 inserted=34 skipped=2 (18 GH + 16 Lever)
-score done  — ok=24  rej_yoe=10  rej_location=0  rej_injection=0
-apply done  — applied=6  reviews=0  failures=0  (dry_run=True)
+id · job_id · application_id · field_name · field_label · field_kind
+required · options (JSON) · reason · question_type · attempted_value
+created_at · indexed on (job_id, question_type, reason, created_at)
 ```
 
-**Additional fixes landed during first run:**
-- `track_picker`: broadened SWE/ML title patterns (`developer`, `devops`,
-  `cloud engineer`, `systems engineer`, `data scientist`) so FreedomConsulting
-  IT roles stopped falling through to track=None
-- `standard_fields`: extended machine-key regex to match `resume_text` field;
-  added inline placeholder so the Greenhouse textarea-resume field resolves
-  without blocking
-- `classifier` + `types`: added SECURITY_CLEARANCE_HAVE / SECURITY_CLEARANCE_LEVEL
-  types; added "address" patterns to CURRENT_LOCATION rule
-- `answer_bank`: security_clearance_have="No", security_clearance_level="None"
+Written by `persist_review_flags(session, *, job_id, application_id, flags)`
+whenever an `ApplyResult.outcome="review"` lands. Populated with the
+per-field reason (`unresolved` / `requires_llm` / `requires_review` /
+`cover_letter_injection` / `captcha`) so we can later mine the questions
+that blocked us most often. 3 new tests in `test_tracker.py`.
 
-**Dry-run payload (Applications Developer / FreedomConsulting / SWE track):**
-- All profile fields correct (name, email, phone, LinkedIn, address)
-- Resume PDF path → correct swe PDF
-- Security clearance → "No" / "None"
-- Cover letter generated with SWE track narrative
+### L. Lever end-to-end verdict (important for future-me)
 
-## 🎉 Phase 2 Complete (2026-04-17)
+- Captcha solver loop works **end-to-end**: 4 rounds of shape-matching,
+  hCaptcha challenge iframe closed cleanly, total cost $0.0048.
+- With the accessibility cookie: hCaptcha never appears. Silent pass
+  verified.
+- **BUT** Lever's backend *still* rejects every submission from this IP
+  with `"There was an error verifying your application. Please try again."`
+  — regardless of whether the captcha was solved or silent-passed. This
+  is Lever's own risk engine (likely IP reputation + fingerprint
+  heuristics) kicking in beyond the hCaptcha layer.
+- Comcast home IP was hit ~40+ times on `wyetechllc` alone today; it's
+  thoroughly burned for Lever. University of Maryland VPN egress is also
+  flagged. Cellular would probably help.
+- **Architectural fix identified:** Bright Data Scraping Browser.
+  Residential IP + clean browser fingerprint + captcha handled by their
+  infra — replaces the IP, curl_cffi, and solver stacks with one vendor.
+  ~$0.02–0.04/app. Deferred — see "Deferred work" below.
 
-**Real submissions are now wired end-to-end.**
+### M. ATS market-share research
 
-### What was added
+Done today as decision support for expansion priorities. Numbers:
 
-- **`src/autoapply/execute/playwright_submit.py`** — stealth browser driver
-  - `submit_greenhouse(board_token, job_id, data, files)` — navigates
-    `boards.greenhouse.io/<token>/jobs/<id>`, fills every resolved field,
-    uploads resume PDF, clicks `#submit_app` / `[type=submit]`.
-  - `submit_lever(token, posting_id, data, files)` — navigates
-    `jobs.lever.co/<token>/<id>/apply` and does the same.
-  - `_fill_field(page, name, value)` — smart fill: tries `<select>` first
-    (label match → value= match → prefix match), then radio (by value= or
-    label text), then checkbox (truthy check), then `fill()` fallback.
-  - `_fill_combobox(page, input_el, value)` — React-Select / ARIA combobox
-    handler: clicks input, reads `aria-controls` after open (set
-    dynamically), scopes option search to that listbox to avoid cross-
-    combobox contamination; exact → prefix → first-option fallback.
-  - `_detect_captcha(page)` — heuristic scan for reCAPTCHA / hCaptcha /
-    Cloudflare challenge keywords in page source.
-  - `_collect_page_errors(page)` — scrapes visible error elements for the
-    error message in `outcome="failed"` results.
-  - `playwright-stealth` applied at page level (graceful degradation if
-    not installed).
-  - `CaptchaDetected` / `SubmitFailed` exceptions — routed to
-    `outcome="captcha"` / `outcome="failed"` in the applicator.
+- **Fortune 500:** Workday ~37%, SuccessFactors ~13%, Taleo ~11%,
+  iCIMS ~10%, Greenhouse ~5%, Lever ~2%.
+- **Aadit's target mix (new-grad SWE/ML/HPC/quant):** Workday ~40–50%
+  (FAANG, quant funds, defense), Greenhouse ~30–35% (unicorns, SaaS),
+  Lever ~10–15% (mid-market SaaS), Ashby ~5–10% rising (OpenAI, Shopify,
+  Linear), other ~5–10%.
+- **Multi-ATS is common** — per Capterra's 2023 HR App Sprawl Survey,
+  average HR dept runs 5 systems. A single company often lists roles on
+  both Greenhouse (eng) and Workday (corp).
+- **Takeaway:** shipping Greenhouse-only captures the biggest single ATS
+  we can realistically automate (~30% of targets). Ashby is the
+  highest-ROI *next* add (small but growing; simpler API than Lever's
+  anti-bot layer).
 
-- **`GreenhouseApplicator.submit()` + `LeverApplicator.submit()`** — both
-  now call the Playwright path; return `ok`/`captcha`/`failed` outcomes.
+### Test tally
 
-- **`cli.py` `apply_cmd`**:
-  - Daily cap enforcement: queries `Application` for today's real `ok`
-    submissions; aborts if `≥ MAX_APPLICATIONS_PER_DAY (60)`, shrinks
-    the run cap to the remaining daily budget.
-  - Pacing: `random.uniform(APPLY_DELAY_SECONDS_MIN, APPLY_DELAY_SECONDS_MAX)`
-    (30–120s) sleep after every real `ok` submission.
-
-- **`pipeline.yml`**:
-  - **CI 403 fix**: split the single `actions/checkout@v4` + `token: SUBMODULE_PAT`
-    into two steps:
-    1. `actions/checkout@v4` with no `token:` → uses GITHUB_TOKEN (has
-       write access to AutoApply).
-    2. `git config url.insteadOf` + `git submodule update --init --depth 1 resumes`
-       using SUBMODULE_PAT for the private resume repo only.
-  - `playwright install --with-deps chromium` added to the install step.
-  - `timeout-minutes` bumped 25 → 40 to accommodate Chromium install.
+**486 → 495 tests passing.** New test additions:
+- `test_tracker.py` + 3 (`ReviewFlag` persistence)
+- `test_answer_bank.py` + 3 (US citizen variants, country-of-citizenship)
+- existing suites adjusted for new classifier rule ordering, no
+  regressions.
 
 ---
 
-## 🎉 First Confirmed Real Submission (2026-04-17)
+## Deferred work (future TODOs)
 
-**Applications Developer @ Freedom Consulting (Greenhouse)**
+Ordered — do in this sequence:
+
+### 1. Refactor `execute/playwright_submit.py`
+
+Currently **2142 lines**, everything in one file. Navigating it is painful
+and adding new ATS quirks keeps making it worse. Proposed structure (no
+behavioral change, pure extraction):
 
 ```
-verification code fetched: 5bxM5TWI        ← IMAP extracted correctly
-submitted OK: job=6ddbd36fa52c1416
-  url=https://job-boards.greenhouse.io/freedomconsulting/jobs/4510005007/confirmation
-  field_errors=[]
-apply done — dry_run=False  applied=1  reviews=0  failures=0
+src/autoapply/execute/
+  playwright_submit.py         ← public entry points submit_greenhouse,
+                                 submit_lever; orchestration only (~200 LOC)
+  playwright/                   ← new package
+    __init__.py
+    driver.py                   ← _submit_form + browser setup + stealth
+    field_fill.py               ← _fill_field, _fill_select, _fill_radio,
+                                   _fill_combobox, _snap_to_option helpers
+    file_upload.py              ← _upload_file, _file_input_selector
+    lever_cards.py              ← _fill_lever_cards, _card_heuristic_answer
+    captcha_detect.py           ← _detect_captcha, _wait_for_captcha,
+                                   _extract_hcaptcha_site_key
+    captcha_retry.py            ← _maybe_solve_and_retry_captcha,
+                                   _solve_via_coords_path,
+                                   _solve_via_2captcha_token,
+                                   _inject_token_and_resubmit
+    imap_otp.py                 ← _fetch_imap_verification_code,
+                                   _enter_verification_code,
+                                   _click_otp_submit, _extract_code_from_plain_text
+    success_detect.py           ← _detect_submit_success,
+                                   _STRONG_SUCCESS_* tuples,
+                                   _FAILURE_PHRASES, _inner_text_safe,
+                                   _collect_page_errors
+    diagnostics.py              ← pre-submit dump, post-submit probe,
+                                   _dump_hcaptcha_state,
+                                   _save_annotated_screenshot
+    util.py                     ← _jitter, _react_set_value, _strip_html
 ```
 
-Confirmed end-to-end flow:
-1. Greenhouse API form fetch → `FieldSpec` list
-2. `resolve_all` → all fields resolved deterministically (name, email, phone,
-   LinkedIn, country, security clearance)
-3. Resume PDF uploaded via `input[type=file]`
-4. Country React-Select combobox filled via `_fill_combobox` + scoped
-   `aria-controls` listbox
-5. Submit button clicked → Greenhouse SPA shows OTP modal
-6. IMAP poll found code within 16s from `imap.gmail.com:993`
-7. `_enter_verification_code` detected 8-box layout (`security-input-0…7`)
-   and filled each box character-by-character via React native-value-setter
-8. "Submit application" button enabled → clicked → `/confirmation` URL reached
-9. `outcome="ok"` stored in DB; `Application` row written
+Same goal for `captcha_coords.py` if it remains >500 LOC after refactor:
+split Grid vs Coords rounds + the shared helpers.
 
-### Bugs fixed during this phase
+Test count should stay 495 after the refactor (no new tests, existing
+ones unchanged). Exit criterion: import path of every tested function
+continues to resolve via re-exports from `playwright_submit.py`, or tests
+updated to import from new locations.
 
-| Symptom | Root cause | Fix |
-|---|---|---|
-| `fill:country:ValueError` | Country is a React-Select combobox on new SPA | Added `_fill_combobox` with post-click `aria-controls` scoping |
-| `multi_value_single_select` not mapped | `_kind_from_type` only had `_fields` suffix variant | Added both `multi_value_single_select` and `multi_value_single_select_fields` |
-| `[id^="question_10763713007[]"]` CSS error | `[]` are CSS special chars | Switched to `[id="…"]` attribute selector form |
-| IMAP timeout — no code found | Gmail auto-marks emails read; was searching UNSEEN only | Changed to `SINCE today` + timestamp guard (no UNSEEN required) |
-| Extracted `2026` instead of OTP | Email footer contains "© 2026 Greenhouse" | Line-by-line extractor: code must be on its own line immediately after keyword line ending in `:` |
-| Extracted `cation` (HTML artifact) | Was concatenating text/plain + raw HTML | Process only `text/plain`; fall back to `_strip_html(html)` if no plain part |
-| OTP 8-box input not found | `_enter_verification_code` tried `maxlength="8"` — all boxes are `maxlength="1"` | Added Layout A path: detect `input[id^="security-input-"]`, fill each box with one char via React native-setter |
-| `field_errors=['fill:resume_text:ValueError']` | `standard_fields.py` returned `"See attached PDF resume."` for the text-variant resume field; new SPA doesn't render it | Changed to return `""` — `build_payload`'s `if r.value:` gate silently skips it |
-| `track=None` jobs consumed apply cap | `.limit(cap)` applied before `track.in_(...)` filter in DB query | Moved `.filter(Job.track.in_(...))` before `.limit(cap)` |
+### 2. Re-run Greenhouse apply at scale
 
-### To activate real submissions at scale
+After the refactor lands and is green:
 
-1. Push this commit.
-2. Verify `SUBMODULE_PAT`, `GH_ISSUES_PAT`, `GEMINI_API_KEY` secrets are set
-   in the AutoApply repo settings.
-3. Set `IMAP_EMAIL=aaditnilay18@gmail.com` and `IMAP_PASSWORD=<App Password>`
-   in GitHub Secrets (same values as `.env`).
-4. Trigger `pipeline.yml` via workflow_dispatch with `dry_run=false`.
-5. Gradually ramp: day-1 cap=5, day-2 cap=10, day-3 cap=25, day-4+ cap=60.
-6. Use `/approve` on GitHub Issues to manually submit review-queue jobs.
+- Re-run `python scripts/apply_best_per_company.py --source greenhouse
+  --no-dry-run` picking the single highest-ranked `status='scored'` job
+  per company that we haven't already applied to.
+- Target: submit one application per unique Greenhouse company in the DB.
+  Expect 20–50 new `outcome="ok"` rows.
+- Verify all `field_errors=[]` and confirm `status='applied_ok'` for each.
+- Update `applied_log.py` report.
+
+### 3. Eventually: Bright Data Scraping Browser for Lever
+
+Only after (1) and (2) ship. Plan:
+
+- Sign up for the $5 trial at `brightdata.com`; create a Scraping Browser
+  zone; grab the `wss://brd-customer-hl_...-zone-scraping_browser:…@brd.superproxy.io:9222`
+  endpoint.
+- Add `BRIGHTDATA_SB_ENDPOINT` to `config.py` + `.env.example`.
+- In the refactored driver, prefer
+  `p.chromium.connect_over_cdp(BRIGHTDATA_SB_ENDPOINT)` when the env var
+  is set, else keep `p.chromium.launch(headless=...)`.
+- When Scraping Browser is in use, skip the captcha-solver path entirely
+  (Bright Data handles captchas + IP rotation + TLS fingerprinting
+  internally).
+- Retry the same `--source lever --board-token wyetechllc` run — expect
+  success.
+- Then flip `TEST_SAFE_ONLY=false` to reach the `live_only` Lever
+  companies (Mistral, Ramp, Gusto, Plaid, Mercury, etc.).
 
 ---
 
-## ⏳ What's next
+## Commands to remember
 
-### Immediate — needed before scaling
+```bash
+# Full test suite
+python -m pytest -q                                      # 495 tests
 
-1. **Lever hCaptcha bypass** (`HCAPTCHA_ACCESSIBILITY_TOKEN`)
-   - Register once at https://accounts.hcaptcha.com/accessibility
-   - Copy `hc_accessibility` cookie value into `.env` and GitHub Secrets
-   - 8 scored Wyetech (Lever) jobs are queued; all blocked by hCaptcha
-   - After setting the token: `python -m autoapply.cli apply --no-dry-run --limit 8`
+# Single suite
+python -m pytest tests/test_tracker.py -v
 
-2. **Re-score `track=None` jobs** (8 remaining)
-   - 3 Freedom Consulting (508 Tester, A&A Specialist, Cyber Analyst) —
-     non-SWE roles; will likely stay `track=None` or get a swe/other track
-   - 5 Wyetech (Kovr.AI, UI, CNO Analyst ×3) — same
-   - Run `python -m autoapply.cli score` again after broadening
-     `_SWE_STRONG_TITLE` patterns in `track_picker.py` if needed
+# Build profile from resume .tex files
+autoapply profile-build
 
-3. **Add real target companies to `companies.yml`**
-   - Currently only `freedomconsulting` (GH) + `wyetechllc` (Lever) under
-     `test_safe: true` — both are DoD-clearance shops; auto-rejection expected
-   - Flip `TEST_SAFE_ONLY=false` in `.env` OR add non-test companies:
-     Airbnb, Stripe, Anthropic, Scale AI, Two Sigma, Citadel etc. are already
-     in `companies.yml` but behind the `test_safe_only` gate
-   - After adding companies: `python -m autoapply.cli ingest` + `score` + `apply`
+# Full local loop, DRY_RUN
+autoapply ingest
+autoapply score
+autoapply apply --limit 5                                # DRY_RUN default
 
-### Medium-term — Phase 3
+# Real submissions, one per Greenhouse company, top 10 by rank
+python scripts/apply_best_per_company.py \
+    --source greenhouse --no-dry-run --limit 10
 
-4. **Gemini Flash scoring** — `base_fit=0.5` placeholder in `scorer.py`
-   - Set `GEMINI_API_KEY` in `.env`; wired but untested end-to-end
-   - After setting: re-score existing jobs and observe `base_fit` distribution
+# Single-board smoke test on Lever (after Bright Data lands)
+python scripts/apply_best_per_company.py \
+    --source lever --board-token whoop --limit 1 --no-dry-run
 
-5. **GitHub Actions live run** — push commit and trigger `pipeline.yml`
-   - Watch for Playwright navigation logs in Actions UI
-   - `CAPTCHA detected` → those jobs land in review queue (open GH Issues)
-   - First run: use `workflow_dispatch` with `dry_run=false`
+# Apply Alembic migrations
+alembic upgrade head
 
-6. **YC Work at a Startup** (Phase 2 plan item) — session-import pattern;
-   needs manual login once then `refresh_session.py` every 7 days
-
-7. **Gmail response detection** — poll for "thank you for your application"
-   confirmation emails; cross-reference `Application` rows to catch bounced
-   or duplicate submissions
+# Security report
+autoapply security-report --days 7
+```
 
 ---
 
-## 🛠️ Lever Submission Fixes (2026-04-17)
+## Historical milestones
 
-Extensive debugging of the Lever apply flow revealed and fixed multiple blocking issues.
-
-### Bugs fixed
-
-| Symptom | Root cause | Fix |
-|---|---|---|
-| "File exceeds 100MB" on 33KB PDF | Lever shows this hidden error when submit is clicked before async resume analysis ("Analyzing resume…") finishes | Added `page.wait_for_function` to wait until "analyzing resume" disappears from page text before filling fields or submitting |
-| Text fields empty after submit (form re-renders) | Lever's React form re-renders after resume analysis, wiping any text fields filled BEFORE the upload | Reordered to: upload files → wait for analysis → fill text fields |
-| `fill:urls[linkedin]:ValueError` + `fill:urls[github]:ValueError` | Lever DOM uses camelCase: `urls[LinkedIn]`, `urls[GitHub]`, `urls[Portfolio]` — not lowercase | Updated `_BASE_FIELDS` in `lever_apply.py`; added `[name="..." i]` CSS case-insensitive fallback in `_fill_field` |
-| Qualifying questions skipped | ITAR, security-clearance, citizenship cards appear in DOM but NOT in Lever's public API response | Added `_fill_lever_cards()` — dynamically scans `[name^="cards["]` elements at Playwright time, reads question text from `.application-label .text`, calls `_card_heuristic_answer()` |
-| EEO disability option mismatch | Bank returns "Decline to self-identify" but Lever option is "I do not want to answer" | Added semantic fallback in `_fill_select`: when exact/substring match fails, tries "decline/prefer not/not wish" keyword cluster |
-| Hidden "100MB" error in error scraper | `_collect_page_errors` scraped a hidden `.resume-upload-oversize` element always present in DOM | Added `:visible` to CSS selectors + `is_visible()` guard |
-| `'tuple' object has no attribute 'lower'` in llm_fallback | `injection_guard.sanitize()` returns `(str, InjectionReport)` tuple; code assigned whole tuple to `safe_label` | Fixed: `safe_label, _scan_report = sanitize(label)` |
-| N/A template returning "Yes" for ITAR follow-up fields | ITAR handler fired before N/A handler; label "If other, please… ITAR… Answer N/A if not applicable" contains "itar" | Moved N/A handler (`"n/a if not applicable"`, `"if other, please"`, etc.) before ITAR handler |
-| Sponsorship returning "No" despite bank saying "Yes" | Template fallback `"No"` overrode bank's `require_sponsorship_future: "Yes"` for Aadit (F-1/H-1B needed) | Template sponsorship handler only fires for labels that haven't already been classified by the answer bank |
-| "India" unresolvable in ITAR eligibility select | `_snap_to_option("India", itar_spec)` couldn't substring-match any of the 5 US-person options; returned "India" unchanged; `_fill_select` silently failed | Added US-person-eligibility detection in `_snap_to_option`: when all options are US immigration statuses (green card, lawful permanent, refugee, asylee…) and value matches none, falls back to first option containing "not currently" / "other status" |
-| Gemini 429 rate-limit errors | Free-tier daily quota exhausted; LLM fallback failed for every novel question | Extended template fallback in `llm_fallback.py` to cover ITAR, N/A fields, sponsorship, export-control — these no longer need Gemini |
-
-### New code in `playwright_submit.py`
-
-- **`_fill_lever_cards(page, already_filled_names, field_errors)`** — post-text-fill dynamic card resolver. Queries all `[name^="cards["]` inputs, walks up to `.application-question` to extract question text, calls `_card_heuristic_answer()`, then `_fill_field()`.
-- **`_card_heuristic_answer(q_text, q_type, options)`** — rule-based heuristic for Lever card questions: citizenship/work-auth → "Yes", sponsorship → "No", clearance → last option (usually "No current clearance"), pronouns → "He/Him", generic radio → first non-empty option.
-- **EEO fields added to `_BASE_FIELDS`**: `eeo[gender]`, `eeo[race]`, `eeo[veteran]`, `eeo[disability]` now resolved before Playwright time so they flow through the normal `_fill_field` path.
-
-### Remaining blocker
-
-- **Lever hCaptcha** — without `HCAPTCHA_ACCESSIBILITY_TOKEN`, Lever's server-side hCaptcha silently rejects all submissions with "There was an error verifying your application." The form does not show a visual CAPTCHA; the token must be pre-obtained from `accounts.hcaptcha.com/accessibility` and injected into the page before submit. All Lever apps will go to `outcome="failed"` until this token is set.
-
-### `_snap_to_option` ITAR fallback (standard_fields.py)
-
-```python
-# When no option matches: detect US-person-eligibility select fields
-# and pick the appropriate "other" option.
-_US_PERSON_MARKERS = ("u.s. citizen", "green card", "lawful permanent", ...)
-has_us_options = any(m in opt.lower() for m in _US_PERSON_MARKERS for opt in ...)
-if has_us_options:
-    for opt in spec.options:
-        if any(m in opt.lower() for m in ("not currently", "other status", "other")):
-            return opt
-```
-
-### IMAP UTC timezone bug fix (2026-04-17)
-
-`_fetch_imap_verification_code` used `datetime.now(timezone.utc).strftime("%d-%b-%Y")` for the IMAP `SINCE` filter. UTC is ahead of US time zones in the evening, so `SINCE 18-Apr-2026` returned 0 results when the local date was still Apr 17. Fixed by using `datetime.now() - timedelta(days=1)` (local time minus 1 day) so the SINCE gate always covers the current local day. The epoch-based `min_email_epoch` filter still enforces freshness precisely.
-
-### Confirmed working: 11 OK submissions (2026-04-17)
-
-After all fixes landed, ran 11 real Greenhouse applications back-to-back:
-
-| # | Job | OTP code | Confirmation URL |
-|---|-----|----------|-----------------|
-| 1 | Applications Developer | FhBbFqCp | freedomconsulting/jobs/4802720007/confirmation |
-| 2 | Cloud Developer | PTMjQSLd | freedomconsulting/jobs/4831214007/confirmation |
-| 3 | Cloud Engineer | hjZARco4 | freedomconsulting/jobs/4079898007/confirmation |
-| 4 | Cloud Engineer/Software Developer | 3xtB85Ft | freedomconsulting/jobs/4638572007/confirmation |
-| 5 | Cyber Support Developer | ZqCy0rsn | freedomconsulting/jobs/4977931007/confirmation |
-| 6 | Data Scientist | zaR9Y0Q2 | freedomconsulting/jobs/4510005007/confirmation |
-| 7 | Junior Cloud Engineer | WpyLFsAq | freedomconsulting/jobs/5087955007/confirmation |
-| 8 | Junior Software Engineer | IXanfaRI | freedomconsulting/jobs/5089261007/confirmation |
-| 9 | Junior Software Engineer | O6VpKDtV | freedomconsulting/jobs/5049687007/confirmation |
-| 10 | Junior Systems Engineer | wqXfwSOF | freedomconsulting/jobs/5067514007/confirmation |
-| 11 | Machine Learning Engineer | b2oaH6OE | freedomconsulting/jobs/5081498007/confirmation |
-
-**All field_errors=[] on every submission.** ITAR eligibility select (`_snap_to_option` fallback to "Not currently a U.S. Person") resolved correctly on True Anomaly dry-run (confirmed in dry-run payload inspection).
-
-## ✅ System ready for real target companies
-
-All preconditions from the plan are met:
-1. `DRY_RUN=false` confirmed ✓
-2. Form-field mapping verified on >5 test_safe runs (11 confirmed OK) ✓
-3. Answer bank confirmed (all field_errors=[]) ✓
-
-Next: set `TEST_SAFE_ONLY=false` and ingest/score/apply to the `live_only` companies (Anthropic, Stripe, Airbnb, Two Sigma, Citadel, etc.) from `companies.yml`.
-
-## Current test tally: 413 passing (SQLAlchemy 1.x env — test_tracker/test_execute/test_review excluded from local run; 490 in CI with SQLAlchemy 2.x)
+- **2026-04-16** — Phase 1 foundations. 328 tests. All modules land with
+  tests; nothing real submitted yet.
+- **2026-04-17** — Phase 2 wired. 486 tests. First 11 real Greenhouse
+  submissions land back-to-back with zero field errors. Lever hCaptcha
+  identified as blocker.
+- **2026-04-18** — Captcha stack + Lever verdict. 495 tests. hCaptcha
+  solving verified end-to-end on real shape puzzles ($0.0048 per solve);
+  accessibility cookie silent-pass verified; Lever backend still rejects
+  from home IP → Bright Data deferred.
