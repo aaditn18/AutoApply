@@ -48,6 +48,24 @@ yoe_general:
 current_location:
   _default: "College Park, MD"
 
+current_city:
+  _default: "College Park"
+
+current_state:
+  _default: "MD"
+
+current_zip:
+  _default: "20740"
+
+street_address:
+  _default: "8150 Baltimore Ave"
+
+address_line_2:
+  _default: "Apt. 308-C"
+
+full_address:
+  _default: "8150 Baltimore Ave, Apt. 308-C, College Park, MD 20740"
+
 willing_to_relocate:
   _default: "Yes"
 

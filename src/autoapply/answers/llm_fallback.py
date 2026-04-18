@@ -198,12 +198,73 @@ def _template_fallback(
     lo = label.lower()
 
     # ── Pronouns ──────────────────────────────────────────────────────────
-    if any(w in lo for w in ("pronoun", "preferred name")):
+    if "pronoun" in lo:
         if spec.options:
             for opt in spec.options:
                 if "he" in opt.lower():
                     return opt
         return "He/Him"
+
+    # ── Preferred name (separate from pronouns) ───────────────────────────
+    if "preferred name" in lo:
+        return profile.full_name.split()[0]  # first name
+
+    # ── Onsite / in-person willingness ────────────────────────────────────
+    if any(
+        w in lo
+        for w in (
+            "willing to work onsite", "work from our office", "work in-person",
+            "designated as on-site", "in-office", "work on site",
+            "work in our office", "work at our", "onsite role",
+            "work from the office", "office-based",
+        )
+    ):
+        if spec.options:
+            for opt in spec.options:
+                if "yes" in opt.lower():
+                    return opt
+        return "Yes"
+
+    # ── Address sub-fields ────────────────────────────────────────────────
+    # Full address
+    if any(
+        w in lo
+        for w in ("full address", "complete address", "current address", "mailing address")
+    ) and "line" not in lo and "street" not in lo:
+        return "8150 Baltimore Ave, Apt. 308-C, College Park, MD 20740"
+
+    # Street address / address line 1
+    if any(
+        w in lo
+        for w in ("street address", "address line 1", "address 1", "address line1",
+                  "address (line 1)", "line 1")
+    ):
+        return "8150 Baltimore Ave"
+
+    # Address line 2 / apt / unit / suite
+    if any(
+        w in lo
+        for w in ("address line 2", "address 2", "address line2", "address (line 2)",
+                  "line 2", "apt.", "apt #", "apt number", "unit #",
+                  "unit number", "suite")
+    ) or (lo.strip() in ("apt", "unit", "suite")):
+        return "Apt. 308-C"
+
+    # City
+    if lo.strip() in ("city", "city/town") or "city of residence" in lo or "city where" in lo:
+        return "College Park"
+
+    # State
+    if lo.strip() in ("state", "state/province", "state/region") or "state of residence" in lo:
+        if spec.options:
+            for opt in spec.options:
+                if opt.lower() in ("md", "maryland"):
+                    return opt
+        return "MD"
+
+    # Zip / postal code
+    if any(w in lo for w in ("zip code", "postal code", "zip")):
+        return "20740"
 
     # ── Total years of experience (generic) ───────────────────────────────
     if "year" in lo and "experience" in lo:
