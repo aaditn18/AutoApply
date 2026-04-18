@@ -74,6 +74,32 @@ greenhouse:
     - thetradedesk         # The Trade Desk — programmatic adtech,
                            # Irvine CA. Good company but not Aadit's track.
 
+    # ── User-specified additions (2026-04-18) ────────────────────────────────
+
+    - captivation          # Captivation Software — defense/IC software,
+                           # likely clearance-gated. 48 active jobs.
+
+    - jjsnackfoods         # J&J Snack Foods — food manufacturing/CPG,
+                           # Pennsauken NJ. 83 active jobs. Low-stakes.
+
+    - commerceiq           # CommerceIQ — retail AI/e-commerce SaaS,
+                           # Remote US. 27 active jobs.
+
+    - ethoslife            # Ethos Life — life insurance insurtech,
+                           # SF / Remote. 36 active jobs.
+
+    - ketryx               # Ketryx — medical device software quality,
+                           # Remote US. 20 active jobs.
+
+    - risingtidessolutionsllc  # Rising Tides Solutions LLC — gov/defense IT,
+                               # likely clearance-gated. 6 active jobs.
+
+    - 540                  # 540 — sports analytics / data,
+                           # Remote. 8 active jobs.
+
+    - fanaticscollectibles # Fanatics Collectibles — trading cards / collectibles
+                           # ecommerce, NYC / Remote. 144 active jobs.
+
   live_only:
 
     # ── Top AI labs ─────────────────────────────────────────────────────────
