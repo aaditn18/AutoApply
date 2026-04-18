@@ -34,17 +34,78 @@ log = logging.getLogger(__name__)
 #   - hCaptcha challenge iframe
 #   - Explicit "verify you are human" overlay text
 
-_SUCCESS_SIGNALS: tuple[str, ...] = (
-    "thank you for applying",
-    "application submitted",
-    "application received",
-    "we've received your application",
+# Strong application-submission phrases — high confidence that the submit
+# actually happened. More specific than the generic "thank you" that can
+# appear in pre-submit hero copy.
+_STRONG_SUCCESS_PHRASES: tuple[str, ...] = (
     "your application has been submitted",
-    "successfully submitted",
-    "thanks for applying",
+    "your application has been received",
+    "your application has been sent",
+    "application submitted successfully",
+    "successfully submitted your application",
+    "we've received your application",
     "we have received your application",
+    "thanks for applying",
+    "thank you for applying",
+    "thank you for your application",
+    "thank you for your interest in",   # Loop-style confirmation
     "application complete",
     "your application is complete",
+    "application received",
+    "we'll be in touch",
+    "we will be in touch",
+    "we'll review your application",
+    "we will review your application",
+)
+
+# URL path segments that unambiguously identify a post-submit page.
+# Checked against `urlparse(page.url).path`, not the raw URL — prevents
+# false positives when the company name happens to contain "thank" or
+# "success" in a subdomain / query string.
+_STRONG_SUCCESS_URL_PATHS: tuple[str, ...] = (
+    "/confirmation",
+    "/confirm",
+    "/thank-you",
+    "/thank_you",
+    "/thankyou",
+    "/thanks",
+    "/success",
+    "/submitted",
+    "/applied",
+    "/complete",
+    "/received",
+    "/post-apply",
+    "/post_apply",
+)
+
+# Query-string markers some ATSs append on success (e.g. ?confirmation=true).
+_SUCCESS_QUERY_MARKERS: tuple[str, ...] = (
+    "confirmation=true",
+    "submitted=true",
+    "applied=true",
+    "status=success",
+    "success=true",
+)
+
+# Failure phrases — if any appear in post-submit page text, success is
+# disqualified regardless of other signals. Kept deliberately specific to
+# avoid false positives from generic "required" / "error" labels that can
+# appear anywhere on a live form page.
+_FAILURE_PHRASES: tuple[str, ...] = (
+    "please correct the",
+    "please fix the",
+    "fix the errors",
+    "there were errors",
+    "there was an error submitting",
+    "there was a problem submitting",
+    "could not be submitted",
+    "unable to submit",
+    "form submission failed",
+    "submission failed",
+    "please review the form",
+    "please complete all required",
+    "please complete the required",
+    "this field is required",
 )
 
 _USER_AGENTS: tuple[str, ...] = (
@@ -353,18 +414,17 @@ def _submit_form(
             if _detect_captcha(page):
                 raise CaptchaDetected("CAPTCHA appeared after submit attempt")
 
-            # Early success check — if we're already on a success/confirmation
-            # URL or the page already shows a success signal, skip email
-            # verification entirely and proceed to the outcome check below.
-            # (Lever's confirmation page says "A confirmation email has been
-            # sent" which would otherwise trigger the OTP path as a false
-            # positive.)
-            _early_url = page.url.lower()
-            _early_text = _inner_text_safe(page).lower()
-            _already_success = (
-                any(frag in _early_url for frag in success_url_fragments)
-                or any(sig in _early_text for sig in _SUCCESS_SIGNALS)
+            # Early success check — if the post-submit page is already a
+            # confirmation page, skip the OTP path (Lever's confirmation page
+            # says "A confirmation email has been sent" which would otherwise
+            # be mistaken for an OTP prompt).
+            _already_success, _early_reason = _detect_submit_success(
+                page,
+                success_url_fragments,
+                submit_selector=submit_selector,
             )
+            if _already_success:
+                log.info("early success detected: %s", _early_reason)
 
             # Email verification step? (Greenhouse sends a one-time code.)
             # Only enter this path when:
@@ -402,24 +462,30 @@ def _submit_form(
                     )
 
             # ------ Detect success ----------------------------------------
-            final_url = page.url.lower()
-            page_text = _inner_text_safe(page).lower()
-
-            success = any(sig in page_text for sig in _SUCCESS_SIGNALS)
-            if not success:
-                success = any(frag in final_url for frag in success_url_fragments)
+            # Rigorous multi-signal detector: URL path + strong phrases +
+            # DOM-structure check + hard-failure gates. See
+            # _detect_submit_success() for the decision ladder.
+            success, reason = _detect_submit_success(
+                page,
+                success_url_fragments,
+                submit_selector=submit_selector,
+            )
 
             error_str: str | None = None
-            if not success:
-                error_str = _collect_page_errors(page) or (
-                    f"no success signal detected; final_url={page.url}"
-                )
+            if success:
+                log.info("submit success (%s): %s", reason, page.url)
+            else:
+                error_str = reason
+                log.warning("submit appears unsuccessful for %s: %s", url, reason)
                 # Log page text for diagnosis — helps tune success signals.
-                log.warning("submit appears unsuccessful for %s: %s", url, error_str)
-                log.info(
-                    "post-submit page text (first 600 chars): %s",
-                    page_text[:600],
-                )
+                try:
+                    page_text = _inner_text_safe(page).lower()
+                    log.info(
+                        "post-submit page text (first 600 chars): %s",
+                        page_text[:600],
+                    )
+                except Exception:
+                    pass
 
             return {
                 "ok": success,
@@ -1439,6 +1505,117 @@ def _inner_text_safe(page: Any) -> str:
             return page.content()
         except Exception:
             return ""
+
+
+def _detect_submit_success(
+    page: Any,
+    success_url_fragments: tuple[str, ...],
+    *,
+    submit_selector: str = "",
+) -> tuple[bool, str]:
+    """Decide whether a form submit succeeded using multiple signals.
+
+    Returns (ok, reason). `reason` is a short diagnostic string suitable
+    for logs. The function never raises — on internal error it returns
+    (False, "detector_error: …").
+
+    Decision ladder (first match wins):
+      1. HARD FAIL — visible error messages OR explicit failure phrases
+         present in page text.  Submit definitely did NOT succeed.
+      2. URL signal — page URL path contains a dedicated confirmation
+         segment (e.g. /confirmation, /thanks, /success) OR a success
+         query marker (e.g. ?confirmation=true).
+      3. Strong text signal — page text contains a specific application-
+         submission phrase AND the submit button is no longer visible.
+      4. Medium signal — submit button has disappeared AND page contains
+         generic affirmative wording (thank you / submitted / received).
+      5. FAIL — no signals matched.
+    """
+    try:
+        from urllib.parse import urlparse
+
+        final_url_full = page.url or ""
+        final_url = final_url_full.lower()
+        parsed = urlparse(final_url_full)
+        url_path = (parsed.path or "").lower()
+        url_query = (parsed.query or "").lower()
+
+        try:
+            page_text = _inner_text_safe(page).lower()
+        except Exception:
+            page_text = ""
+
+        # ── 1. Hard failure gates ─────────────────────────────────────────
+        visible_errors = _collect_page_errors(page)
+        if visible_errors:
+            return False, f"visible_errors: {visible_errors[:200]}"
+
+        for phrase in _FAILURE_PHRASES:
+            if phrase in page_text:
+                return False, f"failure_phrase: {phrase!r}"
+
+        # Helper: is the submit button still visible?
+        def _submit_still_visible() -> bool:
+            if not submit_selector:
+                return False
+            try:
+                loc = page.locator(submit_selector).first
+                return loc.is_visible(timeout=500)
+            except Exception:
+                return False
+
+        # ── 2. Strong URL signal (dedicated confirmation path) ────────────
+        for path_frag in _STRONG_SUCCESS_URL_PATHS:
+            if path_frag in url_path:
+                return True, f"url_path: {path_frag!r}"
+
+        for marker in _SUCCESS_QUERY_MARKERS:
+            if marker in url_query or marker in final_url:
+                return True, f"url_query: {marker!r}"
+
+        # ── 3. Strong page-text signal ────────────────────────────────────
+        matched_phrase: str | None = None
+        for phrase in _STRONG_SUCCESS_PHRASES:
+            if phrase in page_text:
+                matched_phrase = phrase
+                break
+
+        if matched_phrase:
+            if _submit_still_visible():
+                # Phrase matched but submit button is still there → the
+                # text is almost certainly pre-submit hero copy, not a
+                # confirmation. Reject to be safe.
+                return False, (
+                    f"phrase {matched_phrase!r} present but submit "
+                    f"button still visible (not a confirmation page)"
+                )
+            return True, f"phrase: {matched_phrase!r}"
+
+        # ── 4. Medium: submit button gone + affirmative wording ───────────
+        if submit_selector and not _submit_still_visible():
+            affirmative = (
+                "thank you",
+                "received",
+                "submitted",
+                "complete",
+                "we'll be in touch",
+                "we will be in touch",
+            )
+            if any(w in page_text for w in affirmative):
+                return True, "form_gone_plus_affirmative"
+
+        # ── 5. Legacy caller-provided fragments (lowest confidence) ───────
+        # Accept only if the fragment appears in the URL PATH (not raw URL),
+        # to avoid matching against ATS-branded query strings / company
+        # names that happen to contain "success" or "thank".
+        for frag in success_url_fragments:
+            if frag and frag in url_path:
+                return True, f"legacy_path_fragment: {frag!r}"
+
+        return False, f"no_success_signal; final_url={page.url}"
+
+    except Exception as exc:
+        return False, f"detector_error: {type(exc).__name__}: {exc}"
 
 
 def _collect_page_errors(page: Any) -> str:
