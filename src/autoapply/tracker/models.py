@@ -23,7 +23,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
 
 def _utcnow() -> datetime:
@@ -187,6 +187,93 @@ class Event(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     job: Mapped[Job | None] = relationship("Job", back_populates="events")
+
+
+# -- Review flags (one row per field that caused review status) -----------
+
+
+class ReviewFlag(Base):
+    """A single form field that caused an application to be routed to review.
+
+    Written whenever an apply() call returns outcome='review' — one row per
+    flagged field. Over time this becomes a dataset of "questions we
+    couldn't answer automatically," which we can mine to:
+      - extend the AnswerBank with commonly-asked novel questions
+      - add new QuestionType classes for recurring label patterns
+      - identify ATS forms that consistently require human review
+    """
+
+    __tablename__ = "review_flags"
+    __table_args__ = (
+        Index("ix_review_flags_job_id", "job_id"),
+        Index("ix_review_flags_question_type", "question_type"),
+        Index("ix_review_flags_reason", "reason"),
+        Index("ix_review_flags_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), nullable=False)
+    application_id: Mapped[int | None] = mapped_column(
+        ForeignKey("applications.id"), nullable=True
+    )
+
+    # Field identity (what question are we flagging?)
+    field_name: Mapped[str] = mapped_column(String(256), default="")
+    field_label: Mapped[str] = mapped_column(Text, default="")
+    field_kind: Mapped[str] = mapped_column(String(32), default="")  # text|textarea|select|multi_select|file|checkbox
+    required: Mapped[bool] = mapped_column(Boolean, default=False)
+    options: Mapped[list[str]] = mapped_column(JSON, default=list)
+
+    # Why we flagged it
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+    # Valid reasons:
+    #   "unresolved"           — no rule / bank / LLM answer produced a value
+    #   "requires_llm"         — classified as LLM-only (why-company, etc.)
+    #   "requires_review"      — classified as REVIEW (citizenship, etc.)
+    #   "cover_letter_injection" — JD triggered output-level injection leak
+    #   "captcha"              — CAPTCHA wall routed job to review
+    question_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    attempted_value: Mapped[str] = mapped_column(Text, default="")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+def persist_review_flags(
+    session: Session,
+    *,
+    job_id: int,
+    application_id: int | None,
+    flags: list[dict[str, Any]],
+) -> int:
+    """Create one ReviewFlag row per flag dict. Returns number written.
+
+    `flags` is the list produced by Applicator.apply() in
+    `ApplyResult.review_flags`. Each dict has field_name/field_label/
+    field_kind/required/options/reason/question_type/attempted_value.
+
+    Safe to call with an empty list — returns 0 and writes nothing.
+    """
+    n = 0
+    for f in flags or []:
+        opts = f.get("options") or []
+        if not isinstance(opts, list):
+            opts = []
+        session.add(
+            ReviewFlag(
+                job_id=job_id,
+                application_id=application_id,
+                field_name=str(f.get("field_name") or "")[:256],
+                field_label=str(f.get("field_label") or ""),
+                field_kind=str(f.get("field_kind") or "")[:32],
+                required=bool(f.get("required", False)),
+                options=opts,
+                reason=str(f.get("reason") or "unresolved")[:32],
+                question_type=(f.get("question_type") or None),
+                attempted_value=str(f.get("attempted_value") or ""),
+            )
+        )
+        n += 1
+    return n
 
 
 # -- Security events (append-only; immutable) -----------------------------

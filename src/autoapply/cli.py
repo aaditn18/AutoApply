@@ -52,7 +52,9 @@ from autoapply.tracker.models import (
     Application,
     Event,
     Job,
+    ReviewFlag,
     SecurityEvent,
+    persist_review_flags,
 )
 
 
@@ -488,6 +490,23 @@ def apply_cmd(
                             severity="high",
                         )
                     )
+                # Also record a review flag so this shows up alongside other
+                # per-question flags when auditing review status causes.
+                persist_review_flags(
+                    s,
+                    job_id=job.id,
+                    application_id=None,
+                    flags=[{
+                        "field_name": "cover_letter",
+                        "field_label": "Cover letter (rejected: injection leak)",
+                        "field_kind": "textarea",
+                        "required": False,
+                        "options": [],
+                        "reason": "cover_letter_injection",
+                        "question_type": None,
+                        "attempted_value": "",
+                    }],
+                )
                 job.status = "queued_review"
                 reviews += 1
                 continue
@@ -503,19 +522,19 @@ def apply_cmd(
 
             result = applicator.apply(job, dry_run=effective_dry_run)
 
-            s.add(
-                Application(
-                    job_id=job.id,
-                    track_submitted=job.track,
-                    dry_run=effective_dry_run,
-                    outcome=result.outcome,
-                    error_code=result.error_code,
-                    error_message=result.error_message,
-                    answers=result.answers,
-                    cover_letter_text=cover_letter_text,
-                    artifacts=result.artifacts,
-                )
+            app_row = Application(
+                job_id=job.id,
+                track_submitted=job.track,
+                dry_run=effective_dry_run,
+                outcome=result.outcome,
+                error_code=result.error_code,
+                error_message=result.error_message,
+                answers=result.answers,
+                cover_letter_text=cover_letter_text,
+                artifacts=result.artifacts,
             )
+            s.add(app_row)
+            s.flush()  # populate app_row.id for FK linkage below
             s.add(
                 Event(
                     kind=f"apply:{result.outcome}",
@@ -529,6 +548,19 @@ def apply_cmd(
             )
 
             if result.outcome == "review":
+                # Persist per-field flags for later analysis / answer-bank mining.
+                n_flags = persist_review_flags(
+                    s,
+                    job_id=job.id,
+                    application_id=app_row.id,
+                    flags=result.review_flags,
+                )
+                if n_flags:
+                    log.info(
+                        "persisted %d review flag(s) for job=%s",
+                        n_flags,
+                        job.canonical_key,
+                    )
                 job.status = "queued_review"
                 reviews += 1
             elif result.outcome == "dry_run":

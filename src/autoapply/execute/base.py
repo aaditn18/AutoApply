@@ -54,6 +54,11 @@ class ApplyResult:
     artifacts: dict[str, Any] = field(default_factory=dict)
     cover_letter_text: str = ""
     review_reasons: list[str] = field(default_factory=list)
+    # Structured per-field flag records. Persisted to the review_flags table
+    # by the caller so we can mine "questions that blocked us" over time.
+    # Each entry: field_name, field_label, field_kind, required, options,
+    #             reason, question_type, attempted_value
+    review_flags: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _now_iso() -> str:
@@ -118,16 +123,49 @@ class Applicator(ABC):
         )
 
         review_reasons: list[str] = []
+        review_flags: list[dict[str, Any]] = []
+        spec_by_name = {s.name: s for s in specs}
+
         if unresolved:
             review_reasons.extend(
                 f"unresolved:{u.name or u.label}" for u in unresolved
             )
+            for u in unresolved:
+                sp = spec_by_name.get(u.name)
+                review_flags.append({
+                    "field_name": u.name,
+                    "field_label": u.label,
+                    "field_kind": sp.kind if sp else "",
+                    "required": sp.required if sp else False,
+                    "options": list(sp.options) if sp else [],
+                    "reason": "unresolved",
+                    "question_type": None,
+                    "attempted_value": "",
+                })
+
         if any(r.requires_llm or r.requires_review for r in resolved):
             review_reasons.extend(
                 f"{'llm' if r.requires_llm else 'review'}:{r.name}"
                 for r in resolved
                 if r.requires_llm or r.requires_review
             )
+            for r in resolved:
+                if not (r.requires_llm or r.requires_review):
+                    continue
+                sp = spec_by_name.get(r.name)
+                qt = r.question_type.value if r.question_type and hasattr(r.question_type, "value") else (
+                    r.question_type if isinstance(r.question_type, str) else None
+                )
+                review_flags.append({
+                    "field_name": r.name,
+                    "field_label": r.label,
+                    "field_kind": sp.kind if sp else "",
+                    "required": sp.required if sp else False,
+                    "options": list(sp.options) if sp else [],
+                    "reason": "requires_llm" if r.requires_llm else "requires_review",
+                    "question_type": qt,
+                    "attempted_value": r.value or "",
+                })
 
         answers = {r.name: r.value for r in resolved if r.value}
 
@@ -139,6 +177,7 @@ class Applicator(ABC):
                 unresolved=[{"name": u.name, "label": u.label, "reason": u.reason} for u in unresolved],
                 cover_letter_text=self.cover_letter_text or "",
                 review_reasons=review_reasons,
+                review_flags=review_flags,
             )
 
         payload = self.build_payload(job, resolved)

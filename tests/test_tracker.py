@@ -14,7 +14,9 @@ from autoapply.tracker.models import (
     Application,
     Event,
     Job,
+    ReviewFlag,
     SecurityEvent,
+    persist_review_flags,
 )
 
 
@@ -262,6 +264,103 @@ def test_security_event_defaults(engine):
         ev = s.query(SecurityEvent).first()
         assert ev.severity == "medium"
         assert ev.pattern_matched == ""
+
+
+# -- ReviewFlag + persist_review_flags -------------------------------------
+
+
+def test_persist_review_flags_writes_rows(engine):
+    with session_scope(engine) as s:
+        job = _mk_job(canonical_key="rf-1")
+        s.add(job)
+        s.flush()
+        job_id = job.id
+
+    flags = [
+        {
+            "field_name": "why_us",
+            "field_label": "Why do you want to work here?",
+            "field_kind": "textarea",
+            "required": True,
+            "options": [],
+            "reason": "requires_llm",
+            "question_type": "why_company",
+            "attempted_value": "",
+        },
+        {
+            "field_name": "custom_q_42",
+            "field_label": "Describe a time you solved a tough bug.",
+            "field_kind": "textarea",
+            "required": False,
+            "options": [],
+            "reason": "unresolved",
+            "question_type": None,
+            "attempted_value": "",
+        },
+    ]
+
+    with session_scope(engine) as s:
+        n = persist_review_flags(s, job_id=job_id, application_id=None, flags=flags)
+        assert n == 2
+
+    with session_scope(engine) as s:
+        rows = s.query(ReviewFlag).order_by(ReviewFlag.id).all()
+        assert len(rows) == 2
+        assert rows[0].field_name == "why_us"
+        assert rows[0].reason == "requires_llm"
+        assert rows[0].question_type == "why_company"
+        assert rows[0].required is True
+        assert rows[1].field_name == "custom_q_42"
+        assert rows[1].reason == "unresolved"
+        assert rows[1].question_type is None
+        assert rows[1].required is False
+
+
+def test_persist_review_flags_with_application_id(engine):
+    with session_scope(engine) as s:
+        job = _mk_job(canonical_key="rf-2")
+        s.add(job)
+        s.flush()
+        app = Application(job_id=job.id, track_submitted="swe", outcome="review")
+        s.add(app)
+        s.flush()
+        job_id, app_id = job.id, app.id
+
+    flags = [{
+        "field_name": "pronouns",
+        "field_label": "Preferred pronouns",
+        "field_kind": "select",
+        "required": True,
+        "options": ["He/Him", "She/Her", "They/Them"],
+        "reason": "requires_review",
+        "question_type": "demo_pronouns",
+        "attempted_value": "",
+    }]
+
+    with session_scope(engine) as s:
+        n = persist_review_flags(s, job_id=job_id, application_id=app_id, flags=flags)
+        assert n == 1
+
+    with session_scope(engine) as s:
+        row = s.query(ReviewFlag).one()
+        assert row.job_id == job_id
+        assert row.application_id == app_id
+        assert row.options == ["He/Him", "She/Her", "They/Them"]
+
+
+def test_persist_review_flags_empty_list_is_noop(engine):
+    with session_scope(engine) as s:
+        job = _mk_job(canonical_key="rf-3")
+        s.add(job)
+        s.flush()
+        job_id = job.id
+
+    with session_scope(engine) as s:
+        n = persist_review_flags(s, job_id=job_id, application_id=None, flags=[])
+        assert n == 0
+
+    with session_scope(engine) as s:
+        assert s.query(ReviewFlag).count() == 0
 
 
 # -- session_scope semantics ------------------------------------------------

@@ -38,8 +38,14 @@ from autoapply.answers.bank import AnswerBank
 from autoapply.congregate.cover_letter import CoverLetterRejected, CoverLetterResult, draft_cover_letter
 from autoapply.execute.greenhouse_apply import GreenhouseApplicator
 from autoapply.profile.schema import Profile
-from autoapply.tracker.db import create_engine_from_settings, session_scope
-from autoapply.tracker.models import Application, Event, Job, SecurityEvent
+from autoapply.tracker.db import create_engine_from_settings, init_db, session_scope
+from autoapply.tracker.models import (
+    Application,
+    Event,
+    Job,
+    SecurityEvent,
+    persist_review_flags,
+)
 from autoapply.security.injection_guard import InjectionDetected
 from sqlalchemy.orm import Session
 
@@ -183,6 +189,17 @@ def _apply_one(
             detail={"dry_run": dry_run, "application_id": app.id},
         ))
 
+        # Persist per-field review flags when the application needs human review.
+        if result.outcome == "review":
+            n_flags = persist_review_flags(
+                s,
+                job_id=job.id,
+                application_id=app.id,
+                flags=result.review_flags,
+            )
+            if n_flags:
+                log.info("  flagged %d field(s) for review", n_flags)
+
         # Update job status
         j = s.get(Job, job.id)
         if result.outcome == "ok":
@@ -227,6 +244,7 @@ def main() -> None:
     dry_run = not args.no_dry_run
     settings = get_settings()
     engine = create_engine_from_settings()
+    init_db(engine)  # idempotent; ensures review_flags table exists
 
     candidates = _best_per_company(engine)
 
