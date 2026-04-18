@@ -66,15 +66,22 @@ def _department(p: dict[str, Any]) -> str:
 class LeverSource(JobSource):
     name = "lever"
 
-    def __init__(self, timeout: float = 20.0, user_agent: str = "AutoApply/0.1"):
-        self._client = httpx.Client(
-            timeout=timeout,
-            headers={"User-Agent": user_agent, "Accept": "application/json"},
-            follow_redirects=True,
-        )
+    def __init__(
+        self,
+        timeout: float = 20.0,
+        user_agent: str = "AutoApply/0.1",
+        client: httpx.Client | None = None,
+    ):
+        # `client` is injected by tests. In production we use curl_cffi with
+        # a real Chrome TLS fingerprint because Lever's edge silently hangs
+        # connections from Python/OpenSSL's default JA3 (confirmed 2026-04-18).
+        self._client = client
+        self._timeout = timeout
+        self._user_agent = user_agent
 
     def close(self) -> None:
-        self._client.close()
+        if self._client is not None:
+            self._client.close()
 
     def __enter__(self) -> "LeverSource":
         return self
@@ -84,17 +91,41 @@ class LeverSource(JobSource):
 
     def fetch_board(self, board_token: str) -> Iterable[RawJob]:
         url = f"{LEVER_BASE}/{board_token}?mode=json"
-        try:
-            resp = self._client.get(url)
-            resp.raise_for_status()
-        except httpx.HTTPError as exc:
-            log.warning("lever fetch failed for %s: %s", board_token, exc)
-            return
-        data = resp.json()
-        if not isinstance(data, list):
+        data = self._get_json(url, board_token)
+        if data is None or not isinstance(data, list):
             return
         for p in data:
             yield self._to_raw(p, board_token)
+
+    def _get_json(self, url: str, board_token: str) -> Any:
+        """GET a JSON document, or return None on any failure (logged)."""
+        if self._client is not None:
+            try:
+                resp = self._client.get(url)
+                resp.raise_for_status()
+                return resp.json()
+            except httpx.HTTPError as exc:
+                log.warning("lever fetch failed for %s: %s", board_token, exc)
+                return None
+
+        from curl_cffi import requests as cc  # local import — heavy
+        try:
+            resp = cc.get(
+                url,
+                impersonate="chrome124",
+                timeout=self._timeout,
+                headers={"Accept": "application/json"},
+            )
+            if resp.status_code >= 400:
+                log.warning(
+                    "lever fetch %s → HTTP %s (len=%d)",
+                    board_token, resp.status_code, len(resp.text),
+                )
+                return None
+            return resp.json()
+        except Exception as exc:
+            log.warning("lever fetch failed for %s: %s", board_token, exc)
+            return None
 
     def _to_raw(self, p: dict[str, Any], board_token: str) -> RawJob:
         posting_id = str(p.get("id", ""))

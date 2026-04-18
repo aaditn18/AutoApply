@@ -42,7 +42,8 @@ class QuestionType(str, Enum):
     REQUIRE_SPONSORSHIP_NOW = "require_sponsorship_now"
     REQUIRE_SPONSORSHIP_FUTURE = "require_sponsorship_future"
     VISA_STATUS = "visa_status"
-    CITIZENSHIP = "citizenship"
+    CITIZENSHIP = "citizenship"              # country of citizenship (e.g. "India")
+    US_CITIZEN = "us_citizen"                # Yes/No — "Are you a U.S. citizen?"
 
     # -- Experience -------------------------------------------------------
     YOE_LANGUAGE = "yoe_language"           # slot: skill

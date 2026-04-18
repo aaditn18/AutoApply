@@ -79,6 +79,11 @@ _MACHINE_KEY_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^resume(?:_file|_text|_doc|_upload)?$", re.I), "resume"),
     (re.compile(r"^cv$", re.I), "resume"),
     (re.compile(r"^cover[_\-]?letter$", re.I), "cover_letter"),
+    # Lever EEO / ADA disability attestation fields — signature date MUST be
+    # matched before signature (date ends in "Date"; the plain signature rule
+    # would also match that substring, so order matters here).
+    (re.compile(r"disability.*signature.*date", re.I), "today_date"),
+    (re.compile(r"disability.*signature", re.I), "full_name"),
     (re.compile(r"linkedin", re.I), "linkedin_url"),
     (re.compile(r"github", re.I), "github_url"),
     (re.compile(r"portfolio|website", re.I), "website_url"),
@@ -110,6 +115,10 @@ def _profile_value(attr: str, profile: Profile) -> str | None:
         return profile.linkedin_url or None
     if attr == "github_url":
         return profile.github_url or None
+    if attr == "today_date":
+        # Lever's EEO signature-date field. Common US format is MM/DD/YYYY.
+        from datetime import date as _date
+        return _date.today().strftime("%m/%d/%Y")
     # website_url / location aren't on Profile → fall back to classifier path.
     return None
 

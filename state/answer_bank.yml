@@ -33,10 +33,14 @@ visa_status:
   _default: "F-1 (OPT)"     # snap_to_option will match "F-1", "OPT", etc.
 
 citizenship:
-  # TODO(aadit): fill in your actual country of citizenship below.
-  # This field routes to review when left as REVIEW — the agent will open
-  # a GitHub Issue asking you to confirm the answer before submitting.
-  _default: "India"         # << FILL IN: e.g. "India", "Pakistan", etc.
+  # Country of citizenship — long-form fields ask "What is your citizenship?"
+  _default: "India"
+
+us_citizen:
+  # Yes/No — "Are you a U.S. citizen?". Aadit is an Indian citizen on F-1 OPT,
+  # so this is always No. Do NOT confuse with work authorization
+  # (work_authorized_us = Yes, because OPT IS valid US work auth).
+  _default: "No"
 
 # -- Experience (general) ---------------------------------------------------
 
@@ -160,7 +164,7 @@ previously_employed_here:
   _default: "No"
 
 currently_employed_elsewhere:
-  _default: "No"
+  _default: "Yes"
 
 # -- Consents ---------------------------------------------------------------
 

@@ -2,12 +2,15 @@
 """
 apply_best_per_company.py — Apply to the highest-scored job at each unique company.
 
-For every company that has scored Greenhouse jobs not yet applied to, this script
-picks the single best-ranked job and submits one application per company.
+For every company that has scored jobs not yet applied to, this script picks the
+single best-ranked job and submits one application per company. Supports
+Greenhouse, Lever, or both simultaneously.
 
 Usage:
     # Dry run (default — inspect what would be submitted):
     python scripts/apply_best_per_company.py
+    python scripts/apply_best_per_company.py --source lever
+    python scripts/apply_best_per_company.py --source both
 
     # Real submissions:
     python scripts/apply_best_per_company.py --no-dry-run
@@ -37,6 +40,7 @@ from autoapply.config import get_settings
 from autoapply.answers.bank import AnswerBank
 from autoapply.congregate.cover_letter import CoverLetterRejected, CoverLetterResult, draft_cover_letter
 from autoapply.execute.greenhouse_apply import GreenhouseApplicator
+from autoapply.execute.lever_apply import LeverApplicator
 from autoapply.profile.schema import Profile
 from autoapply.tracker.db import create_engine_from_settings, init_db, session_scope
 from autoapply.tracker.models import (
@@ -78,7 +82,12 @@ def _load_profile_and_bank(settings) -> tuple[dict[str, Profile], AnswerBank]:
 
 
 def _best_per_company(engine, source: str = "greenhouse") -> list[Job]:
-    """Return the highest-ranked scored job per company (not yet applied to)."""
+    """Return the highest-ranked scored job per company (not yet applied to).
+
+    `source` may be "greenhouse", "lever", or "both".
+    Companies are disambiguated per-source via a `{source}:{company}` key so
+    the same company on two boards doesn't get collapsed into one row.
+    """
     with Session(engine) as s:
         # Exclude any job that appears in the applications table (any outcome)
         # AND any job that has a real successful application (even if job.status
@@ -93,26 +102,27 @@ def _best_per_company(engine, source: str = "greenhouse") -> list[Job]:
             .all()
         }
         excluded = applied_ids | ok_ids
-        jobs = (
-            s.query(Job)
-            .filter(
-                Job.source == source,
-                Job.status == "scored",
-                Job.track.in_(["swe", "ml", "hpc", "quant"]),
-                ~Job.id.in_(excluded),
-            )
-            .order_by(Job.final_rank.desc())
-            .all()
+        q = s.query(Job).filter(
+            Job.status == "scored",
+            Job.track.in_(["swe", "ml", "hpc", "quant"]),
+            ~Job.id.in_(excluded),
         )
+        if source == "both":
+            q = q.filter(Job.source.in_(["greenhouse", "lever"]))
+        else:
+            q = q.filter(Job.source == source)
+        jobs = q.order_by(Job.final_rank.desc()).all()
 
     best: dict[str, Job] = {}
     for j in jobs:
-        co = j.company
-        if co not in best or j.final_rank > best[co].final_rank:
-            best[co] = j
+        # Key by source+company so the same company name on GH and Lever
+        # doesn't collapse into a single entry.
+        key = f"{j.source}:{j.company}"
+        if key not in best or (j.final_rank or 0) > (best[key].final_rank or 0):
+            best[key] = j
 
     # Return sorted highest-rank-first
-    return sorted(best.values(), key=lambda j: -j.final_rank)
+    return sorted(best.values(), key=lambda j: -(j.final_rank or 0))
 
 
 def _apply_one(
@@ -153,7 +163,14 @@ def _apply_one(
             ))
         log.warning("injection in cover letter for %s — using blank", job.canonical_key)
 
-    applicator = GreenhouseApplicator(
+    applicator_cls = {
+        "greenhouse": GreenhouseApplicator,
+        "lever": LeverApplicator,
+    }.get(job.source)
+    if applicator_cls is None:
+        return {"outcome": "skip", "reason": f"unsupported source: {job.source}"}
+
+    applicator = applicator_cls(
         profile=profile,
         bank=bank,
         track=track,
@@ -229,7 +246,7 @@ def _apply_one(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Apply to the best job at each unique Greenhouse company."
+        description="Apply to the best job at each unique company (GH / Lever)."
     )
     parser.add_argument("--no-dry-run", action="store_true",
                         help="Submit real applications (default: dry run)")
@@ -239,6 +256,12 @@ def main() -> None:
                         help="Just print the plan, don't apply anything")
     parser.add_argument("--min-rank", type=float, default=0.0,
                         help="Minimum final_rank to include (default 0.0)")
+    parser.add_argument("--source", choices=["greenhouse", "lever", "both"],
+                        default="greenhouse",
+                        help="Which ATS to pull candidates from (default: greenhouse)")
+    parser.add_argument("--board-token", default="",
+                        help="Restrict to a specific board token (e.g. 'whoop'). "
+                             "Useful for smoke-testing a single Lever company.")
     args = parser.parse_args()
 
     dry_run = not args.no_dry_run
@@ -246,7 +269,9 @@ def main() -> None:
     engine = create_engine_from_settings()
     init_db(engine)  # idempotent; ensures review_flags table exists
 
-    candidates = _best_per_company(engine)
+    candidates = _best_per_company(engine, source=args.source)
+    if args.board_token:
+        candidates = [j for j in candidates if j.board_token == args.board_token]
 
     # Apply rank filter
     if args.min_rank > 0:
@@ -262,14 +287,17 @@ def main() -> None:
 
     # ── Print the plan ───────────────────────────────────────────────────────
     print()
-    print(f"{'='*90}")
-    print(f"  PLAN — {'DRY RUN' if dry_run else '⚡ REAL SUBMISSIONS'}  |  {len(candidates)} companies")
-    print(f"{'='*90}")
-    print(f"  {'#':>3}  {'Rank':>6}  {'Track':5}  {'Company':30}  {'Best Job'}")
-    print(f"  {'-'*3}  {'-'*6}  {'-'*5}  {'-'*30}  {'-'*40}")
+    print(f"{'='*96}")
+    print(f"  PLAN — {'DRY RUN' if dry_run else '⚡ REAL SUBMISSIONS'}  |  "
+          f"source={args.source}  |  {len(candidates)} companies")
+    print(f"{'='*96}")
+    print(f"  {'#':>3}  {'Src':4}  {'Rank':>6}  {'Track':5}  {'Company':28}  {'Best Job'}")
+    print(f"  {'-'*3}  {'-'*4}  {'-'*6}  {'-'*5}  {'-'*28}  {'-'*40}")
     for i, j in enumerate(candidates, 1):
-        print(f"  {i:>3}  {j.final_rank:.3f}  {j.track:5}  {j.company[:30]:30}  {j.title[:45]}")
-    print(f"{'='*90}")
+        src_tag = (j.source or "?")[:4]
+        print(f"  {i:>3}  {src_tag:4}  {j.final_rank:.3f}  {j.track:5}  "
+              f"{j.company[:28]:28}  {j.title[:45]}")
+    print(f"{'='*96}")
     print()
 
     if args.plan:

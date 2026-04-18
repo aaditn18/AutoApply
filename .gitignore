@@ -52,5 +52,9 @@ state/dry_runs/*.json
 state/dry_runs/*.png
 !state/dry_runs/.gitkeep
 
+# Failed-submit debug dumps (screenshots, annotated captcha clicks, state)
+# Useful locally, never committed — regenerated on every failed run.
+state/failed_submits/
+
 # Session states (encrypted; never commit raw)
 state/session_*.json

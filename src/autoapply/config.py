@@ -49,6 +49,30 @@ class Settings(BaseSettings):
     # which causes hCaptcha to pass silently without a user challenge.
     HCAPTCHA_ACCESSIBILITY_TOKEN: str = ""
 
+    # Third-party captcha solver (paid).  When CAPTCHA_SOLVER is set to a
+    # supported provider AND CAPTCHA_SOLVER_API_KEY is populated, AutoApply
+    # will submit any blocking hCaptcha (or reCAPTCHA v2) challenge it
+    # encounters to the solver's API, wait for a token, inject the token
+    # into the page, and retry the submit.
+    #   CAPTCHA_SOLVER = "" | "anticaptcha" | "capsolver" | "2captcha" |
+    #                    "2captcha_coords" | "capmonster"
+    # Typical cost: ~$1–$3 per 1000 hCaptcha solves.
+    # Notes:
+    #   "anticaptcha"     — most reliable; no account-level gating.
+    #   "2captcha"        — SMART ROUTING: detects captcha type (hCaptcha
+    #                       image-grid, reCAPTCHA v2, Turnstile) and calls
+    #                       the corresponding task type on 2Captcha's JSON
+    #                       API v2 (api.2captcha.com/createTask). hCaptcha
+    #                       routes to GridTask — 2Captcha dropped hCaptcha
+    #                       token solving from their current API entirely.
+    #   "2captcha_coords" — legacy alias forcing the Grid path; debug-only.
+    # Register at https://anti-captcha.com, https://www.capsolver.com,
+    # https://2captcha.com, or https://capmonster.cloud.
+    CAPTCHA_SOLVER: str = ""
+    CAPTCHA_SOLVER_API_KEY: str = ""
+    # Maximum seconds to wait for the solver to return a token.
+    CAPTCHA_SOLVER_TIMEOUT: int = 180
+
     # --- Email verification (Greenhouse OTP) ---
     # Some Greenhouse tenants send a one-time code to the applicant's email
     # to confirm identity before the application is accepted.  When these

@@ -52,7 +52,12 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
 
     # Visa / citizenship
     ("What is your current visa status?", QuestionType.VISA_STATUS, None),
-    ("Are you a US citizen?", QuestionType.CITIZENSHIP, None),
+    # "Are you a US citizen?" is a yes/no question — resolved separately
+    # from the country-of-citizenship long-form question. Order matters in
+    # the classifier: US_CITIZEN rules are evaluated before CITIZENSHIP.
+    ("Are you a US citizen?", QuestionType.US_CITIZEN, None),
+    ("Are you a U.S. citizen?", QuestionType.US_CITIZEN, None),
+    ("What is your country of citizenship?", QuestionType.CITIZENSHIP, None),
 
     # -- YOE (with + without skill slot) -----------------------------------
     ("How many years of experience do you have with Python?", QuestionType.YOE_LANGUAGE, {"skill": "Python"}),

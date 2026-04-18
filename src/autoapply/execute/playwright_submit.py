@@ -198,6 +198,9 @@ def submit_lever(
     imap_email: str = "",
     imap_password: str = "",
     imap_code_timeout: int = 90,
+    captcha_solver: str = "",
+    captcha_solver_api_key: str = "",
+    captcha_solver_timeout: int = 180,
 ) -> dict[str, Any]:
     """Fill and submit a Lever application form via Playwright.
 
@@ -225,6 +228,13 @@ def submit_lever(
             "secure": True,
             "sameSite": "None",
         })
+    else:
+        log.warning(
+            "submit_lever: HCAPTCHA_ACCESSIBILITY_TOKEN not set — "
+            "Lever's hCaptcha widget may block submission. Register once at "
+            "https://accounts.hcaptcha.com/accessibility, then copy the "
+            "hc_accessibility cookie value into .env."
+        )
 
     return _submit_form(
         url=url,
@@ -244,6 +254,9 @@ def submit_lever(
         imap_email=imap_email,
         imap_password=imap_password,
         imap_code_timeout=imap_code_timeout,
+        captcha_solver=captcha_solver,
+        captcha_solver_api_key=captcha_solver_api_key,
+        captcha_solver_timeout=captcha_solver_timeout,
     )
 
 
@@ -264,6 +277,9 @@ def _submit_form(
     imap_email: str = "",
     imap_password: str = "",
     imap_code_timeout: int = 90,
+    captcha_solver: str = "",
+    captcha_solver_api_key: str = "",
+    captcha_solver_timeout: int = 180,
 ) -> dict[str, Any]:
     from playwright.sync_api import sync_playwright
     from playwright.sync_api import TimeoutError as PWTimeout  # noqa: F401
@@ -302,7 +318,7 @@ def _submit_form(
 
         try:
             log.info("playwright: navigating to %s", url)
-            page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            page.goto(url, wait_until="domcontentloaded", timeout=60_000)
             _jitter(1.0, 2.5)
 
             # Abort if CAPTCHA is immediately visible.
@@ -394,6 +410,66 @@ def _submit_form(
             if "jobs.lever.co" in url:
                 _fill_lever_cards(page, set(data.keys()), field_errors)
 
+            # ------ Lever pre-submit diagnostic dump -----------------------
+            # Log the actual filled values of every `name=` field on the form
+            # so we can tell at a glance whether our fills stuck or were
+            # wiped by a React re-render. Also log any unfilled required
+            # fields so we can see what Lever will reject us on.
+            if "jobs.lever.co" in url:
+                try:
+                    state = page.evaluate(
+                        """() => {
+                            const rows = [];
+                            const unfilled_required = [];
+                            const radio_group_checked = {};  // name → any-checked?
+                            // Pass 1: determine if each radio-group name has
+                            // any checked sibling so we don't flag the
+                            // unchecked radios as "unfilled required".
+                            document.querySelectorAll('input[type="radio"][name]').forEach(el => {
+                                const n = el.getAttribute('name');
+                                if (!n) return;
+                                if (el.checked) radio_group_checked[n] = true;
+                            });
+
+                            document.querySelectorAll('[name]').forEach(el => {
+                                const n = el.getAttribute('name');
+                                if (!n) return;
+                                const t = (el.getAttribute('type') || el.tagName).toLowerCase();
+                                if (t === 'hidden') return;
+                                let v = '';
+                                if (t === 'checkbox' || t === 'radio') {
+                                    v = el.checked ? (el.value || 'on') : '';
+                                } else {
+                                    v = el.value || '';
+                                }
+                                rows.push({name: n, type: t, value: (v || '').slice(0, 60)});
+                                // Required + empty → flag it, but skip
+                                // unchecked radios whose group has a checked sibling.
+                                const req = el.required
+                                    || el.getAttribute('aria-required') === 'true'
+                                    || el.closest('.application-question')?.querySelector('.required');
+                                const skip_radio = (t === 'radio' && radio_group_checked[n]);
+                                if (req && !v && !skip_radio && t !== 'file' && t !== 'submit') {
+                                    unfilled_required.push({name: n, type: t});
+                                }
+                            });
+                            return {rows, unfilled_required};
+                        }"""
+                    )
+                    for row in state.get("rows", [])[:40]:
+                        log.info(
+                            "pre-submit field %-40s type=%-10s value=%r",
+                            row["name"][:40], row["type"], row["value"],
+                        )
+                    if state.get("unfilled_required"):
+                        log.warning(
+                            "pre-submit UNFILLED REQUIRED fields (%d): %s",
+                            len(state["unfilled_required"]),
+                            [f["name"] for f in state["unfilled_required"]][:20],
+                        )
+                except Exception as exc:
+                    log.debug("pre-submit diagnostic failed: %s", exc)
+
             # ------ Submit -------------------------------------------------
             _jitter(1.0, 3.0)
             try:
@@ -411,8 +487,22 @@ def _submit_form(
             _jitter(1.0, 2.0)
 
             # CAPTCHA on the post-submit page?
-            if _detect_captcha(page):
-                raise CaptchaDetected("CAPTCHA appeared after submit attempt")
+            # hCaptcha's challenge modal can take several seconds to render
+            # after the submit click (async challenge fetch + image preload),
+            # so poll a short window instead of one-shot checking.
+            if _wait_for_captcha(page, timeout=12.0):
+                # If a third-party solver is configured, try to solve the
+                # hCaptcha and retry the submit once. Otherwise surface as
+                # CaptchaDetected so the caller routes the app to review.
+                solved = _maybe_solve_and_retry_captcha(
+                    page,
+                    submit_selector=submit_selector,
+                    solver=captcha_solver,
+                    api_key=captcha_solver_api_key,
+                    timeout=captcha_solver_timeout,
+                )
+                if not solved:
+                    raise CaptchaDetected("CAPTCHA appeared after submit attempt")
 
             # Early success check — if the post-submit page is already a
             # confirmation page, skip the OTP path (Lever's confirmation page
@@ -486,6 +576,50 @@ def _submit_form(
                     )
                 except Exception:
                     pass
+
+                # Lever-only: save a screenshot + mark any hCaptcha iframes we
+                # can see. The screenshot is named by URL hash so it doesn't
+                # collide with other runs. Helps debug silent hCaptcha fails
+                # without standing up a headful browser.
+                if "jobs.lever.co" in url:
+                    try:
+                        import hashlib
+                        shot_dir = Path("state") / "failed_submits"
+                        shot_dir.mkdir(parents=True, exist_ok=True)
+                        tag = hashlib.md5(url.encode()).hexdigest()[:10]
+                        shot_path = shot_dir / f"lever_{tag}.png"
+                        page.screenshot(path=str(shot_path), full_page=True)
+                        log.info("saved failure screenshot: %s", shot_path)
+                    except Exception as exc:
+                        log.debug("screenshot failed: %s", exc)
+
+                    try:
+                        hc_info = page.evaluate(
+                            """() => {
+                                const frames = Array.from(
+                                    document.querySelectorAll('iframe[src*="hcaptcha"]')
+                                ).map(f => f.src);
+                                const errorNodes = Array.from(
+                                    document.querySelectorAll('.error, .alert-error, [class*="error"]')
+                                )
+                                .filter(e => e.offsetParent !== null)  // visible only
+                                .map(e => (e.innerText || '').trim().slice(0, 200))
+                                .filter(Boolean);
+                                return {hcaptcha_frames: frames.slice(0, 6), errors: errorNodes.slice(0, 8)};
+                            }"""
+                        )
+                        if hc_info.get("hcaptcha_frames"):
+                            log.info(
+                                "hCaptcha iframes present after submit: %s",
+                                hc_info["hcaptcha_frames"],
+                            )
+                        if hc_info.get("errors"):
+                            log.warning(
+                                "visible post-submit errors: %s",
+                                hc_info["errors"],
+                            )
+                    except Exception as exc:
+                        log.debug("post-submit probe failed: %s", exc)
 
             return {
                 "ok": success,
@@ -1305,21 +1439,81 @@ def _detect_captcha(page: Any) -> bool:
     if "recaptcha/api2/bframe" in content:
         return True
 
-    # hCaptcha POPUP challenge iframe.
-    # Lever embeds hCaptcha on every apply page as a background widget; that
-    # alone does NOT constitute a blocking challenge.  The POPUP challenge frame
-    # has "frame=challenge" in its src.  Only flag when that specific frame
-    # is rendered — or when the hCaptcha checkbox widget is explicitly shown
-    # (src contains "/captcha/v1/.../frame=checkbox").
-    #
-    # Implementation: use DOM query rather than raw-content string search so
-    # we only flag when the frame is actually present in the live DOM.
+    # hCaptcha blocking challenge detection.
+    # Lever embeds hCaptcha as a background "enclave" iframe on every apply
+    # page — that alone is NOT a challenge. A blocking challenge appears as:
+    #   (a) iframe src contains "frame=challenge" / "/challenge" /
+    #       "frame=challenge-expanded" / "frame=challenge-hl", OR
+    #   (b) a visible hCaptcha iframe that has been resized to challenge
+    #       dimensions (>300 px tall — the widget is ~80 px, the challenge
+    #       modal is 500+ px), OR
+    #   (c) a challenge-puzzle text phrase appears inside the frame contents
+    #       ("please click each image containing …").
     try:
         challenge_iframes = page.locator(
             'iframe[src*="hcaptcha"][src*="frame=challenge"],'
             'iframe[src*="hcaptcha"][src*="/challenge"]'
         )
         if challenge_iframes.count() > 0:
+            return True
+    except Exception:
+        pass
+
+    # Any visible hCaptcha iframe at MODAL size is almost certainly a
+    # challenge popup. Idle checkbox widgets are typically ~300×74; the
+    # idle "I am human" expanded widget can be ~300×300 on some Lever
+    # boards, so we set the threshold at 400×400 (real challenge modals
+    # are ~500×570+).
+    try:
+        for frame_el in page.locator('iframe[src*="hcaptcha"]').all()[:6]:
+            if not frame_el.is_visible():
+                continue
+            box = frame_el.bounding_box()
+            if box and box.get("height", 0) >= 400 and box.get("width", 0) >= 400:
+                return True
+    except Exception:
+        pass
+
+    # Look inside each hCaptcha-owned frame for challenge-puzzle prompts.
+    # Keep the list narrow — only phrases that appear on an ACTIVE puzzle,
+    # never on the idle checkbox widget. "Verify you are human" / "I am
+    # human" live on the idle widget and must NOT be in this list.
+    _HCAPTCHA_CHALLENGE_PHRASES = (
+        "please click each image containing",
+        "please click on all images",
+        "please click each image",
+        "select all images",
+        "please select all",
+        "click the images",
+        "click each image",
+        "click each picture",
+    )
+    try:
+        for fr in page.frames:
+            url_l = (getattr(fr, "url", "") or "").lower()
+            if "hcaptcha" not in url_l:
+                continue
+            try:
+                frame_text = fr.evaluate(
+                    "() => (document.body && document.body.innerText) || ''"
+                )
+            except Exception:
+                continue
+            tl = (frame_text or "").lower()
+            if any(p in tl for p in _HCAPTCHA_CHALLENGE_PHRASES):
+                return True
+    except Exception:
+        pass
+
+    # hCaptcha's modal container — when the challenge is open, a DIV with
+    # role="dialog" + aria-modal=true exists in the main document. Some
+    # sites render this without an iframe we can read cross-origin.
+    try:
+        modal = page.locator(
+            'div[role="dialog"][aria-modal="true"], '
+            'div[class*="hcaptcha"][class*="challenge"]'
+        )
+        if modal.count() > 0 and modal.first.is_visible():
             return True
     except Exception:
         pass
@@ -1336,6 +1530,22 @@ def _detect_captcha(page: Any) -> bool:
         return True
 
     return False
+
+
+def _wait_for_captcha(page: Any, *, timeout: float = 10.0, poll: float = 0.6) -> bool:
+    """Poll `_detect_captcha` for up to `timeout` seconds.
+
+    hCaptcha's challenge modal loads asynchronously after the submit click —
+    the enclave iframe expands, images fetch, then the prompt text renders.
+    A single `_detect_captcha` call right after submit often misses it.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if _detect_captcha(page):
+            return True
+        time.sleep(poll)
+    # One last check at the deadline.
+    return _detect_captcha(page)
 
 
 def _fill_lever_cards(
@@ -1437,8 +1647,23 @@ def _card_heuristic_answer(q_text: str, q_type: str, options: list[str]) -> str 
     """
     lo = q_text.lower()
 
-    # ── US Citizen / work authorization ────────────────────────────────────
-    if any(w in lo for w in ("citizen", "eligible to work", "authorized to work",
+    # ── "Are you a U.S. citizen?" (yes/no) — ALWAYS No for Aadit ───────────
+    # MUST come before the "work authorized" branch below: the citizenship
+    # question often also contains "US" so broad matching is dangerous. We
+    # look for the citizen wording specifically, excluding "eligible to work"
+    # / "authorized to work" which are a different question with answer=Yes.
+    if "citizen" in lo and not any(
+        w in lo for w in ("eligible to work", "authorized to work",
+                          "work authorization", "legally authorized")
+    ):
+        if q_type == "radio":
+            for opt in options:
+                if opt.strip().lower() == "no":
+                    return "No"
+        return "No"
+
+    # ── Work authorization (OPT counts as YES) ─────────────────────────────
+    if any(w in lo for w in ("eligible to work", "authorized to work",
                               "work authorization", "legally authorized")):
         if q_type == "radio":
             for opt in options:
@@ -1654,3 +1879,264 @@ def _collect_page_errors(page: Any) -> str:
 def _jitter(low: float, high: float) -> None:
     """Sleep for a random duration in [low, high] seconds."""
     time.sleep(random.uniform(low, high))
+
+
+def _maybe_solve_and_retry_captcha(
+    page: Any,
+    *,
+    submit_selector: str,
+    solver: str,
+    api_key: str,
+    timeout: int,
+) -> bool:
+    """Smart captcha solver dispatcher.
+
+    Detects which captcha is on the page (hCaptcha image-grid vs token,
+    reCAPTCHA v2, Cloudflare Turnstile) and routes to the right solver
+    variant. Returns True on successful solve + re-submit; False means
+    "route to review" for the caller.
+
+    Provider semantics:
+      "2captcha"         — auto-route: image puzzle → coords; other
+                           supported kinds → token API (userrecaptcha /
+                           turnstile / hcaptcha).
+      "2captcha_coords"  — force the coords path for ANY captcha on the
+                           page (useful when token hCaptcha is gated and
+                           you know the site will show an image puzzle).
+      "anticaptcha"      — token API for everything it supports (hCaptcha
+                           most notably — no account gating).
+      "capsolver"        — token API (note: proxy-less hCaptcha not
+                           supported for many sites).
+      "capmonster"       — token API.
+    """
+    if not solver or not api_key:
+        log.info("captcha detected but no solver configured — routing to review")
+        return False
+
+    from autoapply.execute.captcha_types import detect_captcha
+
+    # Explicit force-coords path — skip detection, always run coords.
+    if solver == "2captcha_coords":
+        return _solve_via_coords_path(page, api_key=api_key, timeout=timeout)
+
+    detection = detect_captcha(page)
+    if detection is None:
+        log.warning("captcha detected but type could not be classified — review queue")
+        return False
+
+    # Auto-route 2Captcha based on the detected captcha kind.
+    # IMPORTANT: 2Captcha dropped hCaptcha from their API entirely (verified
+    # against their current docs 2026-04-18 — hCaptcha is not listed on
+    # https://2captcha.com/api-docs). Every hCaptcha variant — whether an
+    # active image grid OR an invisible/checkbox token — must therefore be
+    # routed through the Grid path (GridTask), because that's the only
+    # 2Captcha endpoint that can resolve hCaptcha today. The Grid solver
+    # polls for the puzzle to appear if one isn't visible yet.
+    if solver == "2captcha":
+        if detection.kind in ("hcaptcha_image", "hcaptcha_token"):
+            log.info(
+                "2captcha auto-route → Grid (hCaptcha, kind=%s; "
+                "2Captcha no longer supports hCaptcha token solving)",
+                detection.kind,
+            )
+            return _solve_via_coords_path(page, api_key=api_key, timeout=timeout)
+        return _solve_via_2captcha_token(
+            page,
+            submit_selector=submit_selector,
+            detection=detection,
+            api_key=api_key,
+            timeout=timeout,
+        )
+
+    # Third-party token solvers (anticaptcha / capsolver / capmonster) —
+    # they currently only support hCaptcha in this codebase. Future work
+    # could extend them to reCAPTCHA / Turnstile; for now if the kind
+    # isn't hcaptcha we fall through to review.
+    if detection.kind not in ("hcaptcha_image", "hcaptcha_token"):
+        log.warning(
+            "solver=%s does not currently support captcha kind=%s — review queue",
+            solver, detection.kind,
+        )
+        return False
+
+    if not detection.site_key:
+        log.warning(
+            "solver=%s needs site-key but none could be extracted — review queue",
+            solver,
+        )
+        return False
+
+    try:
+        from autoapply.execute.captcha_solver import solve_hcaptcha
+        log.info("submitting hCaptcha to solver=%s site_key=%s…",
+                 solver, detection.site_key[:8])
+        token = solve_hcaptcha(
+            site_key=detection.site_key,
+            page_url=page.url,
+            provider=solver,
+            api_key=api_key,
+            timeout=timeout,
+        )
+    except Exception as exc:
+        log.warning("captcha solver failed: %s — routing to review", exc)
+        return False
+
+    return _inject_token_and_resubmit(
+        page, submit_selector=submit_selector,
+        token=token, field_names=("h-captcha-response", "g-recaptcha-response"),
+    )
+
+
+def _solve_via_coords_path(page: Any, *, api_key: str, timeout: int) -> bool:
+    """Run the 2Captcha Coordinates in-browser click flow; wait for auto-submit."""
+    from autoapply.execute.captcha_coords import solve_hcaptcha_coords
+    try:
+        solved = solve_hcaptcha_coords(page, api_key=api_key, total_timeout=timeout)
+    except Exception as exc:
+        log.warning("coords solver raised: %s", exc)
+        return False
+    if not solved:
+        return False
+    # hCaptcha's success callback auto-submits Lever's form once the
+    # challenge closes cleanly — no explicit re-click required. Wait
+    # for the resulting network activity before success detection.
+    try:
+        page.wait_for_load_state("networkidle", timeout=15_000)
+    except Exception:
+        pass
+    _jitter(1.0, 2.0)
+    return True
+
+
+def _solve_via_2captcha_token(
+    page: Any,
+    *,
+    submit_selector: str,
+    detection: Any,                 # captcha_types.CaptchaDetection
+    api_key: str,
+    timeout: int,
+) -> bool:
+    """Solve via 2Captcha's token APIs (method=hcaptcha / userrecaptcha /
+    turnstile) based on the detected captcha kind, then inject the token
+    into the matching response field and re-click submit."""
+    if not detection.site_key:
+        log.warning("2captcha token path needs site-key for kind=%s but "
+                    "none was extracted — review queue", detection.kind)
+        return False
+
+    page_url = page.url
+
+    try:
+        from autoapply.execute import captcha_solver as cs
+
+        if detection.kind == "recaptcha_v2":
+            log.info("2captcha token → recaptcha_v2 site_key=%s…",
+                     detection.site_key[:12])
+            token = cs.solve_recaptcha_v2_2captcha(
+                site_key=detection.site_key, page_url=page_url,
+                api_key=api_key, timeout=timeout,
+            )
+            field_names = ("g-recaptcha-response",)
+
+        elif detection.kind == "turnstile":
+            log.info("2captcha token → turnstile site_key=%s…",
+                     detection.site_key[:12])
+            token = cs.solve_turnstile_2captcha(
+                site_key=detection.site_key, page_url=page_url,
+                api_key=api_key, timeout=timeout,
+            )
+            field_names = ("cf-turnstile-response",)
+
+        else:
+            # hcaptcha_* is handled by the Grid path upstream — this branch
+            # is only reached for captcha kinds we haven't wired to 2Captcha.
+            log.warning("2captcha token path unsupported for kind=%s",
+                        detection.kind)
+            return False
+
+    except Exception as exc:
+        log.warning("2captcha solver failed for kind=%s: %s — review queue",
+                    detection.kind, exc)
+        return False
+
+    return _inject_token_and_resubmit(
+        page, submit_selector=submit_selector,
+        token=token, field_names=field_names,
+    )
+
+
+def _inject_token_and_resubmit(
+    page: Any,
+    *,
+    submit_selector: str,
+    token: str,
+    field_names: tuple[str, ...],
+) -> bool:
+    """Write the solver-returned token into every matching response field
+    (textarea or hidden input), dispatch input/change events, then re-click
+    the submit button and wait for the page to settle."""
+    try:
+        page.evaluate(
+            """({tok, names}) => {
+                names.forEach(n => {
+                    const sel = 'textarea[name="' + n + '"], input[name="' + n + '"]';
+                    document.querySelectorAll(sel).forEach(el => {
+                        el.value = tok;
+                        el.dispatchEvent(new Event('input',  {bubbles: true}));
+                        el.dispatchEvent(new Event('change', {bubbles: true}));
+                    });
+                });
+            }""",
+            {"tok": token, "names": list(field_names)},
+        )
+        log.info("injected captcha token (len=%d) into fields=%s; re-clicking submit",
+                 len(token), field_names)
+        _jitter(0.8, 1.5)
+        page.click(submit_selector, timeout=10_000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=15_000)
+        except Exception:
+            pass
+        _jitter(1.0, 2.0)
+        return True
+    except Exception as exc:
+        log.warning("post-solve inject/click failed: %s", exc)
+        return False
+
+
+def _extract_hcaptcha_site_key(page: Any) -> str:
+    """Find the hCaptcha site-key for the current page.
+
+    Checks, in order:
+      1. any element with `data-sitekey` attribute (standard hCaptcha div)
+      2. any element with class="h-captcha" carrying `data-sitekey`
+      3. parse the `sitekey=` query parameter from any hcaptcha iframe src
+    """
+    try:
+        # 1 + 2 — DOM attribute lookup.
+        v = page.evaluate(
+            """() => {
+                const el = document.querySelector('[data-sitekey]');
+                return el ? el.getAttribute('data-sitekey') : null;
+            }"""
+        )
+        if v:
+            return str(v)
+    except Exception:
+        pass
+
+    # 3 — parse iframe src.
+    try:
+        from urllib.parse import urlparse, parse_qs
+        for fr in page.locator('iframe[src*="hcaptcha"]').all()[:6]:
+            src = fr.get_attribute("src") or ""
+            if not src:
+                continue
+            qs = parse_qs(urlparse(src).query)
+            sk = qs.get("sitekey", [None])[0]
+            if sk:
+                return sk
+    except Exception:
+        pass
+
+    return ""

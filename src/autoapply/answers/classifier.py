@@ -217,6 +217,19 @@ _RULES: list[_Rule] = [
         re.compile(r"\bvisa\s+(?:status|type|category)\b|current\s+visa"),
         None,
     ),
+    # Yes/No "Are you a U.S. citizen?" must match BEFORE the generic
+    # CITIZENSHIP rule — the latter also matches this text. For Aadit the
+    # answer is "No" (Indian citizen on F-1 OPT), while CITIZENSHIP asks
+    # for the country of citizenship ("India").
+    (
+        QuestionType.US_CITIZEN,
+        re.compile(
+            r"are\s+you\s+(?:a\s+)?(?:us|u\.?s\.?|u\.?s\.?a|united\s+states)\s+citizen"
+            r"|\b(?:us|u\.?s\.?|u\.?s\.?a)\s+citizen(?:ship)?\s*\?"
+            r"|\bu\.?s\.?\s+citizen(?:\s+of\s+the\s+u\.?s\.?)?"
+        ),
+        None,
+    ),
     (
         QuestionType.CITIZENSHIP,
         re.compile(r"\b(?:us\s+)?citizen(?:ship)?\b"),

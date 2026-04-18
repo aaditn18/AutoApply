@@ -107,6 +107,23 @@ _BASE_FIELDS: list[FieldSpec] = [
         kind="select",
         options=["I don't wish to answer"],
     ),
+    # Lever's ADA disability-attestation signature + date inputs carry a DOM
+    # `required` attribute, but the form submits without them in practice
+    # (server-side they're optional when disability="decline"). We still
+    # populate them if present so the pre-submit diagnostic stays clean;
+    # resolved via _MACHINE_KEY_RULES → full_name / today_date.
+    FieldSpec(
+        name="eeo[disabilitySignature]",
+        label="Electronic Signature",
+        required=False,
+        kind="text",
+    ),
+    FieldSpec(
+        name="eeo[disabilitySignatureDate]",
+        label="Signature Date",
+        required=False,
+        kind="text",
+    ),
 ]
 
 
@@ -163,27 +180,54 @@ class LeverApplicator(Applicator):
         self,
         *args,
         client: httpx.Client | None = None,
-        timeout: float = 20.0,
+        timeout: float = 45.0,   # raised 20→45 s — Lever's edge sometimes
+                                  # responds slowly (rate-limit ramp); 45 s
+                                  # avoids false-positive timeouts.
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self._client = client or httpx.Client(
-            timeout=timeout,
-            headers={"User-Agent": "AutoApply/0.1", "Accept": "application/json"},
-            follow_redirects=True,
-        )
+        # `client` is injected by tests for mocking. In production we leave
+        # it as None and use curl_cffi with a real Chrome TLS fingerprint
+        # (Lever's edge drops connections with the default Python/OpenSSL
+        # JA3 fingerprint — confirmed 2026-04-18).
+        self._client = client
+        self._timeout = timeout
 
     def close(self) -> None:
-        self._client.close()
+        if self._client is not None:
+            self._client.close()
 
     # ---- Form fetch ----------------------------------------------------
 
     def fetch_form(self, job: Job) -> list[FieldSpec]:
         url = f"{LEVER_BASE}/{job.board_token}/{job.source_id}?mode=json"
-        resp = self._client.get(url)
-        resp.raise_for_status()
-        data = resp.json()
+        data = self._get_json(url)
         return list(self._parse_posting(data))
+
+    def _get_json(self, url: str) -> dict[str, Any]:
+        """GET a JSON document from Lever's public API.
+
+        Uses the injected httpx client if set (test path), otherwise routes
+        through curl_cffi's Chrome impersonation so Lever's edge accepts us.
+        """
+        if self._client is not None:
+            resp = self._client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+
+        from curl_cffi import requests as cc  # local import — heavy
+        resp = cc.get(
+            url,
+            impersonate="chrome124",
+            timeout=self._timeout,
+            headers={"Accept": "application/json"},
+        )
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"lever GET {url} → {resp.status_code} "
+                f"(len={len(resp.text)})"
+            )
+        return resp.json()
 
     def _parse_posting(self, data: dict[str, Any]) -> Iterable[FieldSpec]:
         yield from _BASE_FIELDS
@@ -241,6 +285,9 @@ class LeverApplicator(Applicator):
                 imap_email=settings.IMAP_EMAIL,
                 imap_password=settings.IMAP_PASSWORD,
                 imap_code_timeout=settings.IMAP_CODE_TIMEOUT,
+                captcha_solver=settings.CAPTCHA_SOLVER,
+                captcha_solver_api_key=settings.CAPTCHA_SOLVER_API_KEY,
+                captcha_solver_timeout=settings.CAPTCHA_SOLVER_TIMEOUT,
             )
         except CaptchaDetected as exc:
             log.warning("CAPTCHA detected for job %s: %s", job.canonical_key, exc)
