@@ -42,6 +42,7 @@ from typing import Any, Iterable
 
 import httpx
 
+from autoapply.config import get_settings
 from autoapply.execute.base import Applicator, ApplyResult
 from autoapply.execute.standard_fields import FieldSpec, ResolvedField
 from autoapply.tracker.models import Job
@@ -193,6 +194,7 @@ class LeverApplicator(Applicator):
             submit_lever,
         )
 
+        settings = get_settings()
         try:
             result = submit_lever(
                 token=job.board_token,
@@ -200,6 +202,7 @@ class LeverApplicator(Applicator):
                 data=payload.get("data", {}),
                 files=payload.get("files", {}),
                 headless=True,
+                hcaptcha_accessibility_token=settings.HCAPTCHA_ACCESSIBILITY_TOKEN,
             )
         except CaptchaDetected as exc:
             log.warning("CAPTCHA detected for job %s: %s", job.canonical_key, exc)

@@ -333,6 +333,10 @@ apply done  — applied=6  reviews=0  failures=0  (dry_run=True)
   - `_fill_field(page, name, value)` — smart fill: tries `<select>` first
     (label match → value= match → prefix match), then radio (by value= or
     label text), then checkbox (truthy check), then `fill()` fallback.
+  - `_fill_combobox(page, input_el, value)` — React-Select / ARIA combobox
+    handler: clicks input, reads `aria-controls` after open (set
+    dynamically), scopes option search to that listbox to avoid cross-
+    combobox contamination; exact → prefix → first-option fallback.
   - `_detect_captcha(page)` — heuristic scan for reCAPTCHA / hCaptcha /
     Cloudflare challenge keywords in page source.
   - `_collect_page_errors(page)` — scrapes visible error elements for the
@@ -362,16 +366,102 @@ apply done  — applied=6  reviews=0  failures=0  (dry_run=True)
   - `playwright install --with-deps chromium` added to the install step.
   - `timeout-minutes` bumped 25 → 40 to accommodate Chromium install.
 
-### To activate real submissions
+---
 
-1. Push this commit (already done).
-2. Verify SUBMODULE_PAT, GH_ISSUES_PAT, GEMINI_API_KEY secrets are set in
-   the AutoApply repo settings.
-3. Trigger `pipeline.yml` via workflow_dispatch with `dry_run=false` to do
-   a first real run (cap is `MAX_APPLICATIONS_PER_RUN=5`).
-4. Inspect GitHub Actions logs for `playwright: navigating to ...` lines.
-   Any `CAPTCHA detected` lines route those jobs to the review queue.
+## 🎉 First Confirmed Real Submission (2026-04-17)
+
+**Applications Developer @ Freedom Consulting (Greenhouse)**
+
+```
+verification code fetched: 5bxM5TWI        ← IMAP extracted correctly
+submitted OK: job=6ddbd36fa52c1416
+  url=https://job-boards.greenhouse.io/freedomconsulting/jobs/4510005007/confirmation
+  field_errors=[]
+apply done — dry_run=False  applied=1  reviews=0  failures=0
+```
+
+Confirmed end-to-end flow:
+1. Greenhouse API form fetch → `FieldSpec` list
+2. `resolve_all` → all fields resolved deterministically (name, email, phone,
+   LinkedIn, country, security clearance)
+3. Resume PDF uploaded via `input[type=file]`
+4. Country React-Select combobox filled via `_fill_combobox` + scoped
+   `aria-controls` listbox
+5. Submit button clicked → Greenhouse SPA shows OTP modal
+6. IMAP poll found code within 16s from `imap.gmail.com:993`
+7. `_enter_verification_code` detected 8-box layout (`security-input-0…7`)
+   and filled each box character-by-character via React native-value-setter
+8. "Submit application" button enabled → clicked → `/confirmation` URL reached
+9. `outcome="ok"` stored in DB; `Application` row written
+
+### Bugs fixed during this phase
+
+| Symptom | Root cause | Fix |
+|---|---|---|
+| `fill:country:ValueError` | Country is a React-Select combobox on new SPA | Added `_fill_combobox` with post-click `aria-controls` scoping |
+| `multi_value_single_select` not mapped | `_kind_from_type` only had `_fields` suffix variant | Added both `multi_value_single_select` and `multi_value_single_select_fields` |
+| `[id^="question_10763713007[]"]` CSS error | `[]` are CSS special chars | Switched to `[id="…"]` attribute selector form |
+| IMAP timeout — no code found | Gmail auto-marks emails read; was searching UNSEEN only | Changed to `SINCE today` + timestamp guard (no UNSEEN required) |
+| Extracted `2026` instead of OTP | Email footer contains "© 2026 Greenhouse" | Line-by-line extractor: code must be on its own line immediately after keyword line ending in `:` |
+| Extracted `cation` (HTML artifact) | Was concatenating text/plain + raw HTML | Process only `text/plain`; fall back to `_strip_html(html)` if no plain part |
+| OTP 8-box input not found | `_enter_verification_code` tried `maxlength="8"` — all boxes are `maxlength="1"` | Added Layout A path: detect `input[id^="security-input-"]`, fill each box with one char via React native-setter |
+| `field_errors=['fill:resume_text:ValueError']` | `standard_fields.py` returned `"See attached PDF resume."` for the text-variant resume field; new SPA doesn't render it | Changed to return `""` — `build_payload`'s `if r.value:` gate silently skips it |
+| `track=None` jobs consumed apply cap | `.limit(cap)` applied before `track.in_(...)` filter in DB query | Moved `.filter(Job.track.in_(...))` before `.limit(cap)` |
+
+### To activate real submissions at scale
+
+1. Push this commit.
+2. Verify `SUBMODULE_PAT`, `GH_ISSUES_PAT`, `GEMINI_API_KEY` secrets are set
+   in the AutoApply repo settings.
+3. Set `IMAP_EMAIL=aaditnilay18@gmail.com` and `IMAP_PASSWORD=<App Password>`
+   in GitHub Secrets (same values as `.env`).
+4. Trigger `pipeline.yml` via workflow_dispatch with `dry_run=false`.
 5. Gradually ramp: day-1 cap=5, day-2 cap=10, day-3 cap=25, day-4+ cap=60.
 6. Use `/approve` on GitHub Issues to manually submit review-queue jobs.
 
-## Current test tally: 413 passing (non-SQLAlchemy tests on local system Python; full 486 pass in CI under uv-managed env)
+---
+
+## ⏳ What's next
+
+### Immediate — needed before scaling
+
+1. **Lever hCaptcha bypass** (`HCAPTCHA_ACCESSIBILITY_TOKEN`)
+   - Register once at https://accounts.hcaptcha.com/accessibility
+   - Copy `hc_accessibility` cookie value into `.env` and GitHub Secrets
+   - 8 scored Wyetech (Lever) jobs are queued; all blocked by hCaptcha
+   - After setting the token: `python -m autoapply.cli apply --no-dry-run --limit 8`
+
+2. **Re-score `track=None` jobs** (8 remaining)
+   - 3 Freedom Consulting (508 Tester, A&A Specialist, Cyber Analyst) —
+     non-SWE roles; will likely stay `track=None` or get a swe/other track
+   - 5 Wyetech (Kovr.AI, UI, CNO Analyst ×3) — same
+   - Run `python -m autoapply.cli score` again after broadening
+     `_SWE_STRONG_TITLE` patterns in `track_picker.py` if needed
+
+3. **Add real target companies to `companies.yml`**
+   - Currently only `freedomconsulting` (GH) + `wyetechllc` (Lever) under
+     `test_safe: true` — both are DoD-clearance shops; auto-rejection expected
+   - Flip `TEST_SAFE_ONLY=false` in `.env` OR add non-test companies:
+     Airbnb, Stripe, Anthropic, Scale AI, Two Sigma, Citadel etc. are already
+     in `companies.yml` but behind the `test_safe_only` gate
+   - After adding companies: `python -m autoapply.cli ingest` + `score` + `apply`
+
+### Medium-term — Phase 3
+
+4. **Gemini Flash scoring** — `base_fit=0.5` placeholder in `scorer.py`
+   - Set `GEMINI_API_KEY` in `.env`; wired but untested end-to-end
+   - After setting: re-score existing jobs and observe `base_fit` distribution
+
+5. **GitHub Actions live run** — push commit and trigger `pipeline.yml`
+   - Watch for Playwright navigation logs in Actions UI
+   - `CAPTCHA detected` → those jobs land in review queue (open GH Issues)
+   - First run: use `workflow_dispatch` with `dry_run=false`
+
+6. **YC Work at a Startup** (Phase 2 plan item) — session-import pattern;
+   needs manual login once then `refresh_session.py` every 7 days
+
+7. **Gmail response detection** — poll for "thank you for your application"
+   confirmation emails; cross-reference `Application` rows to catch bounced
+   or duplicate submissions
+
+## Current test tally: 490 passing

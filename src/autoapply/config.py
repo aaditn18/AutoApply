@@ -42,6 +42,31 @@ class Settings(BaseSettings):
     YC_STORAGE_STATE_AES: str = ""
     HANDSHAKE_STORAGE_STATE_AES: str = ""
 
+    # hCaptcha accessibility bypass token (free — register once at
+    # https://accounts.hcaptcha.com/accessibility then copy the
+    # `hc_accessibility` cookie value here).  When set, Playwright
+    # injects the cookie before navigating to any Lever apply page,
+    # which causes hCaptcha to pass silently without a user challenge.
+    HCAPTCHA_ACCESSIBILITY_TOKEN: str = ""
+
+    # --- Email verification (Greenhouse OTP) ---
+    # Some Greenhouse tenants send a one-time code to the applicant's email
+    # to confirm identity before the application is accepted.  When these
+    # credentials are set AutoApply fetches the code automatically via IMAP
+    # and completes the verification without human intervention.
+    #
+    # For aaditnilay18@gmail.com:
+    #   IMAP_SERVER   = imap.gmail.com
+    #   IMAP_EMAIL    = aaditnilay18@gmail.com
+    #   IMAP_PASSWORD = <16-char Google App Password>
+    #                   (Google Account → Security → App Passwords → "Mail")
+    IMAP_SERVER: str = "imap.gmail.com"
+    IMAP_PORT: int = 993
+    IMAP_EMAIL: str = ""
+    IMAP_PASSWORD: str = ""
+    # How long (seconds) to wait for the verification email to arrive.
+    IMAP_CODE_TIMEOUT: int = 90
+
     # --- Operational ---
     DRY_RUN: bool = True
     # When True (default), the ingest command only pulls from `test_safe`

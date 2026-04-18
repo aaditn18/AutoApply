@@ -64,9 +64,19 @@ def _kind_from_type(t: str) -> str:
         return "file"
     if t in ("textarea",):
         return "textarea"
-    if t in ("multi_value_single_select_fields", "single_select"):
+    # Greenhouse API returns both "multi_value_single_select" (newer) and
+    # "multi_value_single_select_fields" (older) — handle both.
+    if t in (
+        "multi_value_single_select",
+        "multi_value_single_select_fields",
+        "single_select",
+    ):
         return "select"
-    if t in ("multi_value_multi_select_fields", "multi_select"):
+    if t in (
+        "multi_value_multi_select",
+        "multi_value_multi_select_fields",
+        "multi_select",
+    ):
         return "multi_select"
     if t in ("input_hidden",):
         return "text"  # still resolve, but submit as hidden
@@ -173,12 +183,14 @@ class GreenhouseApplicator(Applicator):
             outcome="captcha" — CAPTCHA wall encountered; job goes to review.
             outcome="failed"  — any other error.
         """
+        from autoapply.config import get_settings
         from autoapply.execute.playwright_submit import (
             CaptchaDetected,
             SubmitFailed,
             submit_greenhouse,
         )
 
+        settings = get_settings()
         try:
             result = submit_greenhouse(
                 board_token=job.board_token,
@@ -186,6 +198,11 @@ class GreenhouseApplicator(Applicator):
                 data=payload.get("data", {}),
                 files=payload.get("files", {}),
                 headless=True,
+                imap_server=settings.IMAP_SERVER,
+                imap_port=settings.IMAP_PORT,
+                imap_email=settings.IMAP_EMAIL,
+                imap_password=settings.IMAP_PASSWORD,
+                imap_code_timeout=settings.IMAP_CODE_TIMEOUT,
             )
         except CaptchaDetected as exc:
             log.warning("CAPTCHA detected for job %s: %s", job.canonical_key, exc)

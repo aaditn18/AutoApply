@@ -153,13 +153,13 @@ def resolve_field(
             spec.name, spec.label, cover_letter_text or "", "machine_key"
         )
     # Text-area variant of resume upload (e.g. Greenhouse `resume_text`).
-    # The PDF is the real artifact; return a brief placeholder so this field
-    # resolves without blocking the pipeline. Playwright submission handles
-    # the actual text paste in Phase 2.
+    # The actual PDF is submitted via the file-upload input; the text-paste
+    # variant is redundant and is NOT rendered by the new job-boards.greenhouse.io
+    # SPA.  Return empty value so build_payload's `if r.value:` gate silently
+    # skips this field — prevents a spurious fill:resume_text:ValueError in
+    # field_errors when the DOM element doesn't exist.
     if attr == "resume" and spec.kind in ("text", "textarea"):
-        return ResolvedField(
-            spec.name, spec.label, "See attached PDF resume.", "machine_key"
-        )
+        return ResolvedField(spec.name, spec.label, "", "machine_key")
     if attr:
         val = _profile_value(attr, profile)
         if val is not None and val != "":

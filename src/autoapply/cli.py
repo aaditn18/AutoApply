@@ -440,6 +440,9 @@ def apply_cmd(
             .filter(Job.status == "scored")
             .filter(Job.final_rank.is_not(None))
             .filter(Job.final_rank >= min_final_rank)
+            # Only fetch jobs with an assigned track — track=None jobs cannot
+            # be applied to (no resume to pick) and must not consume the cap.
+            .filter(Job.track.in_(("swe", "ml", "hpc", "quant")))
             .order_by(Job.final_rank.desc())
             .limit(cap)
             .all()
