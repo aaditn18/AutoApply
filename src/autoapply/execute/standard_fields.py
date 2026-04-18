@@ -208,6 +208,30 @@ def resolve_field(
                 question_type=qt,
             )
 
+    # 3.5 LLM / template fallback for genuinely novel text fields.
+    # Reached only when the classifier returns UNKNOWN (step 3 found no type).
+    # For text/textarea: Gemini Flash drafts an answer from the profile context.
+    # For select/multi_select: same, but constrained to the option list.
+    # Marked source="llm_answer" for audit logging.
+    # Does NOT set requires_review — caller auto-submits and the answer is
+    # visible in the Application.answers audit column.
+    if spec.kind in ("text", "textarea", "select", "multi_select"):
+        try:
+            from autoapply.answers.llm_fallback import draft_field_answer
+
+            ans = draft_field_answer(
+                label=spec.label, spec=spec, profile=profile, track=track
+            )
+            if ans:
+                return ResolvedField(
+                    spec.name,
+                    spec.label,
+                    _snap_to_option(ans, spec),
+                    "llm_answer",
+                )
+        except Exception as exc:
+            log.debug("llm_fallback error for label=%r: %s", spec.label, exc)
+
     # 4. Give up. Required → raise; optional → empty string.
     if spec.required:
         raise UnresolvedField(spec.label, spec.name, "no classifier hit, no bank entry")
@@ -217,9 +241,11 @@ def resolve_field(
 def _snap_to_option(value: str, spec: FieldSpec) -> str:
     """For select/multi_select fields, snap value to the closest literal option.
 
-    Case-insensitive exact match first, then substring match. Leaves value
-    unchanged if no option matches — the server will reject it, which we
-    surface as a form error upstream.
+    Case-insensitive exact match first, then substring match. For US-person-
+    eligibility selects (ITAR, export-control forms) where the resolved value
+    is a non-US country name, falls back to the 'Not currently / Other status'
+    option. Leaves value unchanged if no option matches — the server will
+    reject it, which we surface as a form error upstream.
     """
     if spec.kind not in ("select", "multi_select", "checkbox"):
         return value
@@ -232,6 +258,30 @@ def _snap_to_option(value: str, spec: FieldSpec) -> str:
     for opt in spec.options:
         if v in opt.lower() or opt.lower() in v:
             return opt
+
+    # When no option matches: detect US-person-eligibility select fields
+    # (ITAR / export-control forms) and pick the appropriate "other" option.
+    # These selects list US immigration statuses; a non-US country name like
+    # "India" won't substring-match any of them, so we fall back explicitly.
+    _US_PERSON_MARKERS = (
+        "u.s. citizen", "u.s. national", "united states citizen",
+        "green card", "lawful permanent", "lawfully admitted",
+        "refugee", "asylee", "8 u.s.c",
+    )
+    has_us_options = any(
+        any(m in opt.lower() for m in _US_PERSON_MARKERS)
+        for opt in spec.options
+    )
+    if has_us_options:
+        _OTHER_MARKERS = (
+            "not currently", "other status", "not a u.s.", "not a us",
+            "other", "not yet", "none of the above",
+        )
+        for opt in spec.options:
+            ol = opt.lower()
+            if any(m in ol for m in _OTHER_MARKERS):
+                return opt
+
     return value
 
 

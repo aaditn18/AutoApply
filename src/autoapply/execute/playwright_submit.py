@@ -132,6 +132,11 @@ def submit_lever(
     files: dict[str, str],
     headless: bool = True,
     hcaptcha_accessibility_token: str = "",
+    imap_server: str = "imap.gmail.com",
+    imap_port: int = 993,
+    imap_email: str = "",
+    imap_password: str = "",
+    imap_code_timeout: int = 90,
 ) -> dict[str, Any]:
     """Fill and submit a Lever application form via Playwright.
 
@@ -140,6 +145,10 @@ def submit_lever(
     `hc_accessibility` cookie on the hcaptcha.com domain before navigating
     to the apply page.  This causes hCaptcha to issue a silent pass token
     without showing a challenge to the headless browser.
+
+    imap_* — credentials for fetching the email verification code that some
+    Lever boards send after the initial form submit (same OTP flow as
+    Greenhouse).
     """
     url = f"https://jobs.lever.co/{token}/{posting_id}/apply"
 
@@ -169,6 +178,11 @@ def submit_lever(
         submit_selector="#btn-submit",
         success_url_fragments=("confirmation", "thank", "success", "submitted"),
         pre_navigation_cookies=pre_cookies,
+        imap_server=imap_server,
+        imap_port=imap_port,
+        imap_email=imap_email,
+        imap_password=imap_password,
+        imap_code_timeout=imap_code_timeout,
     )
 
 
@@ -234,18 +248,11 @@ def _submit_form(
             if _detect_captcha(page):
                 raise CaptchaDetected(f"CAPTCHA on form page: {url}")
 
-            # ------ Fill text / select / textarea fields -------------------
-            for name, value in data.items():
-                if not value:
-                    continue
-                try:
-                    _fill_field(page, name, str(value))
-                    _jitter(0.1, 0.4)
-                except Exception as exc:
-                    log.debug("fill error field=%r: %s", name, exc)
-                    field_errors.append(f"fill:{name}:{type(exc).__name__}")
-
-            # ------ Upload files (resume, cover_letter) --------------------
+            # ------ Upload files FIRST (resume, cover_letter) ---------------
+            # Lever's React upload widget parses the PDF asynchronously and then
+            # re-renders the form to pre-populate fields (name, email, phone).
+            # If we fill text fields first, Lever's re-render after resume
+            # analysis clears them.  Upload → wait for analysis → fill text.
             tmp_files_to_delete: list[str] = []
             for name, path in files.items():
                 if not path:
@@ -278,7 +285,7 @@ def _submit_form(
                     field_errors.append(f"no_input:{name}")
                     continue
                 try:
-                    page.set_input_files(selector, str(abs_path), timeout=8_000)
+                    _upload_file(page, selector, str(abs_path))
                     log.debug("uploaded %s → %s (selector=%r)", abs_path.name, name, selector)
                     _jitter(0.5, 1.5)
                 except Exception as exc:
@@ -291,6 +298,40 @@ def _submit_form(
                     Path(tmp_path).unlink(missing_ok=True)
                 except Exception:
                     pass
+
+            # Wait for async resume analysis (Lever does this in the background).
+            # The widget shows "Analyzing resume…" while the PDF is being parsed
+            # server-side; we must wait for "success!" before filling text fields
+            # so Lever's post-analysis re-render doesn't wipe our fills.
+            if files:
+                try:
+                    page.wait_for_function(
+                        "() => !document.body.innerText.toLowerCase().includes('analyzing resume')",
+                        timeout=20_000,
+                    )
+                    log.debug("resume analysis complete")
+                    _jitter(0.5, 1.0)
+                except Exception:
+                    log.debug("timed out waiting for resume analysis; proceeding anyway")
+
+            # ------ Fill text / select / textarea fields (AFTER upload) ------
+            for name, value in data.items():
+                if not value:
+                    continue
+                try:
+                    _fill_field(page, name, str(value))
+                    _jitter(0.1, 0.4)
+                except Exception as exc:
+                    log.debug("fill error field=%r: %s", name, exc)
+                    field_errors.append(f"fill:{name}:{type(exc).__name__}")
+
+            # ------ Fill Lever card (qualifying) questions dynamically -------
+            # Lever qualifying questions appear in the DOM as
+            # input[name="cards[UUID][fieldN]"] / select[name="cards[UUID][fieldN]"]
+            # but are NOT returned by the public posting API. We discover them
+            # at Playwright time and fill using question-text heuristics.
+            if "jobs.lever.co" in url:
+                _fill_lever_cards(page, set(data.keys()), field_errors)
 
             # ------ Submit -------------------------------------------------
             _jitter(1.0, 3.0)
@@ -312,8 +353,25 @@ def _submit_form(
             if _detect_captcha(page):
                 raise CaptchaDetected("CAPTCHA appeared after submit attempt")
 
+            # Early success check — if we're already on a success/confirmation
+            # URL or the page already shows a success signal, skip email
+            # verification entirely and proceed to the outcome check below.
+            # (Lever's confirmation page says "A confirmation email has been
+            # sent" which would otherwise trigger the OTP path as a false
+            # positive.)
+            _early_url = page.url.lower()
+            _early_text = _inner_text_safe(page).lower()
+            _already_success = (
+                any(frag in _early_url for frag in success_url_fragments)
+                or any(sig in _early_text for sig in _SUCCESS_SIGNALS)
+            )
+
             # Email verification step? (Greenhouse sends a one-time code.)
-            if _detect_email_verification(page):
+            # Only enter this path when:
+            #   (a) we are NOT already on a success page, AND
+            #   (b) there is an actual code INPUT field on the page
+            #       (not just confirmation-email text in the body copy).
+            if not _already_success and _detect_email_verification(page):
                 log.info("email verification required; fetching code via IMAP …")
                 if imap_email and imap_password:
                     code = _fetch_imap_verification_code(
@@ -435,23 +493,29 @@ def _fill_field(page: Any, name: str, value: str) -> None:
         return
 
     # 4. Text / textarea / number / email / tel -------------------------
-    # Try [name=], then [id=], then [id="name[]"]
+    # Try [name=], then [id=], then [id="name[]"], then case-insensitive name.
     for selector in (
         f'[name="{name}"]',
         f'[id="{name}"]',
         f'[id="{name}[]"]',
+        # Case-insensitive CSS attribute selector (CSS4 "i" flag).
+        # Handles Lever's camelCase URL fields: urls[LinkedIn] vs urls[linkedin].
+        f'[name="{name}" i]',
     ):
-        loc = page.locator(selector)
-        if loc.count() > 0:
-            el = loc.first
-            # Detect React-Select / combobox pattern (role="combobox").
-            # These need fill() + option click, not just fill().
-            role = el.get_attribute("role") or ""
-            if role == "combobox":
-                _fill_combobox(page, el, value)
-            else:
-                el.fill(value, timeout=5_000)
-            return
+        try:
+            loc = page.locator(selector)
+            if loc.count() > 0:
+                el = loc.first
+                # Detect React-Select / combobox pattern (role="combobox").
+                # These need fill() + option click, not just fill().
+                role = el.get_attribute("role") or ""
+                if role == "combobox":
+                    _fill_combobox(page, el, value)
+                else:
+                    el.fill(value, timeout=5_000)
+                return
+        except Exception:
+            continue
 
     # Nothing found — will be recorded as a fill error by the caller.
     raise ValueError(f"no element found for name/id={name!r}")
@@ -536,7 +600,7 @@ def _fill_combobox(page: Any, input_el: Any, value: str) -> None:
 
 
 def _fill_select(sel_el: Any, value: str) -> None:
-    """Try three strategies to pick the right <select> option."""
+    """Try several strategies to pick the right <select> option."""
     v_lower = value.strip().lower()
 
     # Exact label match.
@@ -553,15 +617,47 @@ def _fill_select(sel_el: Any, value: str) -> None:
     except Exception:
         pass
 
-    # Case-insensitive prefix match on option text.
     try:
         opts = sel_el.locator("option").all()
-        for opt in opts:
-            if opt.inner_text().strip().lower().startswith(v_lower):
-                sel_el.select_option(label=opt.inner_text().strip(), timeout=3_000)
-                return
+        opt_texts = [o.inner_text().strip() for o in opts]
     except Exception:
-        pass
+        return
+
+    # Case-insensitive prefix match on option text.
+    for txt in opt_texts:
+        if txt.lower().startswith(v_lower):
+            try:
+                sel_el.select_option(label=txt, timeout=3_000)
+                return
+            except Exception:
+                pass
+
+    # Substring match in either direction.
+    for txt in opt_texts:
+        tl = txt.lower()
+        if v_lower in tl or tl in v_lower:
+            try:
+                sel_el.select_option(label=txt, timeout=3_000)
+                return
+            except Exception:
+                pass
+
+    # EEO "decline / prefer not" semantic fallback.
+    # When our resolved value is a "decline to identify" variant but the actual
+    # select uses different wording (e.g., Lever: "I do not want to answer"),
+    # look for any option that conveys the same "no / decline" intent.
+    _DECLINE_KEYWORDS = ("decline", "prefer not", "not wish", "not want",
+                         "not identify", "not disclose", "choose not")
+    _NO_KEYWORDS = ("no clearance", "none", "no polygraph", "not a protected")
+    if any(kw in v_lower for kw in _DECLINE_KEYWORDS + _NO_KEYWORDS):
+        for txt in opt_texts:
+            tl = txt.lower()
+            if any(kw in tl for kw in _DECLINE_KEYWORDS + _NO_KEYWORDS):
+                try:
+                    sel_el.select_option(label=txt, timeout=3_000)
+                    return
+                except Exception:
+                    pass
 
 
 def _fill_radio(page: Any, radio_group: Any, name: str, value: str) -> None:
@@ -602,6 +698,37 @@ def _fill_radio(page: Any, radio_group: Any, name: str, value: str) -> None:
 # ---- Utility helpers -------------------------------------------------------
 
 
+def _upload_file(page: Any, selector: str, abs_path: str) -> None:
+    """Upload a file to a file input, preferring the file-chooser API.
+
+    The file-chooser API (expect_file_chooser → click → set_files) fires
+    all browser-native events including the ones that React upload widgets
+    (Lever, some Greenhouse tenants) listen to for state management.
+    A plain set_input_files() call bypasses these handlers, which causes
+    React to show spurious "file too large" or "invalid file" errors.
+
+    Falls back to set_input_files() if the chooser dialog does not open
+    within 3 s (e.g., the element is hidden / non-interactive).
+    """
+    try:
+        with page.expect_file_chooser(timeout=3_000) as fc_info:
+            # Click the input (or a label pointing to it) to open the chooser.
+            try:
+                page.locator(selector).click(timeout=3_000)
+            except Exception:
+                # If the input itself isn't clickable, look for an associated
+                # <label> or a custom upload trigger button near it.
+                pass
+        fc = fc_info.value
+        fc.set_files(abs_path)
+        return
+    except Exception:
+        pass
+
+    # Fallback: set_input_files directly (works for standard <input type=file>).
+    page.set_input_files(selector, abs_path, timeout=8_000)
+
+
 def _file_input_selector(page: Any, name: str) -> str | None:
     """Return a CSS selector that locates the file <input> for the given field name.
 
@@ -623,12 +750,36 @@ def _file_input_selector(page: Any, name: str) -> str | None:
 
 
 def _detect_email_verification(page: Any) -> bool:
-    """Return True if the current page is asking for an email verification code.
+    """Return True if the current page is showing an OTP / code-entry step.
 
-    Greenhouse shows a page/modal with text like "We sent a confirmation code
-    to your email address" and a code input field when the board requires
-    applicant email verification.
+    Requires BOTH a phrase signal AND an actual code input field to be present.
+    This prevents false positives from ATS confirmation pages that say things
+    like "A confirmation email has been sent to you" (e.g. Lever's post-submit
+    page) — those don't have a code input, so they won't match here.
     """
+    # -- 1. Check for the Greenhouse-style multi-box OTP (security-input-*) ---
+    try:
+        if page.locator('input[id^="security-input-"]').count() > 0:
+            return True
+    except Exception:
+        pass
+
+    # -- 2. Check for a single-box OTP input with OTP-specific attributes -----
+    try:
+        otp_inputs = page.locator(
+            'input[autocomplete="one-time-code"], '
+            'input[inputmode="numeric"][maxlength], '
+            'input[type="number"][maxlength]'
+        )
+        if otp_inputs.count() > 0:
+            return True
+    except Exception:
+        pass
+
+    # -- 3. Phrase + generic short-text input (belt-and-suspenders) -----------
+    # Only fire when BOTH a phrase AND a short-text input are present, so that
+    # ATS confirmation pages with "we sent you a confirmation email" don't
+    # trigger this path without an actual input.
     try:
         content = page.content().lower()
     except Exception:
@@ -638,28 +789,21 @@ def _detect_email_verification(page: Any) -> bool:
         "confirmation code",
         "verification code",
         "enter the code",
-        "check your email",
+        "enter your code",
         "we sent a code",
-        "we emailed you",
-        "confirm your email",
-        "sent to your email",
+        "paste the code",
         "code sent to",
+        "security code",
     )
-    if any(phrase in content for phrase in _EMAIL_VERIFY_PHRASES):
-        return True
+    has_phrase = any(phrase in content for phrase in _EMAIL_VERIFY_PHRASES)
+    if not has_phrase:
+        return False
 
-    # Also check for a visible numeric code input (short text / number field
-    # near a "verify" or "submit" button with no other large form sections).
+    # Also require a visible text input with a short max-length.
     try:
-        code_inputs = page.locator(
-            'input[type="text"][maxlength], '
-            'input[type="number"][maxlength], '
-            'input[autocomplete="one-time-code"]'
-        )
-        if code_inputs.count() > 0:
-            # Only flag if main form fields (first_name, email) are GONE.
-            if page.locator("#first_name, #email").count() == 0:
-                return True
+        short_inputs = page.locator('input[type="text"][maxlength]')
+        if short_inputs.count() > 0:
+            return True
     except Exception:
         pass
 
@@ -964,8 +1108,12 @@ def _fetch_imap_verification_code(
             # We filter by timestamp in Python — IMAP SINCE only has day
             # granularity and requiring UNSEEN breaks if the Gmail client
             # auto-marks incoming mail as read.
-            since_str = datetime.now(timezone.utc).strftime("%d-%b-%Y")
-            _, msg_nums = mail.search(None, f'(SINCE "{since_str}")')
+            # Use local time minus 1 day: IMAP SINCE compares against the
+            # server's local clock, and UTC can be a day ahead of US time
+            # zones — searching for "today UTC" would return 0 results in
+            # the evening.  The epoch-based filter below handles freshness.
+            since_str = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
+            _, msg_nums = mail.search(None, f"(SINCE {since_str})")
 
             ids = (msg_nums[0].split() if msg_nums and msg_nums[0] else [])
             # Process newest first.
@@ -1061,12 +1209,15 @@ def _detect_captcha(page: Any) -> bool:
     Intentionally NOT triggered by:
     - reCAPTCHA v3 script tags (invisible, background-only, present on every
       Greenhouse / Lever form — does not require user interaction)
+    - hCaptcha widget EMBED — Lever embeds hCaptcha on every apply page as a
+      background widget; simply seeing "hcaptcha.com" in page source is NOT
+      evidence of a blocking challenge.  Only the popup challenge iframe counts.
     - Any other analytics / bot-detection JS that doesn't present a challenge
 
     Triggered by:
     - Cloudflare interstitial / "Just a moment" page
     - reCAPTCHA v2 interactive checkbox (api2/anchor or api2/bframe iframe)
-    - hCaptcha challenge iframe
+    - hCaptcha POPUP challenge frame (src contains "frame=challenge" or "/challenge")
     - Explicit blocking overlay text ("please verify you are human", etc.)
     """
     try:
@@ -1088,11 +1239,26 @@ def _detect_captcha(page: Any) -> bool:
     if "recaptcha/api2/bframe" in content:
         return True
 
-    # hCaptcha challenge frame
-    if "hcaptcha.com/captcha" in content:
-        return True
+    # hCaptcha POPUP challenge iframe.
+    # Lever embeds hCaptcha on every apply page as a background widget; that
+    # alone does NOT constitute a blocking challenge.  The POPUP challenge frame
+    # has "frame=challenge" in its src.  Only flag when that specific frame
+    # is rendered — or when the hCaptcha checkbox widget is explicitly shown
+    # (src contains "/captcha/v1/.../frame=checkbox").
+    #
+    # Implementation: use DOM query rather than raw-content string search so
+    # we only flag when the frame is actually present in the live DOM.
+    try:
+        challenge_iframes = page.locator(
+            'iframe[src*="hcaptcha"][src*="frame=challenge"],'
+            'iframe[src*="hcaptcha"][src*="/challenge"]'
+        )
+        if challenge_iframes.count() > 0:
+            return True
+    except Exception:
+        pass
 
-    # Explicit blocking challenge phrases
+    # Explicit blocking challenge phrases (body text, not raw HTML)
     _BLOCKING_PHRASES = (
         "please verify you are human",
         "complete the security check",
@@ -1100,7 +1266,169 @@ def _detect_captcha(page: Any) -> bool:
         "press and hold to confirm",
         "access to this page has been denied",
     )
-    return any(phrase in content for phrase in _BLOCKING_PHRASES)
+    if any(phrase in content for phrase in _BLOCKING_PHRASES):
+        return True
+
+    return False
+
+
+def _fill_lever_cards(
+    page: Any, already_filled_names: set[str], field_errors: list[str]
+) -> None:
+    """Discover and fill Lever qualifying-question card fields at Playwright time.
+
+    Lever's public posting API often omits `customQuestions` (they are returned
+    as empty lists), but the actual apply page renders them via the SPA.  These
+    fields are identified by `name="cards[UUID][fieldN]"`.
+
+    Strategy:
+    1. Find every unique `cards[...]` name that is NOT already in our
+       pre-resolved data (``already_filled_names``).
+    2. Extract the question text from the ``<li class="application-question">``
+       parent — specifically the ``.application-label .text`` inner text.
+    3. Apply rule-based heuristics (via ``_card_heuristic_answer``) to determine
+       the answer.  Unknown questions are left unfilled and logged as
+       ``card_unknown:<name>``.
+    4. Fill radio / select fields using the existing ``_fill_field`` logic.
+    """
+    try:
+        # Build a map from card field name → question text using DOM.
+        card_info: dict[str, dict] = page.evaluate(
+            """() => {
+                const result = {};
+                const seenNames = new Set();
+                document.querySelectorAll('[name]').forEach(el => {
+                    const name = el.getAttribute('name');
+                    if (!name || !name.startsWith('cards[')) return;
+                    if (el.getAttribute('type') === 'hidden') return;
+                    if (seenNames.has(name)) return;
+                    seenNames.add(name);
+
+                    const tag = el.tagName.toLowerCase();
+                    const type = el.getAttribute('type') || tag;
+
+                    // Walk up to <li class="application-question">
+                    let node = el;
+                    let questionText = '';
+                    while (node && node.parentElement) {
+                        node = node.parentElement;
+                        if (node.classList && node.classList.contains('application-question')) {
+                            const textEl = node.querySelector('.application-label .text');
+                            if (textEl) {
+                                // Clone and strip the required asterisk span
+                                const clone = textEl.cloneNode(true);
+                                clone.querySelectorAll('span.required').forEach(s => s.remove());
+                                questionText = clone.textContent.trim();
+                            }
+                            break;
+                        }
+                    }
+
+                    let options = [];
+                    if (tag === 'select') {
+                        options = Array.from(el.querySelectorAll('option'))
+                                      .map(o => o.textContent.trim())
+                                      .filter(o => o && o !== 'Select...');
+                    }
+
+                    result[name] = {type, questionText, options};
+                });
+                return result;
+            }"""
+        )
+    except Exception as exc:
+        log.debug("_fill_lever_cards: JS evaluation failed: %s", exc)
+        return
+
+    for name, info in card_info.items():
+        if name in already_filled_names:
+            continue
+
+        q_text = info.get("questionText", "")
+        q_type = info.get("type", "")
+        options = info.get("options", [])
+
+        answer = _card_heuristic_answer(q_text, q_type, options)
+        if answer is None:
+            log.debug("_fill_lever_cards: no heuristic answer for %r (q=%r)", name, q_text)
+            field_errors.append(f"card_unknown:{name}")
+            continue
+
+        try:
+            _fill_field(page, name, answer)
+            log.debug("_fill_lever_cards: filled %r=%r (q=%r)", name, answer, q_text)
+            _jitter(0.05, 0.15)
+        except Exception as exc:
+            log.debug("_fill_lever_cards: fill error for %r: %s", name, exc)
+            field_errors.append(f"fill_card:{name}:{type(exc).__name__}")
+
+
+def _card_heuristic_answer(q_text: str, q_type: str, options: list[str]) -> str | None:
+    """Return a heuristic answer for a Lever card qualifying question.
+
+    Uses the question text and available options to determine the best answer.
+    Returns None when no confident answer can be produced.
+    """
+    lo = q_text.lower()
+
+    # ── US Citizen / work authorization ────────────────────────────────────
+    if any(w in lo for w in ("citizen", "eligible to work", "authorized to work",
+                              "work authorization", "legally authorized")):
+        if q_type == "radio":
+            for opt in options:
+                if opt.strip().lower() == "yes":
+                    return "Yes"
+        return "Yes"
+
+    # ── Visa / sponsorship required ─────────────────────────────────────────
+    if any(w in lo for w in ("sponsorship", "require.*visa", "visa.*require",
+                              "need.*visa", "work.*visa")):
+        if q_type == "radio":
+            for opt in options:
+                if opt.strip().lower() == "no":
+                    return "No"
+        return "No"
+
+    # ── Security clearance (select) ─────────────────────────────────────────
+    if any(w in lo for w in ("clearance", "security clearance", "ts/sci", "top secret")):
+        # Prefer the "No clearance" option; fall back to the last option (usually no/none).
+        for opt in options:
+            opt_lower = opt.lower()
+            if any(x in opt_lower for x in ("no clearance", "none", "not current")):
+                return opt
+        # Last non-empty option is usually the most restrictive / "none" option.
+        if options:
+            return options[-1]
+
+    # ── Willing to relocate ──────────────────────────────────────────────────
+    if any(w in lo for w in ("relocation", "willing to relocate", "open to relocation")):
+        return "Yes"
+
+    # ── Remote work preference (select or radio) ─────────────────────────────
+    if "remote" in lo and "prefer" in lo:
+        for opt in options:
+            if "remote" in opt.lower():
+                return opt
+
+    # ── Start date ───────────────────────────────────────────────────────────
+    if any(w in lo for w in ("start date", "when can you start", "earliest start")):
+        return "May 2026"
+
+    # ── How did you hear ──────────────────────────────────────────────────────
+    if any(w in lo for w in ("how did you hear", "how did you find", "referral source")):
+        if options:
+            for opt in options:
+                if any(x in opt.lower() for x in ("job board", "linkedin", "online", "internet")):
+                    return opt
+        return "Online job board"
+
+    # ── Yes/No generic (any remaining required boolean) ──────────────────────
+    if q_type == "radio" and set(o.lower() for o in options) == {"yes", "no"}:
+        # Default yes for positively-framed questions
+        if any(w in lo for w in ("able", "willing", "open to", "have you", "do you")):
+            return "Yes"
+
+    return None
 
 
 def _inner_text_safe(page: Any) -> str:
@@ -1114,23 +1442,32 @@ def _inner_text_safe(page: Any) -> str:
 
 
 def _collect_page_errors(page: Any) -> str:
-    """Scrape visible error messages from the current page."""
+    """Scrape VISIBLE error messages from the current page.
+
+    Only looks at elements that are actually visible to the user — prevents
+    hidden error nodes (e.g., Lever's file-size tooltip that is always in the
+    DOM but shown only on hover / trigger) from polluting the error field.
+    """
     selectors = [
-        ".error",
-        ".alert-error",
-        ".alert-danger",
-        '[class*="error"]',
-        ".invalid-feedback",
-        '[data-error]',
-        ".field-error",
-        ".form-error",
+        ".error:visible",
+        ".alert-error:visible",
+        ".alert-danger:visible",
+        '[class*="error"]:visible',
+        ".invalid-feedback:visible",
+        '[data-error]:visible',
+        ".field-error:visible",
+        ".form-error:visible",
     ]
     msgs: list[str] = []
     for sel in selectors:
         try:
             for loc in page.locator(sel).all()[:3]:
+                # Double-check visibility via is_visible() in case the CSS
+                # :visible pseudo-class isn't supported by all Playwright builds.
+                if not loc.is_visible():
+                    continue
                 txt = loc.inner_text().strip()
-                if txt:
+                if txt and txt not in msgs:
                     msgs.append(txt[:120])
         except Exception:
             pass

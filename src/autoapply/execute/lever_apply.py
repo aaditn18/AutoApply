@@ -62,17 +62,50 @@ _BASE_FIELDS: list[FieldSpec] = [
     FieldSpec(name="email", label="Email", required=True, kind="text"),
     FieldSpec(name="phone", label="Phone", required=False, kind="text"),
     FieldSpec(name="resume", label="Resume / CV", required=True, kind="file"),
+    # NOTE: Lever's DOM uses capitalised keys (urls[LinkedIn], urls[GitHub], etc.)
+    # even though the API docs show lowercase.  Use the DOM name so _fill_field
+    # can locate the element by its `name` attribute.
     FieldSpec(
-        name="urls[linkedin]", label="LinkedIn URL", required=False, kind="text"
+        name="urls[LinkedIn]", label="LinkedIn URL", required=False, kind="text"
     ),
     FieldSpec(
-        name="urls[github]", label="GitHub URL", required=False, kind="text"
+        name="urls[GitHub]", label="GitHub URL", required=False, kind="text"
     ),
     FieldSpec(
-        name="urls[portfolio]", label="Portfolio / Website", required=False, kind="text"
+        name="urls[Portfolio]", label="Portfolio / Website", required=False, kind="text"
     ),
     FieldSpec(
         name="cover_letter", label="Cover Letter", required=False, kind="file"
+    ),
+    # EEO fields — present on every Lever form.  Options below are approximate;
+    # _snap_to_option does a case-insensitive substring match at fill time.
+    FieldSpec(
+        name="eeo[gender]",
+        label="Gender",
+        required=False,
+        kind="select",
+        options=["Decline to self-identify"],
+    ),
+    FieldSpec(
+        name="eeo[race]",
+        label="Race / Ethnicity",
+        required=False,
+        kind="select",
+        options=["Decline to self-identify"],
+    ),
+    FieldSpec(
+        name="eeo[veteran]",
+        label="Veteran Status",
+        required=False,
+        kind="select",
+        options=["I am not a protected veteran"],
+    ),
+    FieldSpec(
+        name="eeo[disability]",
+        label="Disability Status",
+        required=False,
+        kind="select",
+        options=["I don't wish to answer"],
     ),
 ]
 
@@ -203,6 +236,11 @@ class LeverApplicator(Applicator):
                 files=payload.get("files", {}),
                 headless=True,
                 hcaptcha_accessibility_token=settings.HCAPTCHA_ACCESSIBILITY_TOKEN,
+                imap_server=settings.IMAP_SERVER,
+                imap_port=settings.IMAP_PORT,
+                imap_email=settings.IMAP_EMAIL,
+                imap_password=settings.IMAP_PASSWORD,
+                imap_code_timeout=settings.IMAP_CODE_TIMEOUT,
             )
         except CaptchaDetected as exc:
             log.warning("CAPTCHA detected for job %s: %s", job.canonical_key, exc)

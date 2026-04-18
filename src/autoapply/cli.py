@@ -567,9 +567,14 @@ def _make_applicator(
     cover_letter_text: str,
     settings: Settings,
 ) -> Applicator | None:
-    resume_path = str(
-        settings.resumes_dir / f"aadit_nilay_resume_{track}.pdf"
-    )
+    resume_pdf = settings.resumes_dir / f"aadit_nilay_resume_{track}.pdf"
+    if not resume_pdf.exists():
+        log.error(
+            "resume PDF not found for track=%s: %s — skipping job %s",
+            track, resume_pdf, job.canonical_key,
+        )
+        return None
+    resume_path = str(resume_pdf)
     kwargs = dict(
         profile=profile,
         bank=bank,
