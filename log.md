@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 495 passing.**
+**Current test tally: 626 passing.**
 
 ---
 
@@ -625,7 +625,7 @@ Only after (1) and (2) ship. Plan:
 
 ```bash
 # Full test suite
-python -m pytest -q                                      # 495 tests
+python -m pytest -q                                      # 626 tests
 
 # Single suite
 python -m pytest tests/test_tracker.py -v
@@ -645,6 +645,11 @@ python scripts/apply_best_per_company.py \
 # Single-board smoke test on Lever (after Bright Data lands)
 python scripts/apply_best_per_company.py \
     --source lever --board-token whoop --limit 1 --no-dry-run
+
+# Surgical re-apply to specific Job.id primary keys — useful for
+# iterating on one tenant's form bugs without re-running the whole
+# per-company picker. Reset status to 'scored' first.
+python scripts/apply_by_job_ids.py 1285 1422 1058 1455 1368 --no-dry-run
 
 # Apply Alembic migrations
 alembic upgrade head
@@ -666,3 +671,330 @@ autoapply security-report --days 7
   solving verified end-to-end on real shape puzzles ($0.0048 per solve);
   accessibility cookie silent-pass verified; Lever backend still rejects
   from home IP → Bright Data deferred.
+- **2026-04-19** — Playwright refactor + batch-LLM resolver. 626 tests.
+  8/8 previously-failing Greenhouse apps submit (including 2 that were
+  stuck in review on essay questions). See Q–T below.
+
+---
+
+## 2026-04-19 — Playwright refactor, Classifier overhaul, Batch LLM
+
+Biggest architectural shift since Phase 2. Re-organized the submitter,
+rewrote the location classifier, and moved from per-field LLM fallback
+to a single batched Gemini call with full job-description context.
+Result: every one of the 8 original problem apps (jjsnackfoods, mthree,
+Smartsheet, Axon, Fanatics, CommerceIQ, Ketryx, Ophelia) now submits ok.
+
+### N — `playwright_submit.py` split into `submitter/` package
+
+Was 2142 LOC; now a 175-LOC shim re-exporting public API
+(`submit_greenhouse`, `submit_lever`, `CaptchaDetected`, `SubmitFailed`)
+from `submitter/` submodules:
+
+- `driver.py` — orchestrator
+- `field_fill.py` — fill_field / fill_select / fill_combobox (with
+  preferred-pattern waterfall: exact → prefer-list → prefix → token-set
+  → EEO decline → LLM)
+- `file_upload.py` — resume + cover letter upload
+- `lever_cards.py` — Lever qualifying cards
+- `imap_otp.py` — email-OTP verification
+- `success_detect.py` — post-submit success detection
+- `captcha_detect.py` + `captcha_retry.py` — captcha flow
+- `diagnostics.py` — pre-submit DOM state dump + failure screenshot
+- `label_fallback.py` — hardcoded-value fallback by DOM label
+- `dom_batch.py` — STAGE-2: DOM scrape + batched LLM for SPA-injected fields
+- `util.py` — jitter, text, react_set_value
+
+No behavioral change from the refactor itself — tests 495 → 495 green.
+
+### O — Location/city classifier overhaul
+
+Generic, not specific. Previously "City*" on Fanatics fell through to
+UNKNOWN; `Location (City)` on Smartsheet hit the broader CURRENT_LOCATION
+regex. Rewrote all three families (`CURRENT_CITY` / `CURRENT_STATE` /
+`CURRENT_LOCATION`) to cover 80+ phrasings:
+
+- **City**: bare labels, `City/Town`, `Current/Home/Your/Primary city`,
+  `City of residence/residency`, `Location (City)` parenthetical variants
+  (with ` `, `-`, `,`, `—`, `/` between), wh-questions
+  (`What city do you live in?`, `In what city do you reside?`),
+  imperative forms, metro-area aliases.
+- **State**: bare labels including `US State`, `State/Province`,
+  `State/Territory/Region`, qualified forms, state-of-residence,
+  wh-questions, parenthetical `Location (State)`.
+- **Location**: qualified forms, `where-do-you` variants with all tenses
+  of live/reside/based/located/call-home/from, generic-address
+  phrasings, combined city+state patterns.
+
+Plus 10+ adjacent-context negatives that must NOT classify as location:
+`City of birth`, `State of birth`, `Employer city`,
+`Previous employer location`, `Job location`,
+`Office location preference`, etc. Tests in
+`test_answer_bank.py::test_location_adjacent_routes_to_unknown`.
+
+Also fixed an `ADDRESS_LINE_2` bug where `\bunit\b` was missing word
+boundaries — `Are you a veteran or active member of the United States
+Armed Forces?` matched inside `United` and hijacked veteran questions.
+
+### P — SPA-injected field handling (DOM batch Stage-2)
+
+New `submitter/dom_batch.py`. The new `job-boards.greenhouse.io` React
+SPA injects required fields (`School`, `Location (City)`, `Gender`,
+`Race`) that aren't in Greenhouse's API `/questions` endpoint. Stage-1
+can't see them. Stage-2 fires AFTER resume upload + SPA re-render:
+
+1. Scrape empty required `input`/`select`/`textarea`/`checkbox`
+   elements visible on the page.
+2. For each `<select>` kind, open + scrape options. For async
+   typeaheads (School — returns 0 options on open), type a seed
+   (`"university of mary"` for School, `"computer"` for Major,
+   `"bachelor"` for Degree) and re-scrape.
+3. **Pre-resolve pass** — for each scraped field, try the deterministic
+   classifier + Profile / bank first. Fills School/Degree/Major/Gender/
+   Veteran/Hispanic/Location via Profile directly. No LLM tokens used.
+4. **Late-scan rescan** — after pre-resolve, re-scrape for required
+   fields that appeared only after the primary fills completed (Axon
+   `Please identify your race*` renders only after gender is set).
+5. **Batch-LLM fallback** — remaining unresolved fields go to the same
+   `resolve_batch` call as Stage-1, with scraped option lists.
+
+Each scraped element is **re-located fresh by id/name** before fill,
+not reused from the initial scrape — React-Select unmounts and remounts
+when sibling fields commit, and stale `Locator` refs cause fills to
+leak to the next DOM element. (We saw `Computer Science` get typed
+into `LinkedIn Profile` on jjsnackfoods before this fix.)
+
+Maryland-only auto-check for multi-state hiring grids: when a checkbox
+label matches a US state name, check only if it's in
+`profile.willing_to_work_states`; else uncheck. Covers mthree's
+"We hire in multiple locations; please select which you're 100%
+committed to working in" — a 50-state + 6-territory grid where the
+parent question text lives on a container our scraper doesn't climb to.
+
+### Q — Gemini model cascade (v1 API)
+
+Discovery: `gemini-2.0-flash` was **deprecated by Google in March 2026**.
+The 429 `RESOURCE_EXHAUSTED` errors we were seeing weren't transient
+rate-limiting; it had been removed from the free tier entirely.
+
+Built a 4-model cascade in `llm_batch.py::MODEL_CASCADE` that tries
+each in order, falling back on 404 / 429 / `PERMISSION_DENIED` /
+`RESOURCE_EXHAUSTED`:
+
+1. `gemini-3.1-flash-lite` — preview (currently 404s on v1; cascade
+   rolls forward)
+2. `gemini-2.5-flash-lite` — stable, 1000 RPD free tier (primary)
+3. `gemini-3-flash` — preview
+4. `gemini-2.5-flash` — stable, 250 RPD (final fallback)
+
+Switched `google-genai` Client to `api_version="v1"` (stable). v1beta
+supported a `response_mime_type: application/json` config flag we'd
+been using for structured output; v1 doesn't, so removed that and
+tightened the prompt instruction to output ONLY a JSON object. The
+tolerant markdown-fence-stripping parser in `_parse_response` handles
+any ` ```json ... ``` ` wrappers the model adds despite the directive.
+
+The cascade also replaces the legacy `_call_gemini` in
+`llm_fallback.py` so every Gemini call anywhere in the codebase
+(scoring, per-field fallback, cover letter) goes through the same
+4-model ladder.
+
+### R — Single batched LLM call per application
+
+New module `answers/llm_batch.py`. Rather than N per-field Gemini
+calls for every essay / dropdown / novel-textarea, one call with the
+full context:
+
+- `profile` JSON (track-specific facts + common EEO/citizenship fields)
+- `answer_bank_yaml` raw text (seeded defaults visible to the model)
+- `<UNTRUSTED name="job_description">...` block — sanitized JD
+- `<UNTRUSTED name="questions">...` block — all unresolved questions
+  with `{id, label, type, required, options}` objects
+- Structured output schema: `{"answers": [{id, value, source,
+  confidence, reasoning}]}`
+
+The prompt's rule block codifies:
+- Never invent facts; ground everything in PROFILE + JD.
+- F-1 OPT defaults (work_authorized=Yes, sponsorship_now=No,
+  sponsorship_future=Yes, not a US citizen, not permanent, visa
+  status = "F-1 visa OPT (STEM extension till 2029)").
+- Threshold questions: compare profile value to the threshold in the
+  label (fixes the old "Do you have GPA of 4.0+?" bug where the
+  binary-Yes fallback picked Yes for a 3.975 GPA).
+- Demographic questions: prefer decline/prefer-not-to-say variants.
+- Subjective willingness questions (`Are you willing to...`, `Can you
+  travel up to 25%?`, `Is it OK if...`): default Yes unless profile
+  contradicts.
+- Essay-length: 2–4 sentences citing concrete JD details; no
+  superlatives.
+
+Resolution pipeline in `standard_fields.py::resolve_all_batched`:
+
+- Phase 1: existing classifier + Profile / bank + per-field `llm_fallback`
+  (kept for select/multi_select only — the batch handles all text/textarea).
+- Phase 2: collect required fields that Phase 1 couldn't resolve
+  (unconfident selects + unresolved textareas), batch them in ONE
+  call with JD context, backfill the resolved list. Machine-key
+  fields (first_name, email, resume, etc.) NEVER batched — prevents
+  LLM "helpfully" pasting a whole resume into `resume_text`.
+
+Per-field audit log:
+
+```
+=== field audit: 24 answered, 0 unresolved ===
+  [profile    ] first_name                     = 'Aadit'
+  [classifier ] question_15298495008           = 'No'
+  [llm_batch  ] question_15298505008           = 'Yes'
+  [llm_single ] question_15298497008           = 'No'
+```
+
+Stored as `batch_audit` inside `Application.artifacts` JSON in the DB.
+
+### S — Common-across-tracks Profile fields
+
+`Profile` schema now carries immigration / EEO / willing-location
+fields that are identical across SWE/ML/HPC/Quant (previously these
+were hardcoded in the bank):
+
+- EEO: `demo_gender`, `demo_race`, `demo_hispanic_latino`, `demo_veteran`,
+  `demo_disability`, `demo_pronouns`, `demo_sexual_orientation`,
+  `demo_transgender`
+- Military: `military_service` (distinct from EEO veteran self-ID)
+- Citizenship / immigration: `citizenship_country`, `us_citizen`,
+  `work_authorized_us`, `permanent_work_authorization`,
+  `require_sponsorship_now`, `require_sponsorship_future`,
+  `visa_status` = `"F-1 visa OPT (STEM extension till 2029)"`
+- Current location atoms: `current_city`, `current_state`,
+  `current_state_full`, `current_zip`, `current_country`,
+  `current_location`
+- `willing_to_work_states` — list of 51 entries (50 states + DC).
+  Used by `dom_batch.py` to auto-check Maryland on state-grid
+  checkboxes.
+
+These become `PROFILE_SOURCED` via an expanded frozenset. `bank.py`
+`_from_profile` routes the new types. Bank entries remain as
+fallbacks when `profile.json` is missing a field.
+
+### T — Education preferred-pattern matching
+
+Fixed the "University of Maryland - Baltimore" pick (Aadit's school is
+College Park). Added `prefer_patterns` parameter to `fill_combobox`;
+`dom_batch._fill_one` passes an ordered regex tuple for
+School/Degree/Major. First pattern to match an option wins:
+
+```python
+_SCHOOL_OPTION_PREFERENCES = (
+    r"^university\s+of\s+maryland[\s,\-–—/]+college\s+park$",  # exact
+    r"\buniversity\s+of\s+maryland[\s,\-–—/]+college\s+park\b",
+    r"\bumd[\s,\-–—/]+college\s+park\b",
+    r"^university\s+of\s+maryland$",
+    r"\buniversity\s+of\s+maryland\b",   # fallback, picks first UMD option
+    r"\bumd\b",
+    r"\bmaryland,?\s+college\s+park\b",
+)
+_DEGREE_OPTION_PREFERENCES = (
+    r"^bachelor\s+of\s+science$",
+    r"^b\.?s\.?$",
+    r"^bachelor(?:'s)?(?:\s+degree)?$",
+    ...
+)
+_DISCIPLINE_OPTION_PREFERENCES = (
+    r"^computer\s+science$",
+    r"^computer\s+and\s+information\s+sciences?$",
+    ...
+)
+```
+
+Verified live: jjsnackfoods picks "University of Maryland - College Park"
+every time now.
+
+### `resume_text` — from `.tex`, not LLM, not empty
+
+Greenhouse tenants that render a paste-text textarea alongside the
+file-upload input (some require it non-empty) now get a plain-text
+version extracted from the SAME `.tex` file the PDF was compiled from.
+New module `profile/tex_to_text.py` strips LaTeX preamble, commands,
+and math mode; keeps content + section structure. `lru_cache`d per
+track. No LLM round-trip; content is guaranteed to match the PDF.
+
+### Essay questions routed to batch with JD context
+
+- `WHY_ROLE`, `STRENGTHS`, `WEAKNESSES` moved from bank / `REVIEW_REQUIRED`
+  into `LLM_REQUIRED` so they flow through the batch with JD context
+  (previously `WHY_ROLE` was a per-track static template).
+- `standard_fields.resolve_field` step 3.5 (per-field `llm_fallback`)
+  now fires only for `select` / `multi_select` kinds. `text` /
+  `textarea` novels flow straight to Phase 2 so they get the JD.
+- `AGREE_TO_TERMS` classifier regex broadened to catch "I agree",
+  "I consent", "By checking this box", "Please accept the terms",
+  GDPR / privacy / SMS consent variants.
+
+Live output for Ketryx's "Why do you wish to join a startup?" essay:
+> "I am drawn to the dynamic and fast-paced environment of a startup like
+> Ketryx, where I can directly contribute to building innovative
+> products..."
+
+Grounded in the JD. Similar tailoring observed on Ophelia's 2 essay
+textareas and the Smartsheet AI-familiarity Likert dropdown.
+
+### New classifier types
+
+- `MILITARY_SERVICE` — "Military Service*", "Have you served in the
+  Armed Forces?", "Active duty military" → No. Distinct from
+  `DEMO_VETERAN` (EEO self-ID). Previously an `llm_single` field that
+  sometimes answered "Yes" for Aadit.
+- `PERMANENT_WORK_AUTHORIZATION` — "Do you have the permanent and
+  unrestricted right to work in the US?" → No. Distinct from
+  `WORK_AUTHORIZED_US` which OPT satisfies.
+- `WILLING_WORK_LOCATION` — "Are you willing to work from our Sterling,
+  VA office?", "Based out of...", "Onsite 4 days/week" → Yes
+  (subjective-willingness default).
+- `DEMO_GENDER` regex broadened to match "I identify my gender as"
+  (Smartsheet phrasing).
+
+### Live verification results
+
+8/8 previously-failing apps submitted successfully in the final re-run:
+
+| App                    | Prior                          | Fixed by                                                 |
+|------------------------|--------------------------------|----------------------------------------------------------|
+| jjsnackfoods           | School = Baltimore, Military=Yes | prefer_patterns regex, PROFILE_SOURCED military_service  |
+| mthree                 | 50-state grid, GDPR consent    | willing_to_work_states lookup, AGREE_TO_TERMS classifier |
+| Smartsheet             | 5-option EEO dropdowns         | DEMO_GENDER classifier broadened, llm_batch option-match |
+| Axon                   | Race rendered late             | late-scan rescan pass                                    |
+| Fanatics               | Location (City) SPA-injected   | dom_batch stage-2                                        |
+| CommerceIQ             | Location (City) SPA-injected   | dom_batch stage-2                                        |
+| **Ketryx (new!)**      | "Why startup?" essay → review  | batch LLM + JD context in prompt                         |
+| **Ophelia (new!)**     | 2 essay textareas → review     | batch LLM + JD context in prompt                         |
+
+Ketryx + Ophelia had never submitted before (3 review-only attempts
+each over the prior day). They submit cleanly now because the batched
+LLM gets the JD and writes tailored essays.
+
+### Tests
+
+520 → 626 passing. Added:
+
+- `tests/conftest.py` — autouse fixture that blocks live Gemini calls
+  + clears `GEMINI_API_KEY`. Every LLM-involved test must monkeypatch
+  a scripted stub; no test ever hits the live API.
+- `tests/test_llm_batch.py` — 32 tests covering: model cascade order,
+  cascade-error detection (429 / 404 / `PERMISSION_DENIED` / auth),
+  `_validate_select_value` exact + case-insensitive + substring
+  rejection, response parser (happy path, markdown fences, low
+  confidence forced to review, multi-select, missing questions
+  backfilled, invalid JSON), `resolve_all_batched` end-to-end
+  (Phase 1 answers everything → no batch call, required select
+  unresolved → batch → backfill, optional fields skipped, LLM
+  decline preserves review state).
+- `tests/test_answer_bank.py` — +125 cases covering the generic
+  location regex families, adjacent-context negatives, Military
+  Service, Permanent Work Authorization, Willing Work Location,
+  education-option preferences, checkbox handling, the regressions
+  from the ADDRESS_LINE_2 `\bunit\b` word-boundary bug.
+
+### Commits
+
+- `3a12bf4` refactor: split playwright_submit.py (2142 LOC) into submitter/ package
+- `2bb84fa` feat: city/state/zip/address QuestionTypes, referral defaults, --retry-non-ok
+- `24fdde3` feat: batch-LLM resolver + DOM stage-2 + .tex-sourced resume_text

@@ -8,8 +8,10 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status:** 495 tests passing · first real Greenhouse submissions confirmed ·
-  Lever blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
+- **Status (2026-04-19):** 626 tests passing · batch-LLM resolver live ·
+  DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
+  apps now submit (including 2 that were stuck in review on essay questions) ·
+  Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
 
 ---
 
@@ -46,48 +48,96 @@ of ~200 companies, AutoApply does the full loop end-to-end:
 4. **Pick track** — chooses SWE / ML / HPC / Quant purely from job content
    (title keywords → quant description signals → skill overlap → LLM
    tiebreaker). No hardcoded "this firm is quant" list.
-5. **Apply** — fills the form via Playwright with deterministic answers from
-   the answer bank, solves any CAPTCHA via a pluggable solver
-   (2Captcha / Anti-Captcha / CapSolver / CapMonster), fetches email OTP
-   verification codes via IMAP, submits, and detects success from the
-   post-submit page.
-6. **Route** — every novel screening question OR any field that needs the
-   LLM for a free-text answer sends the whole application to a GitHub
-   Issues review queue; the user approves/rejects from their phone.
+5. **Resolve** — a two-phase pipeline:
+   * Phase 1 (deterministic): classifier → Profile / answer_bank. Handles
+     first_name, email, phone, GitHub, LinkedIn, GPA, degree, EEO defaults,
+     current location atoms, citizenship, military service, work
+     authorization — all free.
+   * Phase 2 (batched LLM): ONE Gemini call per application with the full
+     profile JSON + answer_bank YAML + sanitized job description + every
+     question that Phase 1 couldn't answer. Model cascade
+     (3.1-flash-lite → 2.5-flash-lite → 3-flash → 2.5-flash) handles
+     preview-model 404s and rate-limit 429s.
+6. **Apply** — fills the form via Playwright with the resolved answers,
+   solves any CAPTCHA via a pluggable solver (2Captcha / Anti-Captcha /
+   CapSolver / CapMonster), fetches email OTP verification codes via IMAP,
+   submits, and detects success from the post-submit page.
+7. **Stage-2 DOM batch** — the new `job-boards.greenhouse.io` SPA injects
+   fields (School, Location (City), Gender, Race) that AREN'T in the
+   API `/questions` endpoint. After resume upload + SPA re-render, a
+   second batch call resolves these from DOM-scraped labels + options,
+   with a late-rescan pass for EEO fields that only appear once other
+   fields populate. Education fields (School / Degree / Major) use
+   ordered regex preference lists so "University of Maryland - College
+   Park" beats the alphabetical-first "Baltimore" variant.
+8. **Route** — genuinely unresolvable fields AFTER both phases send the
+   whole application to a GitHub Issues review queue; the user
+   approves/rejects from their phone.
 
-Deterministic answers cover ~95% of screening-form traffic. LLM is only
-invoked for (a) cover-letter drafts and (b) questions the classifier cannot
-identify — and the latter *always* route to review, never auto-submit.
+Deterministic answers cover ~60% of every form's fields (profile data,
+seeded EEO defaults, bank values) for zero LLM cost. The batched LLM
+handles the remaining ~40% with full job-description context so essays
+cite concrete posting details instead of recycling per-track templates.
 
 ---
 
 ## Architecture at a glance
 
 ```
-┌───────────────────┐    ┌──────────────┐    ┌──────────────┐    ┌───────────┐
-│  companies.yml    │ -> │   ingest/    │ -> │   select/    │ -> │  execute/ │
-│  + resume .tex    │    │  GH / Lever  │    │  filter+rank │    │ Playwright│
-└───────────────────┘    └──────────────┘    └──────────────┘    └─────┬─────┘
-                                                                        │
-                                         ┌──────────────────────────────┤
-                                         ▼                              ▼
-                                 ┌──────────────┐               ┌───────────────┐
-                                 │  auto-apply  │               │ review-queue  │
-                                 │ (DRY_RUN off)│               │ (GH Issues)   │
-                                 └──────┬───────┘               └───────┬───────┘
-                                        │                               │
-                                        └──────────┬────────────────────┘
-                                                   ▼
-                                          ┌────────────────┐
-                                          │ SQLite tracker │
-                                          │ (jobs.sqlite)  │
-                                          └────────────────┘
+┌───────────────────┐    ┌──────────────┐    ┌──────────────┐
+│  companies.yml    │ -> │   ingest/    │ -> │   select/    │
+│  + resume .tex    │    │  GH / Lever  │    │  filter+rank │
+└───────────────────┘    └──────────────┘    └──────────────┘
+                                                       │
+                                                       ▼
+                           ┌──────────────────────────────────────────┐
+                           │        resolve_all_batched()             │
+                           │  ┌────────────────────────────────────┐  │
+                           │  │ Phase 1 — deterministic            │  │
+                           │  │   classifier → Profile / bank      │  │
+                           │  │   PROFILE_SOURCED types            │  │
+                           │  └────────────────────────────────────┘  │
+                           │  ┌────────────────────────────────────┐  │
+                           │  │ Phase 2 — ONE batched Gemini call  │  │
+                           │  │   profile JSON + bank YAML +       │  │
+                           │  │   <UNTRUSTED>JD</UNTRUSTED> +      │  │
+                           │  │   [question objs with options]     │  │
+                           │  │   ↓ cascade on 429/404             │  │
+                           │  │   gemini-2.5-flash-lite (primary)  │  │
+                           │  └────────────────────────────────────┘  │
+                           └──────────────────────┬───────────────────┘
+                                                  ▼
+                                        ┌───────────────────┐
+                                        │ execute/ + stage-2│
+                                        │ Playwright        │
+                                        │ + DOM-scrape LLM  │
+                                        │ + late-rescan     │
+                                        └─────────┬─────────┘
+                                                  │
+                           ┌──────────────────────┤
+                           ▼                      ▼
+                  ┌──────────────┐      ┌───────────────┐
+                  │  auto-apply  │      │ review-queue  │
+                  │ (DRY_RUN off)│      │ (GH Issues)   │
+                  └──────┬───────┘      └───────┬───────┘
+                         │                      │
+                         └────────┬─────────────┘
+                                  ▼
+                         ┌────────────────────┐
+                         │ SQLite tracker     │
+                         │ (jobs.sqlite)      │
+                         │  + batch_audit in  │
+                         │  Application.      │
+                         │  artifacts JSON    │
+                         └────────────────────┘
 ```
 
 Security runs through *every* LLM call:
 `security/injection_guard.py` sanitizes job descriptions + essay prompts,
-wraps them in `<UNTRUSTED>` delimiters, and re-scans LLM outputs for
-canary leaks.
+wraps them in `<UNTRUSTED>` delimiters (one per source — JD and scraped
+question list each in their own block), and re-scans LLM outputs for
+canary leaks. Structured JSON output validation rejects any response
+that doesn't match the schema exactly.
 
 ---
 
@@ -111,15 +161,19 @@ AutoApply/
 │   │   └── injection_guard.py      ← 12-kind prompt-injection scanner
 │   │
 │   ├── profile/
-│   │   ├── schema.py               ← Pydantic Profile model
+│   │   ├── schema.py               ← Pydantic Profile model (now includes
+│   │   │                             common-across-tracks fields: EEO,
+│   │   │                             citizenship, F-1 OPT/STEM, willing-states)
 │   │   ├── tex_parser.py           ← Jake Gutierrez template parser
+│   │   ├── tex_to_text.py          ← .tex → plain-text (for resume_text fields)
 │   │   └── build.py                ← .tex → state/profile.json (4 tracks)
 │   │
 │   ├── answers/
 │   │   ├── types.py                ← QuestionType enum + policy frozensets
 │   │   ├── classifier.py           ← rule-based question classifier
 │   │   ├── bank.py                 ← (question_type, track) → answer
-│   │   └── llm_fallback.py         ← template + Gemini fallback for novel qs
+│   │   ├── llm_fallback.py         ← per-field Gemini fallback (select-only now) + template
+│   │   └── llm_batch.py            ← one Gemini call per application with model cascade
 │   │
 │   ├── ingest/
 │   │   ├── base.py                 ← RawJob + JobSource ABC
@@ -140,11 +194,26 @@ AutoApply/
 │   │   └── payload.py              ← merge {data, files, cover_letter}
 │   │
 │   ├── execute/
-│   │   ├── base.py                 ← Applicator ABC + ApplyResult
-│   │   ├── standard_fields.py      ← FieldSpec → ResolvedField resolver
+│   │   ├── base.py                 ← Applicator ABC + ApplyResult + audit log
+│   │   ├── standard_fields.py      ← resolve_all_batched (phase 1 + phase 2)
 │   │   ├── greenhouse_apply.py     ← Greenhouse applicator
 │   │   ├── lever_apply.py          ← Lever applicator
-│   │   ├── playwright_submit.py    ← stealth browser driver (**large — pending refactor**)
+│   │   ├── playwright_submit.py    ← thin shim exposing submit_greenhouse/lever
+│   │   ├── submitter/              ← split from playwright_submit.py
+│   │   │   ├── driver.py           ← orchestrator (navigate → upload → fill → submit)
+│   │   │   ├── field_fill.py       ← fill_field / fill_select / fill_combobox
+│   │   │   │                         (+ preferred-pattern matching)
+│   │   │   ├── file_upload.py      ← resume/cover-letter upload
+│   │   │   ├── lever_cards.py      ← Lever qualifying cards
+│   │   │   ├── imap_otp.py         ← email OTP verification
+│   │   │   ├── success_detect.py   ← post-submit success detection
+│   │   │   ├── captcha_detect.py   ← captcha presence + site-key extraction
+│   │   │   ├── captcha_retry.py    ← solver dispatch + retry
+│   │   │   ├── diagnostics.py      ← pre-submit DOM state dump + screenshot
+│   │   │   ├── label_fallback.py   ← hardcoded-value fallback by DOM label
+│   │   │   ├── dom_batch.py        ← STAGE-2 DOM scrape + batch LLM for
+│   │   │   │                         SPA-injected fields + late-rescan
+│   │   │   └── util.py             ← jitter, text, react_set_value
 │   │   ├── captcha_types.py        ← detect_captcha(page) → kind + site_key
 │   │   ├── captcha_solver.py       ← 4-provider captcha token solver
 │   │   └── captcha_coords.py       ← hCaptcha image/shape puzzle solver
@@ -168,13 +237,19 @@ AutoApply/
 │
 ├── scripts/
 │   ├── apply_best_per_company.py   ← apply to best job per company
+│   ├── apply_by_job_ids.py         ← surgical re-apply by Job.id
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (495 tests)
+├── tests/                          ← pytest (626 tests)
+│   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
+│   │                                 calls, clears GEMINI_API_KEY. Every
+│   │                                 test is hermetic; LLM-involved tests
+│   │                                 monkeypatch a scripted stub.
 │   ├── test_injection_guard.py     ← 30-fixture injection suite
 │   ├── test_tex_parser.py
-│   ├── test_answer_bank.py
+│   ├── test_answer_bank.py         ← +125 new paraphrase/negative cases
+│   ├── test_llm_batch.py           ← batch resolver + cascade + parsing
 │   ├── test_location_filter.py
 │   ├── test_pay_extractor.py
 │   ├── test_yoe_filter.py
@@ -275,10 +350,26 @@ All runtime config is loaded by `autoapply.config.Settings` via
   Greenhouse OTP codes. See `.env.example` for setup steps.
 
 ### LLM providers
-- `GEMINI_API_KEY` — Gemini Flash for scoring + novel-question fallback.
-  Works fine on the free tier.
-- `ANTHROPIC_API_KEY` — optional. If set, cover-letter generator uses
-  Claude Sonnet instead of Gemini. Adds ~$5/mo.
+- `GEMINI_API_KEY` — Gemini API key. Used by **every** LLM call in the
+  pipeline (scoring, batch resolver, per-field fallback, cover letter).
+  Calls go through a **v1 API** model cascade that tries each in order
+  until one returns a usable response:
+    1. `gemini-3.1-flash-lite` — preview, currently v1alpha only (404s
+       on v1, so the cascade rolls forward)
+    2. `gemini-2.5-flash-lite` — stable, 1000 RPD free tier, primary
+       workhorse when the user is on a paid plan quota
+    3. `gemini-3-flash` — preview, same story as 3.1-flash-lite
+    4. `gemini-2.5-flash` — stable, 250 RPD free tier, final fallback
+  Any 404 / 429 / `RESOURCE_EXHAUSTED` / `PERMISSION_DENIED` error on one
+  model triggers a fallback to the next. The cascade order lives in
+  `src/autoapply/answers/llm_batch.py::MODEL_CASCADE`.
+  **Note:** `gemini-2.0-flash` was deprecated by Google in March 2026 and
+  is NO LONGER in the cascade. If you were on an older `.env` with
+  `GEMINI_MODEL=gemini-2.0-flash`, clear that setting — the cascade is
+  code-defined.
+- `ANTHROPIC_API_KEY` — optional. Reserved for the cover-letter generator
+  when set to use Claude instead of Gemini. Current default is Gemini
+  for all calls.
 
 ### CAPTCHA solvers (only needed if a target site gates on CAPTCHA)
 - `CAPTCHA_SOLVER` — `""` (disabled) | `"2captcha"` | `"anticaptcha"` |
@@ -354,6 +445,17 @@ python scripts/apply_best_per_company.py --source lever --board-token whoop --li
 python scripts/apply_best_per_company.py --source both --plan
 ```
 
+### `scripts/apply_by_job_ids.py`
+
+Surgical re-apply to exact `Job.id` primary keys. Skips the
+per-company dedup + rank selection; useful when iterating on a
+specific tenant's form bugs.
+
+```bash
+# Apply to 5 specific jobs (jjsnackfoods, mthree, smartsheet, axon, fanatics)
+python scripts/apply_by_job_ids.py 1285 837 953 617 1455 --no-dry-run
+```
+
 ### `scripts/applied_log.py`
 
 Prints a report of past submissions (time, company, outcome, track).
@@ -369,14 +471,23 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 495 tests
+python -m pytest -q                  # ~5 s, 626 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v
+python -m pytest tests/test_llm_batch.py -v
 
 # Single test
 python -m pytest tests/test_tracker.py::test_persist_review_flags_writes_rows -v
 ```
+
+**Hermetic policy** (`tests/conftest.py`):
+Every test runs with `GEMINI_API_KEY` unset AND
+`_call_with_cascade` / `_call_gemini` monkeypatched to raise by
+default. Tests that need an LLM response use a scripted stub — no
+test ever touches the live API, so the suite runs fast and without
+burning quota. LLM-batch tests use `_stub_cascade_factory(...)` to
+script model-cascade outcomes including 429 fallbacks.
 
 **Merge-blocking suites** (enforced by `tests.yml`):
 - `test_injection_guard.py` — must pass 100% on 30-fixture attack corpus
@@ -445,7 +556,7 @@ letter. This is a merge-blocking test.
 
 ## Current limitations
 
-See `log.md` for the always-current status. Big ones as of 2026-04-18:
+See `log.md` for the always-current status. Big ones as of 2026-04-19:
 
 - **Lever submissions blocked on Aadit's home IP.** The captcha layer
   works (we solve hCaptcha image + shape puzzles via 2Captcha
@@ -462,9 +573,15 @@ See `log.md` for the always-current status. Big ones as of 2026-04-18:
   API shape is similar to Greenhouse.
 - **YC Work at a Startup / Handshake / Simplify / Otta** — Phase 3.
   Requires session-import flows.
-- **`playwright_submit.py` is 2100+ lines.** Needs a refactor into
-  smaller modules before adding more ATSs; current structure is
-  historically layered and hard to navigate. Planned next.
+- **Gemini 3.x preview models 404 on v1 stable.** The cascade tries
+  them first (per user preference to preserve 2.5 Flash-Lite quota)
+  but they currently require v1alpha which the `google-genai` SDK
+  doesn't expose cleanly; the cascade rolls forward. When Google
+  graduates 3.x to v1 stable, no code change needed.
+- **Stage-2 DOM scraping is Greenhouse-scoped.** Lever doesn't have the
+  same SPA-injected-field problem (its qualifying cards ARE in the DOM
+  at page load), but a generic ATS-agnostic stage-2 is a reasonable
+  refactor target.
 
 ---
 
@@ -493,9 +610,55 @@ Register the branch in `solve_hcaptcha()`'s dispatcher.
 1. Add to `QuestionType` enum in `src/autoapply/answers/types.py`.
 2. Add a regex rule in `src/autoapply/answers/classifier.py::_RULES` —
    specific-first ordering.
-3. If it's a bank-routed type, add an entry to
-   `state/answer_bank.yml` with a `_default` value and any per-track
-   overrides.
-4. Decide the SOURCE policy (`PROFILE_SOURCED` / `LLM_REQUIRED` /
-   `REVIEW_REQUIRED` — see the frozensets in `types.py`).
-5. Add a paraphrase test in `tests/test_answer_bank.py::test_classify_paraphrases`.
+3. Decide the SOURCE policy:
+   * `PROFILE_SOURCED` — answer comes from `Profile`. Add the field to
+     `src/autoapply/profile/schema.py` AND `state/profile.json` (for each
+     track — usually the same value across all four). Route it in
+     `src/autoapply/answers/bank.py::_from_profile`.
+   * `LLM_REQUIRED` — answer comes from the batched LLM call with JD
+     context (essays, WHY_COMPANY, WHY_ROLE).
+   * `REVIEW_REQUIRED` — routes to GH Issues for human approval. Reserved
+     for truly policy-sensitive fields.
+   * Otherwise — bank-routed; add an entry to `state/answer_bank.yml`
+     with a `_default` value and any per-track overrides.
+4. Add a paraphrase test in `tests/test_answer_bank.py::CLASSIFIER_CASES`.
+   For new UNKNOWN-routing (adjacent-context-negative) cases, add to
+   `test_location_adjacent_routes_to_unknown` or equivalent.
+
+### Modifying the batch LLM prompt
+
+The batch prompt lives in
+`src/autoapply/answers/llm_batch.py::_PROMPT_TEMPLATE` + `_RULES_BLOCK`.
+Rules are numbered — add a new rule by appending to `_RULES_BLOCK` with
+a new number. The prompt interpolates:
+
+- `{rules}` — the core rules block
+- `{meta_block}` — track + company + role header
+- `{profile_block}` — profile JSON (trimmed to `_PROFILE_MAX_CHARS`)
+- `{bank_block}` — raw YAML from `state/answer_bank.yml`
+- `{jd_header}` / `{jd_body}` — sanitized JD, wrapped in `<UNTRUSTED>`
+- `{questions_json}` — sanitized question objects, wrapped in `<UNTRUSTED>`
+
+Any new field sent to the LLM must go through
+`autoapply.security.injection_guard.sanitize()` first. Tests for the
+prompt structure live in `tests/test_llm_batch.py`.
+
+### Adding education-field preferences
+
+When a tenant renders School/Degree/Major as a React-Select with multiple
+similarly-worded options, the **first alphabetical match** wins unless a
+preference list picks a specific variant. See
+`src/autoapply/execute/submitter/dom_batch.py`:
+
+- `_SCHOOL_OPTION_PREFERENCES` — ordered regex list for School. Tries
+  "University of Maryland - College Park" exact match first, falls
+  through to plain "University of Maryland" as a last-resort.
+- `_DEGREE_OPTION_PREFERENCES` — "Bachelor of Science" > "B.S." >
+  "Bachelor's Degree"
+- `_DISCIPLINE_OPTION_PREFERENCES` — "Computer Science" > "Computer and
+  Information Sciences"
+
+Adding a new preference: append the regex to the appropriate tuple (or
+create a new tuple for a new classifier type) and wire it into
+`_education_patterns_for_label()` so `fill_combobox` receives the
+ordered list.
