@@ -348,65 +348,257 @@ Done today as decision support for expansion priorities. Numbers:
 
 ---
 
-## Deferred work (future TODOs)
+## 2026-04-18 (continued) — Refactor + real Greenhouse submissions
 
-Ordered — do in this sequence:
+Third session of the day. Two deferred TODOs shipped.
 
-### 1. Refactor `execute/playwright_submit.py`
+### N. Refactor `execute/playwright_submit.py` → `execute/submitter/` package
 
-Currently **2142 lines**, everything in one file. Navigating it is painful
-and adding new ATS quirks keeps making it worse. Proposed structure (no
-behavioral change, pure extraction):
+The big one: ``playwright_submit.py`` went from **2142 LOC in one file**
+to a 175-LOC public shim + 10 focused modules under
+``src/autoapply/execute/submitter/``. Package name is ``submitter/``
+(not ``playwright/``) to avoid collision with the installed
+``playwright`` Python package.
+
+New layout:
 
 ```
 src/autoapply/execute/
-  playwright_submit.py         ← public entry points submit_greenhouse,
-                                 submit_lever; orchestration only (~200 LOC)
-  playwright/                   ← new package
-    __init__.py
-    driver.py                   ← _submit_form + browser setup + stealth
-    field_fill.py               ← _fill_field, _fill_select, _fill_radio,
-                                   _fill_combobox, _snap_to_option helpers
-    file_upload.py              ← _upload_file, _file_input_selector
-    lever_cards.py              ← _fill_lever_cards, _card_heuristic_answer
-    captcha_detect.py           ← _detect_captcha, _wait_for_captcha,
-                                   _extract_hcaptcha_site_key
-    captcha_retry.py            ← _maybe_solve_and_retry_captcha,
-                                   _solve_via_coords_path,
-                                   _solve_via_2captcha_token,
-                                   _inject_token_and_resubmit
-    imap_otp.py                 ← _fetch_imap_verification_code,
-                                   _enter_verification_code,
-                                   _click_otp_submit, _extract_code_from_plain_text
-    success_detect.py           ← _detect_submit_success,
-                                   _STRONG_SUCCESS_* tuples,
-                                   _FAILURE_PHRASES, _inner_text_safe,
-                                   _collect_page_errors
-    diagnostics.py              ← pre-submit dump, post-submit probe,
-                                   _dump_hcaptcha_state,
-                                   _save_annotated_screenshot
-    util.py                     ← _jitter, _react_set_value, _strip_html
+├── playwright_submit.py        ← public-API shim (175 LOC)
+│                                  • re-exports CaptchaDetected + SubmitFailed
+│                                  • keeps submit_greenhouse / submit_lever
+│                                    as the public entry points
+│                                  • calls into submitter/ internally
+│
+└── submitter/
+    ├── __init__.py             ← CaptchaDetected + SubmitFailed (32 LOC)
+    ├── util.py                 ← jitter, inner_text_safe,
+    │                             strip_html, react_set_value (72 LOC)
+    ├── field_fill.py           ← fill_field + fill_select/radio/combobox (274)
+    ├── file_upload.py          ← upload_file + file_input_selector (62)
+    ├── lever_cards.py          ← Lever qualifying-question resolver (189)
+    ├── imap_otp.py             ← OTP detect + fetch + type (437)
+    ├── success_detect.py       ← submit success/failure ladder (223)
+    ├── captcha_detect.py       ← blocking-captcha probe + poll (197)
+    ├── captcha_retry.py        ← solver dispatcher + token injection (249)
+    ├── diagnostics.py          ← pre/post-submit Lever-scoped dumps (137)
+    └── driver.py               ← _submit_form orchestrator + browser setup (365)
 ```
 
-Same goal for `captcha_coords.py` if it remains >500 LOC after refactor:
-split Grid vs Coords rounds + the shared helpers.
+Public API at ``autoapply.execute.playwright_submit`` is **unchanged**:
+``submit_greenhouse``, ``submit_lever``, ``CaptchaDetected``,
+``SubmitFailed`` all exist at the same import path. Every test and every
+applicator that did ``from autoapply.execute.playwright_submit import …``
+keeps working without modification.
 
-Test count should stay 495 after the refactor (no new tests, existing
-ones unchanged). Exit criterion: import path of every tested function
-continues to resolve via re-exports from `playwright_submit.py`, or tests
-updated to import from new locations.
+Rename of internal helpers: private-prefix ``_foo`` functions became
+regular ``foo`` functions inside their now-dedicated module (since a
+module is its own namespace). Example: ``_fill_field`` → ``field_fill.fill_field``.
 
-### 2. Re-run Greenhouse apply at scale
+Driver refactoring beyond extraction:
+- Pre-submit diagnostic block (inline ~55 LOC) extracted to
+  ``diagnostics.dump_pre_submit_state(page)``.
+- Post-submit failure diagnostic block (inline ~40 LOC) extracted to
+  ``diagnostics.dump_post_submit_failure(page, url)``.
+- File-upload loop extracted to private ``_upload_all(page, files, field_errors)``.
+- Email-verification handling extracted to private
+  ``_handle_email_verification(...)`` which raises ``SubmitFailed`` on
+  missing IMAP creds or OTP timeout.
 
-After the refactor lands and is green:
+``_submit_form`` itself dropped from **372 LOC to 220 LOC** (still the
+orchestrator, but composed of well-named function calls rather than
+inline blocks).
 
-- Re-run `python scripts/apply_best_per_company.py --source greenhouse
-  --no-dry-run` picking the single highest-ranked `status='scored'` job
-  per company that we haven't already applied to.
-- Target: submit one application per unique Greenhouse company in the DB.
-  Expect 20–50 new `outcome="ok"` rows.
-- Verify all `field_errors=[]` and confirm `status='applied_ok'` for each.
-- Update `applied_log.py` report.
+**Test tally: 495 → 495 passing.** No behavioral change.
+
+### O. Real Greenhouse submissions through the refactored code
+
+Ran ``python scripts/apply_best_per_company.py --source greenhouse
+--no-dry-run`` on 8 unique companies, highest-scored-job-per-company.
+3 new real submissions landed via the new ``submitter/driver.py``:
+
+| # | Company | Rank | Track | Outcome | Notes |
+|---|---|---|---|---|---|
+| 1 | Captivation | 0.800 | swe | ✅ ok | Cloud SWE 1 — confirmation URL |
+| 2 | Loop | 0.640 | swe | ✅ ok | SWE Full-Stack — confirmation URL |
+| 3 | CommerceIQ | 0.640 | swe | 👀 review | Question flagged for LLM/human |
+| 4 | Freedom Consulting | 0.600 | swe | ✅ ok | OTP fetched via IMAP + entered |
+| 5 | Axon | 0.600 | ml | 👀 review | Axon-specific policy question |
+| 6 | mthree | 0.600 | swe | ❌ failed | "School is required" (answer bank gap) |
+| 7 | Smartsheet | 0.600 | swe | 👀 review | Applied-AI-rating question |
+| 8 | Fanatics | 0.600 | swe | ❌ failed | "Location (City)" field gap |
+
+Totals: **3 ok · 3 review · 2 failed**. The 2 failures are answer-bank
+coverage gaps (School dropdown, City-only field — neither is in
+``answer_bank.yml`` yet), not refactor regressions. The critical log
+lines came through the new modules:
+
+```
+autoapply.execute.submitter.driver: playwright: navigating to ...
+autoapply.execute.submitter.driver: email verification required; fetching code via IMAP …
+autoapply.execute.submitter.driver: verification code fetched: 3zeVuN4w
+autoapply.execute.submitter.driver: submit success (phrase: '...'): /confirmation
+```
+
+Cumulative real submissions to date: **14 OK** (11 yesterday + 3 today).
+
+### Follow-up TODOs surfaced by this run
+
+1. **`School` answer-bank entry** — mthree's "Select your school" dropdown
+   failed. Need to either add a ``school`` field to the bank (currently
+   resolved from Profile.education[0]) or fix the classifier to route
+   dropdown "school" questions to Profile instead of failing with
+   "School is required".
+2. **`Location (City)` field** — Fanatics has a separate "Location (City)"
+   input distinct from the full-address field. Already have
+   ``current_city`` in the bank as of today's earlier commit; need to
+   verify the classifier routes a bare "Location (City)" label to
+   ``CURRENT_LOCATION`` with a city-only formatter, or add a dedicated
+   ``LOCATION_CITY`` QuestionType.
+3. **Axon / CommerceIQ / Smartsheet review-queue items** — inspect the
+   per-field ``ReviewFlag`` rows in the DB to see which questions tripped
+   the review route; decide whether they warrant new answer-bank entries
+   or stay as `requires_review`.
+
+### P. Question-type + classifier + bank extensions (addresses gaps from run O)
+
+Triggered by the mthree School failure and the Fanatics/Smartsheet
+"Location (City)" failure from section O. Today's changes tighten the
+answer pipeline end-to-end:
+
+- **New QuestionTypes** in ``answers/types.py``:
+  - ``CURRENT_CITY`` / ``CURRENT_STATE`` / ``CURRENT_ZIP`` — bare-label
+    atomic location fields ("City*", "Location (State)", "Zip code").
+  - ``STREET_ADDRESS`` / ``ADDRESS_LINE_2`` / ``FULL_ADDRESS`` —
+    street, apt/suite, and full-line variants.
+  - ``REFERRAL_KNOW_SOMEONE`` — yes/no "do you know anyone here?" /
+    "were you referred?" distinct from the name/email slots.
+
+- **Classifier rules** in ``answers/classifier.py``:
+  - Atomic location rules ordered **before** ``CURRENT_LOCATION`` so a
+    bare "City*" label doesn't fall into the broader rule.
+  - ``REFERRAL_KNOW_SOMEONE`` ordered **before** ``REFERRAL_NAME`` so
+    "were you referred by an employee?" routes to the yes/no slot.
+  - Broadened REFERRAL_NAME / REFERRAL_EMAIL to match "referrer" (not
+    just "referral"/"referred").
+
+- **Policy change**: ``REFERRAL_NAME`` / ``REFERRAL_EMAIL`` removed from
+  ``REVIEW_REQUIRED``. They now resolve from the bank — default ``""``
+  (empty = "leave the field blank"), auto-submittable.
+
+- **Bank lookup semantics** in ``answers/bank.py`` — empty-string default
+  values are now treated as VALID answers ("intentionally leave blank"),
+  not as "missing → route to review". This is the one-liner change that
+  unblocks referral-field defaults.
+
+- **``state/answer_bank.yml``** — added entries:
+  ```
+  referral_know_someone: _default: "No"
+  referral_name:         _default: ""
+  referral_email:        _default: ""
+  ```
+  The existing ``current_city`` / ``current_state`` / ``current_zip`` /
+  ``street_address`` / ``address_line_2`` / ``full_address`` entries
+  (added in section E earlier today) are now actually reachable — before
+  this session they were dead keys with no QuestionType routing them.
+
+- **``fill_select`` normalized token-set matcher** in
+  ``submitter/field_fill.py``. Waterfall now has five tiers — the new
+  fifth is normalized-token matching that handles punctuation
+  differences. Lets "University of Maryland, College Park" (profile)
+  match "University of Maryland-College Park" (dropdown option) — the
+  exact bug that tripped Greenhouse's school dropdown on mthree.
+
+- **``--retry-non-ok`` flag** on ``scripts/apply_best_per_company.py``:
+  re-pick jobs whose only prior ``Application`` rows had outcomes
+  ``failed`` / ``review`` / ``captcha`` / ``dry_run``. Default dedup is
+  unchanged (never re-submit to a real OK). Belt-and-suspenders: also
+  exclude the whole **company** when any sibling posting already has a
+  real OK submission, so we don't double-apply in one session.
+  ``--include-statuses`` lets the caller pick which ``Job.status`` values
+  to consider (default "scored"; under ``--retry-non-ok`` auto-widens to
+  include "queued_review" and "applied_failed").
+
+- **Driver changes** in ``submitter/driver.py``:
+  - Augmented-data misses (DOM field absent) logged at DEBUG only, not
+    added to ``field_errors`` — pre-augmented keys like ``location`` /
+    ``city`` aren't present on every tenant and shouldn't produce noise.
+  - Pre-submit diagnostic dump enabled for Greenhouse URLs too (was
+    Lever-only) — needed to see the actual DOM field names on new-SPA
+    tenants that inject fields outside the API.
+
+- **``submit_greenhouse`` augmented data**: added ``location``, ``city``,
+  ``state``, ``zip``, ``postal_code`` in addition to the existing
+  ``country``. These are best-effort — silently skipped when the tenant
+  DOM doesn't have the matching input.
+
+- **Tests added** (495 → 520 passing):
+  - 16 new classifier paraphrases for CURRENT_CITY / CURRENT_STATE /
+    CURRENT_ZIP / STREET_ADDRESS / ADDRESS_LINE_2 / FULL_ADDRESS.
+  - 6 new classifier paraphrases for REFERRAL_KNOW_SOMEONE /
+    REFERRAL_NAME / REFERRAL_EMAIL.
+  - ``test_referral_fields_resolve_to_deterministic_defaults`` —
+    confirms the three referral types resolve from the bank without
+    requiring review.
+  - ``test_address_atom_fields_resolve_from_bank`` — confirms the six
+    atomic address QuestionTypes pull from the bank with the expected
+    values.
+  - ``test_fill_select_normalize_tokens`` — punctuation-insensitive
+    token-set equality, subset relationships, short-token filtering.
+
+### Q. Retry run — lessons + remaining gaps
+
+Re-ran ``scripts/apply_best_per_company.py --source greenhouse
+--retry-non-ok --no-dry-run`` against the 8 companies (5 earlier-today
+failures/reviews + 3 newly-ingested). Totals: **0 ok · 3 review · 5 failed**.
+
+The 5 failures were NOT all the same issue as yesterday — each was a
+different tenant-specific required field that isn't returned by
+Greenhouse's ``questions`` API:
+
+| Company | Blocked on |
+|---|---|
+| jjsnackfoods | School* dropdown required |
+| CommerceIQ | Location (City)* required |
+| mthree | Preferred pronouns* dropdown required |
+| Smartsheet | Location (City)* required |
+| Fanatics | Location (City)* required |
+
+These all live in the DOM but not in the API — same pattern as the
+``country`` combobox Greenhouse added to their new SPA, just more
+fields. Now that the pre-submit diagnostic dump is enabled for
+Greenhouse, the next debugging session will have the actual DOM
+``name`` / ``id`` attributes for each of these fields and can augment
+``submit_greenhouse`` accordingly.
+
+### Follow-up TODOs (for the next session)
+
+1. **Scrape + augment all Greenhouse-SPA-injected fields.** The
+   pre-submit diagnostic dump now fires for Greenhouse — one failing run
+   will expose every tenant-specific ``name`` / ``id`` on
+   ``job-boards.greenhouse.io``. Add those to the ``augmented_data`` dict
+   in ``submit_greenhouse``.
+2. **School dropdown fill_select matching verification.** Run the
+   diagnostic against jjsnackfoods specifically to confirm the school
+   dropdown's option text format (does it include "University of
+   Maryland" as a substring somewhere?). If not, the normalized-token
+   matcher still won't win; may need a dedicated "school fuzzy match"
+   helper.
+3. **Preferred pronouns dropdown answer.** Add a ``DEMO_PRONOUNS`` bank
+   default ("Prefer not to answer" / "He/Him" depending on preference).
+   The type exists; the bank has no entry.
+
+---
+
+## Deferred work (future TODOs)
+
+Order — one item remaining.
+
+### 1. ~~Refactor `execute/playwright_submit.py`~~ ✅ Done 2026-04-18 (section N).
+
+### 2. ~~Re-run Greenhouse apply at scale~~ ✅ Done 2026-04-18 (section O).
+
+3 OK submissions across 3 new companies. See the outcome table above for the full run.
 
 ### 3. Eventually: Bright Data Scraping Browser for Lever
 

@@ -88,6 +88,27 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
     ("Are you willing to relocate?", QuestionType.WILLING_TO_RELOCATE, None),
     ("Open to relocation?", QuestionType.WILLING_TO_RELOCATE, None),
 
+    # -- Address atoms: city / state / zip / street / apt / full ---------
+    # Bare-label forms like "City*" from Fanatics' form — these previously
+    # fell through to UNKNOWN/review because the CURRENT_LOCATION regex
+    # was broader. The classifier rules for these atoms must sit BEFORE
+    # CURRENT_LOCATION in _RULES (specific-first).
+    ("City", QuestionType.CURRENT_CITY, None),
+    ("Location (City)", QuestionType.CURRENT_CITY, None),
+    ("City of residence", QuestionType.CURRENT_CITY, None),
+    ("State", QuestionType.CURRENT_STATE, None),
+    ("Location (State)", QuestionType.CURRENT_STATE, None),
+    ("State / Province", QuestionType.CURRENT_STATE, None),
+    ("Zip code", QuestionType.CURRENT_ZIP, None),
+    ("Postal code", QuestionType.CURRENT_ZIP, None),
+    ("ZIP", QuestionType.CURRENT_ZIP, None),
+    ("Street address", QuestionType.STREET_ADDRESS, None),
+    ("Address line 1", QuestionType.STREET_ADDRESS, None),
+    ("Address line 2", QuestionType.ADDRESS_LINE_2, None),
+    ("Apt / Suite", QuestionType.ADDRESS_LINE_2, None),
+    ("Apartment", QuestionType.ADDRESS_LINE_2, None),
+    ("Full address", QuestionType.FULL_ADDRESS, None),
+
     # -- Availability ----------------------------------------------------
     ("What is your earliest start date?", QuestionType.AVAILABLE_START_DATE, None),
     ("When can you start?", QuestionType.AVAILABLE_START_DATE, None),
@@ -124,6 +145,16 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
 
     # -- Referral ---------------------------------------------------------
     ("How did you hear about us?", QuestionType.HOW_HEARD_ABOUT, None),
+    # Yes/No "do you know someone here?" — must route to REFERRAL_KNOW_SOMEONE,
+    # NOT to REFERRAL_NAME (which catches "who referred you?" etc.).
+    ("Do you know anyone at Acme?", QuestionType.REFERRAL_KNOW_SOMEONE, None),
+    ("Were you referred?", QuestionType.REFERRAL_KNOW_SOMEONE, None),
+    ("Were you referred by an employee?", QuestionType.REFERRAL_KNOW_SOMEONE, None),
+    ("Do you have a referral?", QuestionType.REFERRAL_KNOW_SOMEONE, None),
+    # Name / email of the referrer.
+    ("Who referred you?", QuestionType.REFERRAL_NAME, None),
+    ("Name of the person who referred you", QuestionType.REFERRAL_NAME, None),
+    ("Referrer email", QuestionType.REFERRAL_EMAIL, None),
 
     # -- Consents ---------------------------------------------------------
     ("Do you consent to a background check?", QuestionType.BACKGROUND_CHECK_CONSENT, None),
@@ -366,6 +397,95 @@ def test_extract_major():
     assert _extract_major("Bachelor of Science in Computer Science") == "Computer Science"
     assert _extract_major("Computer Science") == "Computer Science"  # unchanged
     assert _extract_major("M.S. in Applied Math") == "Applied Math"
+
+
+def test_referral_fields_resolve_to_deterministic_defaults():
+    """Referral fields no longer auto-route to review — bank provides defaults.
+
+    Previously REFERRAL_NAME / REFERRAL_EMAIL were in REVIEW_REQUIRED,
+    which blocked every form asking "Who referred you?" from auto-submit.
+    Now they resolve from the bank (empty default by design) and
+    REFERRAL_KNOW_SOMEONE answers "No" when we don't have a known contact.
+    """
+    bank = _bank()
+    p = _fake_profile()
+
+    ans_know = bank.answer(classify_type(QuestionType.REFERRAL_KNOW_SOMEONE),
+                           profile=p, track="swe")
+    assert ans_know.value == "No", \
+        f"referral_know_someone default should be 'No', got {ans_know.value!r}"
+    assert not ans_know.requires_review
+    assert not ans_know.requires_llm
+
+    ans_name = bank.answer(classify_type(QuestionType.REFERRAL_NAME),
+                           profile=p, track="swe")
+    assert ans_name.value == "", \
+        f"referral_name default should be empty, got {ans_name.value!r}"
+    assert not ans_name.requires_review
+
+    ans_email = bank.answer(classify_type(QuestionType.REFERRAL_EMAIL),
+                            profile=p, track="swe")
+    assert ans_email.value == ""
+    assert not ans_email.requires_review
+
+
+def test_address_atom_fields_resolve_from_bank():
+    """The new atomic location fields (city / state / zip / street / apt /
+    full_address) must hit the bank — the YAML seed has values for all of them,
+    and `QuestionType.CURRENT_CITY` etc. must exist as enum values."""
+    bank = _bank()
+    p = _fake_profile()
+
+    for qt, expected in (
+        (QuestionType.CURRENT_CITY, "College Park"),
+        (QuestionType.CURRENT_STATE, "MD"),
+        (QuestionType.CURRENT_ZIP, "20740"),
+        (QuestionType.STREET_ADDRESS, "8150 Baltimore Ave"),
+        (QuestionType.ADDRESS_LINE_2, "Apt. 308-C"),
+    ):
+        ans = bank.answer(classify_type(qt), profile=p, track="swe")
+        assert ans.value == expected, \
+            f"{qt.value} default should be {expected!r}, got {ans.value!r}"
+        assert not ans.requires_review
+
+    # Full address just needs to contain the street + city + state — don't
+    # pin the exact string so we don't fight the YAML on stylistic edits.
+    ans_full = bank.answer(classify_type(QuestionType.FULL_ADDRESS),
+                           profile=p, track="swe")
+    assert ans_full.value, "full_address default must be non-empty"
+    assert "College Park" in ans_full.value
+    assert not ans_full.requires_review
+
+
+def test_fill_select_normalize_tokens():
+    """`_normalize_tokens` is the core of the punctuation-tolerant matcher
+    that lets us map 'University of Maryland, College Park' (profile value)
+    to the dropdown option 'University of Maryland-College Park'."""
+    from autoapply.execute.submitter.field_fill import _normalize_tokens
+
+    umd_comma = _normalize_tokens("University of Maryland, College Park")
+    umd_dash  = _normalize_tokens("University of Maryland-College Park")
+    umd_paren = _normalize_tokens("University of Maryland (College Park)")
+    assert umd_comma == umd_dash == umd_paren, (
+        "punctuation-only differences should normalize to the same token set"
+    )
+    assert umd_comma == frozenset({"university", "of", "maryland",
+                                   "college", "park"})
+
+    # Extra whitespace + mixed case must also normalize.
+    assert (_normalize_tokens("  New  YORK,  NY ")
+            == _normalize_tokens("new york ny"))
+
+    # Tokens under 2 chars are dropped (initials, noise).
+    assert _normalize_tokens("U. S. A.") == frozenset({"sa"}) or \
+           _normalize_tokens("U. S. A.") == frozenset()
+    # "U.S." → tokens ["u", "s"] → all <2 chars → dropped.
+    assert _normalize_tokens("U.S.") == frozenset()
+
+    # Subset relationship — profile has more detail than the option.
+    profile_tokens = _normalize_tokens("University of Maryland, College Park")
+    short_option = _normalize_tokens("University of Maryland")
+    assert short_option.issubset(profile_tokens)
 
 
 # ============================================================================

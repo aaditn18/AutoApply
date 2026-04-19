@@ -320,6 +320,68 @@ _RULES: list[_Rule] = [
         ),
         None,
     ),
+    # Address line 2 (apt / suite / unit) — checked BEFORE street_address
+    # because "address line 2" also contains "address".
+    (
+        QuestionType.ADDRESS_LINE_2,
+        re.compile(
+            r"address\s+line\s*2|address\s+2(?:nd)?\s+line"
+            r"|(?:apt|apartment|suite|unit)(?:\s+(?:#|number|no\.?))?"
+            r"|apt/suite|apt\.?\s*/\s*ste"
+        ),
+        None,
+    ),
+    # Street / address line 1 — line1 | street address | mailing-street.
+    (
+        QuestionType.STREET_ADDRESS,
+        re.compile(
+            r"street\s+address|address\s+line\s*1"
+            r"|^street$|^address$"           # bare labels
+            r"|mailing\s+street"
+        ),
+        None,
+    ),
+    # Zip / postal — must match bare "ZIP*" labels too.
+    (
+        QuestionType.CURRENT_ZIP,
+        re.compile(
+            r"\b(?:zip(?:\s*code)?|postal(?:\s*code)?|postcode)\b"
+        ),
+        None,
+    ),
+    # State — bare "State*" or "Location (State)" / "State/Province".
+    # Written narrowly so it doesn't swallow general "state" prose.
+    (
+        QuestionType.CURRENT_STATE,
+        re.compile(
+            r"^state$|^state\s*\*?$"
+            r"|location\s*\(?\s*state\s*\)?"
+            r"|^state\s*/\s*province$|^state\s+or\s+province$"
+        ),
+        None,
+    ),
+    # City — bare "City*" or "Location (City)". Narrow so it doesn't fire
+    # on "city and state" (that's CURRENT_LOCATION below).
+    (
+        QuestionType.CURRENT_CITY,
+        re.compile(
+            r"^city$|^city\s*\*?$"
+            r"|location\s*\(?\s*city\s*\)?"
+            r"|^city\s*/\s*town$|^(?:your\s+)?city\s+of\s+residence$"
+        ),
+        None,
+    ),
+    # Full single-line address.
+    (
+        QuestionType.FULL_ADDRESS,
+        re.compile(
+            r"full\s+address|complete\s+address|^(?:your\s+)?(?:full\s+)?mailing\s+address$"
+        ),
+        None,
+    ),
+    # Long-form "current location" / "where do you live" / "home address".
+    # Checked AFTER the city/state/zip/address specifics above so a bare
+    # "City" label doesn't get captured by the broad "your address" regex.
     (
         QuestionType.CURRENT_LOCATION,
         re.compile(
@@ -469,14 +531,38 @@ _RULES: list[_Rule] = [
         ),
         None,
     ),
+    # "Do you know someone here?" / "Were you referred?" — yes/no style.
+    # Must match BEFORE REFERRAL_NAME so "were you referred by an employee?"
+    # (which contains "referred by") routes to the yes/no slot, not the
+    # name-of-referrer slot.
+    (
+        QuestionType.REFERRAL_KNOW_SOMEONE,
+        re.compile(
+            r"do\s+you\s+know\s+(?:someone|anyone|any\s+(?:current|existing))"
+            r"|know\s+anyone\s+(?:at|who\s+works)"
+            r"|were\s+you\s+referred(?:\s+by\s+(?:an?\s+)?(?:employee|someone))?\??"
+            r"|have\s+(?:you\s+been\s+)?referred"
+            r"|are\s+you\s+(?:being\s+)?referred"
+            r"|do\s+you\s+have\s+a\s+referral"
+        ),
+        None,
+    ),
     (
         QuestionType.REFERRAL_NAME,
-        re.compile(r"referr(?:al|ed\s+by)\s+(?:name|employee)|who\s+referred\s+you"),
+        re.compile(
+            r"referr(?:al|ed\s+by|er)\s+(?:name|employee|person)"
+            r"|who\s+referred\s+you"
+            r"|name\s+of\s+(?:the\s+)?(?:person\s+who\s+)?referr"
+            r"|employee\s+(?:who\s+)?referr(?:ed)?"
+        ),
         None,
     ),
     (
         QuestionType.REFERRAL_EMAIL,
-        re.compile(r"referr(?:al|ed)\s+e[- ]?mail"),
+        re.compile(
+            r"referr(?:al|ed|er)\s+e[- ]?mail"
+            r"|e[- ]?mail\s+of\s+(?:the\s+)?(?:person\s+who\s+)?referr"
+        ),
         None,
     ),
 

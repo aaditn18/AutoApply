@@ -123,6 +123,23 @@ why_role:
 how_heard_about:
   _default: "Company careers page"
 
+# Yes/No — "Do you know someone at <company>?" / "Were you referred?"
+# Default "No" when no contact is on record. If Profile later tracks a
+# per-company referral map, that source-of-truth will override this.
+referral_know_someone:
+  _default: "No"
+
+# Name of the referring employee. Empty string → forms that require a
+# referral name accept the blank (Greenhouse / Lever treat the field as
+# optional when there's no known referrer). Override via Profile when a
+# specific contact applies for a given company.
+referral_name:
+  _default: ""
+
+# Email of the referring employee. Same treatment as referral_name.
+referral_email:
+  _default: ""
+
 # -- Demographics (EEO) -----------------------------------------------------
 
 demo_gender:

@@ -32,7 +32,13 @@ class QuestionType(str, Enum):
     WEBSITE_URL = "website_url"
 
     # -- Location / logistics --------------------------------------------
-    CURRENT_LOCATION = "current_location"
+    CURRENT_LOCATION = "current_location"        # "City, State" long form
+    CURRENT_CITY = "current_city"                # bare city-only field
+    CURRENT_STATE = "current_state"              # bare state-only field
+    CURRENT_ZIP = "current_zip"                  # bare zip/postal-code field
+    STREET_ADDRESS = "street_address"            # address line 1
+    ADDRESS_LINE_2 = "address_line_2"            # apt / suite / unit
+    FULL_ADDRESS = "full_address"                # full single-line address
     WILLING_TO_RELOCATE = "willing_to_relocate"
     AVAILABLE_START_DATE = "available_start_date"
     NOTICE_PERIOD = "notice_period"
@@ -71,8 +77,9 @@ class QuestionType(str, Enum):
 
     # -- Referral / source -----------------------------------------------
     HOW_HEARD_ABOUT = "how_heard_about"
-    REFERRAL_NAME = "referral_name"
-    REFERRAL_EMAIL = "referral_email"
+    REFERRAL_KNOW_SOMEONE = "referral_know_someone"   # yes/no — "do you know someone here?"
+    REFERRAL_NAME = "referral_name"                    # contact name (deterministic bank default)
+    REFERRAL_EMAIL = "referral_email"                  # contact email (deterministic bank default)
 
     # -- Demographics (EEO) -----------------------------------------------
     DEMO_GENDER = "demo_gender"
@@ -132,10 +139,12 @@ LLM_REQUIRED: frozenset[QuestionType] = frozenset({
 })
 
 # Types that always require human review (never auto-submit).
+# Note: REFERRAL_NAME / REFERRAL_EMAIL are NOT in this set anymore —
+# they default to empty / "None" via the bank so we can auto-submit forms
+# that ask "Who referred you?" without a referral. When we later pass a
+# specific known contact via Profile, that overrides the bank default.
 REVIEW_REQUIRED: frozenset[QuestionType] = frozenset({
     QuestionType.UNKNOWN,
     QuestionType.STRENGTHS,
     QuestionType.WEAKNESSES,
-    QuestionType.REFERRAL_NAME,
-    QuestionType.REFERRAL_EMAIL,
 })

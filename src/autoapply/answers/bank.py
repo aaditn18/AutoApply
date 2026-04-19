@@ -81,14 +81,23 @@ class AnswerBank:
     # ---- lookup ---------------------------------------------------------
 
     def lookup(self, qt: QuestionType, track: str) -> tuple[str | None, str]:
-        """Return (value, source). Source is 'bank' or 'bank:_default' or 'missing'."""
+        """Return ``(value, source)``.
+
+        ``source`` is one of ``"bank"`` (per-track hit), ``"bank:_default"``
+        (default-fallback hit), or ``"missing"`` (no entry at all).
+
+        An explicitly empty bank value (``_default: ""``) is a VALID answer
+        meaning "intentionally leave this field blank" — e.g. the referral
+        name/email fields that we submit empty when we don't have a referral.
+        Only ``None`` and missing keys are treated as "not set".
+        """
         entry = self._data.get(qt.value)
         if not isinstance(entry, dict):
             return None, "missing"
         # Per-track takes precedence over _default.
-        if track in entry and entry[track] not in (None, ""):
+        if track in entry and entry[track] is not None:
             return str(entry[track]), "bank"
-        if "_default" in entry and entry["_default"] not in (None, ""):
+        if "_default" in entry and entry["_default"] is not None:
             return str(entry["_default"]), "bank:_default"
         return None, "missing"
 

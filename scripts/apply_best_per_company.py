@@ -81,29 +81,65 @@ def _load_profile_and_bank(settings) -> tuple[dict[str, Profile], AnswerBank]:
     return profiles, bank
 
 
-def _best_per_company(engine, source: str = "greenhouse") -> list[Job]:
-    """Return the highest-ranked scored job per company (not yet applied to).
+def _best_per_company(
+    engine,
+    source: str = "greenhouse",
+    *,
+    retry_non_ok: bool = False,
+    statuses: tuple[str, ...] = ("scored",),
+) -> list[Job]:
+    """Return the highest-ranked job per company not yet successfully applied to.
 
-    `source` may be "greenhouse", "lever", or "both".
-    Companies are disambiguated per-source via a `{source}:{company}` key so
-    the same company on two boards doesn't get collapsed into one row.
+    Args:
+        source: ``"greenhouse"``, ``"lever"``, or ``"both"``.
+        retry_non_ok: When True, jobs whose only prior ``Application`` rows
+            had outcomes other than ``"ok"`` (i.e. ``failed`` / ``review`` /
+            ``captcha`` / ``dry_run``) are eligible to be re-picked. Default
+            False excludes every job with ANY ``Application`` row so we
+            never submit twice. Use ``--retry-non-ok`` to rerun against
+            fields the last attempt tripped on.
+        statuses: Job.status values to consider. Defaults to just
+            ``"scored"`` but the caller can widen to include
+            ``"queued_review"`` / ``"applied_failed"`` when retrying.
+
+    Companies are disambiguated per-source via a ``{source}:{company}`` key
+    so the same company on two boards doesn't collapse.
     """
     with Session(engine) as s:
-        # Exclude any job that appears in the applications table (any outcome)
-        # AND any job that has a real successful application (even if job.status
-        # wasn't updated due to a transaction rollback).
-        applied_ids = {row[0] for row in s.query(Application.job_id).all()}
-        # Belt-and-suspenders: also exclude jobs with a real OK application
-        # regardless of their current status field.
+        # Jobs with a real successful application — ALWAYS excluded.
         ok_ids = {
             row[0]
             for row in s.query(Application.job_id)
             .filter(Application.outcome == "ok", Application.dry_run.is_(False))
             .all()
         }
-        excluded = applied_ids | ok_ids
+        # Companies with ANY successful real application — every posting at
+        # these companies is excluded, regardless of job_id. Prevents us
+        # from double-applying to one company with different postings in
+        # the same session (60-day-per-company cap runs at scoring, not
+        # here; this is the apply-stage equivalent).
+        ok_companies = {
+            row[0]
+            for row in (
+                s.query(Job.company)
+                .join(Application, Application.job_id == Job.id)
+                .filter(Application.outcome == "ok", Application.dry_run.is_(False))
+                .distinct()
+                .all()
+            )
+        }
+        if retry_non_ok:
+            # Only exclude truly-OK jobs; allow re-picking ones whose
+            # Application rows were failed/review/captcha/dry_run. BUT
+            # still exclude the entire company if a sibling job already
+            # succeeded — no double-submits at one company in one pass.
+            excluded = ok_ids
+        else:
+            # Strict dedup: exclude every job with any Application row.
+            applied_ids = {row[0] for row in s.query(Application.job_id).all()}
+            excluded = applied_ids | ok_ids
         q = s.query(Job).filter(
-            Job.status == "scored",
+            Job.status.in_(list(statuses)),
             Job.track.in_(["swe", "ml", "hpc", "quant"]),
             ~Job.id.in_(excluded),
         )
@@ -115,6 +151,9 @@ def _best_per_company(engine, source: str = "greenhouse") -> list[Job]:
 
     best: dict[str, Job] = {}
     for j in jobs:
+        # Skip jobs at companies that already have a successful real submit.
+        if (j.company or "") in ok_companies:
+            continue
         # Key by source+company so the same company name on GH and Lever
         # doesn't collapse into a single entry.
         key = f"{j.source}:{j.company}"
@@ -262,6 +301,19 @@ def main() -> None:
     parser.add_argument("--board-token", default="",
                         help="Restrict to a specific board token (e.g. 'whoop'). "
                              "Useful for smoke-testing a single Lever company.")
+    parser.add_argument(
+        "--retry-non-ok", action="store_true",
+        help="Re-pick jobs whose only prior Application rows had outcomes "
+             "OTHER than 'ok' (failed / review / captcha / dry_run). Use "
+             "after fixing a classifier / bank bug that caused the earlier "
+             "attempt to miss. Real OK submissions are never re-targeted.",
+    )
+    parser.add_argument(
+        "--include-statuses", default="",
+        help="Comma-separated Job.status values to include. Default is just "
+             "'scored'. Use 'scored,queued_review,applied_failed' with "
+             "--retry-non-ok to retry everything that didn't cleanly submit.",
+    )
     args = parser.parse_args()
 
     dry_run = not args.no_dry_run
@@ -269,7 +321,22 @@ def main() -> None:
     engine = create_engine_from_settings()
     init_db(engine)  # idempotent; ensures review_flags table exists
 
-    candidates = _best_per_company(engine, source=args.source)
+    if args.include_statuses:
+        statuses = tuple(s.strip() for s in args.include_statuses.split(",") if s.strip())
+    elif args.retry_non_ok:
+        # Common case: previous attempts landed these jobs in
+        # queued_review or applied_failed; include those by default when
+        # --retry-non-ok is set so the caller doesn't have to pass both.
+        statuses = ("scored", "queued_review", "applied_failed")
+    else:
+        statuses = ("scored",)
+
+    candidates = _best_per_company(
+        engine,
+        source=args.source,
+        retry_non_ok=args.retry_non_ok,
+        statuses=statuses,
+    )
     if args.board_token:
         candidates = [j for j in candidates if j.board_token == args.board_token]
 
