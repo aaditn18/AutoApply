@@ -191,6 +191,21 @@ class GreenhouseApplicator(Applicator):
         )
 
         settings = get_settings()
+        # Package the LLM context so the Playwright driver can run the
+        # Stage-2 DOM batch after the React SPA has re-rendered. The
+        # answer-bank YAML is sent as raw text — the prompt wants both
+        # keys and values visible to the model.
+        try:
+            bank_yaml_text = settings.answer_bank_path.read_text(encoding="utf-8")
+        except Exception:
+            bank_yaml_text = ""
+        llm_context = {
+            "profile": self.profile,
+            "answer_bank_yaml": bank_yaml_text,
+            "track": self.track,
+            "company": job.company or "",
+            "job_title": job.title or "",
+        }
         try:
             result = submit_greenhouse(
                 board_token=job.board_token,
@@ -203,6 +218,7 @@ class GreenhouseApplicator(Applicator):
                 imap_email=settings.IMAP_EMAIL,
                 imap_password=settings.IMAP_PASSWORD,
                 imap_code_timeout=settings.IMAP_CODE_TIMEOUT,
+                llm_context=llm_context,
             )
         except CaptchaDetected as exc:
             log.warning("CAPTCHA detected for job %s: %s", job.canonical_key, exc)

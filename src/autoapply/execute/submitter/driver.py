@@ -22,8 +22,10 @@ from . import CaptchaDetected, SubmitFailed
 from .captcha_detect import wait_for_captcha, detect_captcha
 from .captcha_retry import maybe_solve_and_retry_captcha
 from .diagnostics import dump_pre_submit_state, dump_post_submit_failure
+from .dom_batch import batch_resolve_dom_fields
 from .field_fill import fill_field
 from .file_upload import file_input_selector, upload_file
+from .label_fallback import fill_by_label
 from .imap_otp import (
     detect_email_verification,
     enter_verification_code,
@@ -64,6 +66,8 @@ def submit_form(
     captcha_solver: str = "",
     captcha_solver_api_key: str = "",
     captcha_solver_timeout: int = 180,
+    label_values: dict[str, str] | None = None,
+    llm_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Drive a single Playwright-backed form submit.
 
@@ -176,6 +180,68 @@ def submit_form(
             if "jobs.lever.co" in url:
                 fill_lever_cards(page, set(data.keys()), field_errors)
 
+            # ------ Stage-2 DOM batch LLM resolver --------------------------
+            # The new job-boards.greenhouse.io SPA injects required fields
+            # that aren't in the API ``/questions`` response (School on
+            # jjsnackfoods, Gender on Axon/Smartsheet, ...). Stage-1
+            # answered everything the API exposed; Stage-2 now scrapes
+            # the post-upload DOM for remaining empty required fields,
+            # opens their dropdowns to capture options, and resolves the
+            # whole batch in ONE Gemini call.
+            #
+            # Runs BEFORE ``label_fallback`` so the LLM gets first crack
+            # at SPA-injected fields — the deterministic label_fallback
+            # remains as a safety net for the small set of fields we
+            # have hardcoded answers for (location atoms primarily).
+            stage2_audit: dict[str, Any] = {}
+            if llm_context:
+                try:
+                    stage2_audit = batch_resolve_dom_fields(
+                        page=page,
+                        profile=llm_context.get("profile"),
+                        answer_bank_yaml=llm_context.get("answer_bank_yaml", ""),
+                        track=llm_context.get("track", "swe"),
+                        company=llm_context.get("company", ""),
+                        job_title=llm_context.get("job_title", ""),
+                        already_filled_keys=set(data.keys()),
+                    )
+                    if stage2_audit.get("scraped_count"):
+                        log.info(
+                            "dom-batch: scraped=%d filled=%d model=%s error=%s",
+                            stage2_audit.get("scraped_count", 0),
+                            stage2_audit.get("filled_count", 0),
+                            stage2_audit.get("model_used") or "<none>",
+                            stage2_audit.get("error") or "—",
+                        )
+                        # Per-field audit — shows what the LLM picked
+                        # for each DOM-injected field and whether the
+                        # physical fill landed. Critical for diagnosing
+                        # "LLM answered but form still rejected" cases.
+                        for entry in stage2_audit.get("per_field", []):
+                            mark = "✓" if entry.get("filled") else "✗"
+                            log.info(
+                                "  %s [%s] %s = %r  (conf=%.2f, %s)",
+                                mark,
+                                entry.get("source", "?"),
+                                (entry.get("label") or entry.get("field_id", ""))[:50],
+                                str(entry.get("value") or "")[:60],
+                                entry.get("confidence", 0.0),
+                                entry.get("reasoning", "")[:60],
+                            )
+                except Exception as exc:
+                    log.warning("dom_batch stage-2 raised: %s", exc)
+
+            # ------ Label-aware fallback (Greenhouse SPA-injected fields) ----
+            # The new job-boards.greenhouse.io SPA renders tenant-specific
+            # inputs that aren't in the API ``questions`` list. Stage-2
+            # above handles these dynamically via LLM; this label_fallback
+            # remains as a safety-net deterministic path for the small
+            # set of location-atom fields where we have hardcoded answers
+            # (city/state/zip) — useful when the LLM batch is rate-limited
+            # or returns needs_review.
+            if label_values:
+                fill_by_label(page, label_values, set(data.keys()), field_errors)
+
             # ------ Pre-submit diagnostic dump (Lever + Greenhouse) --------
             # Lever was the original debugging target (silent server-side
             # rejections). Greenhouse added because the new
@@ -184,6 +250,20 @@ def submit_form(
             # see them ahead of a fix.
             if "jobs.lever.co" in url or "greenhouse.io" in url:
                 dump_pre_submit_state(page)
+                # Also save a screenshot — lets us visually verify React-Select
+                # state (singleValue text) without reverse-engineering class
+                # names. Tag by URL hash to de-dup across tenants.
+                try:
+                    import hashlib as _hashlib
+                    from pathlib import Path as _Path
+                    shot_dir = _Path("state") / "failed_submits"
+                    shot_dir.mkdir(parents=True, exist_ok=True)
+                    tag = _hashlib.md5(url.encode()).hexdigest()[:10]
+                    path = shot_dir / f"presubmit_{tag}.png"
+                    page.screenshot(path=str(path), full_page=True)
+                    log.info("pre-submit screenshot: %s", path)
+                except Exception as exc:
+                    log.debug("pre-submit screenshot failed: %s", exc)
 
             # ------ Submit -------------------------------------------------
             jitter(1.0, 3.0)

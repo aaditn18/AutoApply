@@ -45,8 +45,12 @@ def _norm(q: str) -> str:
     q = q.strip().lower()
     q = re.sub(r"\s+", " ", q)
     # drop trailing punctuation noise; keep internal punctuation that might
-    # affect matching (hyphens in "c++", "c/c++")
-    q = q.rstrip(".?!:; ")
+    # affect matching (hyphens in "c++", "c/c++"). Also strip the "*" /
+    # "(required)" required-field markers that appear on ATS labels so
+    # anchored rules ("^city$") still fire on inputs like "City*".
+    q = q.rstrip(".?!:; *")
+    q = re.sub(r"\s*\(required\)\s*$", "", q)
+    q = re.sub(r"\s*\*\s*$", "", q)
     return q
 
 
@@ -322,12 +326,15 @@ _RULES: list[_Rule] = [
     ),
     # Address line 2 (apt / suite / unit) — checked BEFORE street_address
     # because "address line 2" also contains "address".
+    # Word boundaries matter: without \b, "unit" matches inside "United
+    # States" and mis-classifies "Are you a veteran of the United States
+    # Armed Forces?" as an apartment field.
     (
         QuestionType.ADDRESS_LINE_2,
         re.compile(
             r"address\s+line\s*2|address\s+2(?:nd)?\s+line"
-            r"|(?:apt|apartment|suite|unit)(?:\s+(?:#|number|no\.?))?"
-            r"|apt/suite|apt\.?\s*/\s*ste"
+            r"|\b(?:apt|apartment|suite|unit)\b(?:\s+(?:#|number|no\.?))?"
+            r"|apt\s*/\s*suite|apt\.?\s*/\s*ste"
         ),
         None,
     ),
@@ -349,25 +356,84 @@ _RULES: list[_Rule] = [
         ),
         None,
     ),
-    # State — bare "State*" or "Location (State)" / "State/Province".
-    # Written narrowly so it doesn't swallow general "state" prose.
+    # -- City / State / Location --
+    # Written as generic families, in order:
+    #   STATE (atomic)  → CITY (atomic)  → FULL_ADDRESS  → LOCATION (combined/general)
+    # Ordering rationale: atomic-field labels ("City", "State") must win
+    # over the broad LOCATION rule so that a single-city input never gets
+    # mis-classified as the combined city-and-state form.
+    #
+    # Shared qualifiers for "which field of residence" questions:
+    #   QUALS: current | home | residence | primary | preferred | mailing |
+    #          residential | your | present | main
+    # Shared verbs for "where do you X" questions:
+    #   VERBS: live | reside | based | located | call home | currently …
+    # These are inlined into each rule below for readability; a change
+    # here means adding the alternate to each of the three rules.
+
+    # State — atomic state-only field.
+    # Matches: "State", "State*", "State / Province", "State or Province",
+    # "Current/Home/Your/Primary/Preferred/Mailing/Residential state",
+    # "State of residence", "What state do you live/reside in?",
+    # "Which state are you in?", "In what state do you live?",
+    # "Location (State)", "Location - State", "Location: State",
+    # "State name", "State code", "State abbreviation".
     (
         QuestionType.CURRENT_STATE,
         re.compile(
-            r"^state$|^state\s*\*?$"
-            r"|location\s*\(?\s*state\s*\)?"
-            r"|^state\s*/\s*province$|^state\s+or\s+province$"
+            # Bare labels
+            r"^state$|^us\s+state$"
+            r"|^state\s*(?:/|\s+or\s+)\s*(?:province|territory|region)$"
+            r"|^(?:state|us\s+state)\s+(?:name|code|abbreviation|abbr)$"
+            # Qualified forms: "current state", "home state", …
+            r"|\b(?:current(?:ly)?|home|your|primary|preferred|mailing|residential|present|main|residence)\s+state\b"
+            # State of residence / state of residency / state you live in
+            r"|\bstate\s+(?:of\s+(?:(?:your\s+|current\s+|primary\s+)?(?:residence|residency|living)"
+            r"|(?:the\s+)?us\s+you\s+(?:live|reside))"
+            r"|you\s+(?:currently\s+)?(?:live|reside|are\s+based|are\s+located|call\s+home)\s+in)\b"
+            # "What/which state do you live/reside/are based in"
+            r"|\b(?:what|which|in\s+what|in\s+which)\s+state\s+(?:do\s+you|are\s+you)\b"
+            # "Please enter / provide / specify your state"
+            r"|\b(?:enter|provide|specify|select)\s+(?:your\s+)?state\b"
+            # Parenthetical: "Location (State)", "Location - State", "Location: State"
+            r"|\blocation\s*[\-\u2013\u2014\(:/]\s*state\b"
         ),
         None,
     ),
-    # City — bare "City*" or "Location (City)". Narrow so it doesn't fire
-    # on "city and state" (that's CURRENT_LOCATION below).
+    # City — atomic city-only field.
+    # Matches: "City", "City*", "City/Town", "City or Town", "Town", "Town/City",
+    # "Current/Home/Your/Primary/Preferred/Mailing/Residential city",
+    # "City of residence / residency", "What city do you live/reside in?",
+    # "Which city are you (currently) (based|located) in?",
+    # "In what city do you live?", "City you live in", "City name",
+    # "Location (City)", "Location - City", "Location: City",
+    # "Nearest city", "Metro area" (treated as CITY for ATS purposes).
+    #
+    # Explicitly does NOT match "city and state", "city, state",
+    # "city / state" — those fall through to CURRENT_LOCATION.
     (
         QuestionType.CURRENT_CITY,
         re.compile(
-            r"^city$|^city\s*\*?$"
-            r"|location\s*\(?\s*city\s*\)?"
-            r"|^city\s*/\s*town$|^(?:your\s+)?city\s+of\s+residence$"
+            # Bare labels — exclude if "and"/"/"/","/"or" follows "city" (combined form)
+            r"^city$"
+            r"|^city\s*(?:/|\s+or\s+)\s*town$|^town\s*(?:/|\s+or\s+)\s*city$|^town$"
+            r"|^(?:nearest\s+)?(?:major\s+)?(?:city|metro(?:politan)?(?:\s+area)?)$"
+            r"|^city\s+name$"
+            # Qualified forms: "current city", "home city", …
+            r"|\b(?:current(?:ly)?|home|your|primary|preferred|mailing|residential|present|main|residence|nearest)\s+city\b"
+            # City of residence / of residency / you live in
+            r"|\bcity\s+(?:of\s+(?:(?:your\s+|current\s+|primary\s+)?(?:residence|residency|living))"
+            r"|you\s+(?:currently\s+)?(?:live|reside|are\s+based|are\s+located|call\s+home)\s+in)\b"
+            # "What/which city do you live/reside in" — must NOT be
+            # followed by "and state" / ", state" (that is LOCATION combined).
+            r"|\b(?:what|which|in\s+what|in\s+which)\s+city(?!\s*(?:,|/|\s+and|\s+or)\s*state)"
+            r"\s+(?:do\s+you|are\s+you|you(?:\s+(?:live|reside|are|call))?)\b"
+            # "Please enter / provide / specify / select your city"
+            r"|\b(?:enter|provide|specify|select)\s+(?:your\s+)?city\b"
+            # Parenthetical: "Location (City)", "Location - City", "Location: City"
+            # But NOT "Location (City, State)" — that's LOCATION. Enforced by
+            # the negative lookahead on `,`/`and`/`/` + state/province.
+            r"|\blocation\s*[\-\u2013\u2014\(:/]\s*city(?!\s*(?:,|/|\s+and|\s+or)\s*(?:state|province))\b"
         ),
         None,
     ),
@@ -379,18 +445,46 @@ _RULES: list[_Rule] = [
         ),
         None,
     ),
-    # Long-form "current location" / "where do you live" / "home address".
-    # Checked AFTER the city/state/zip/address specifics above so a bare
-    # "City" label doesn't get captured by the broad "your address" regex.
+    # Long-form / combined "current location" / "where do you live".
+    # Matches broadly — the atomic CITY / STATE / ZIP / ADDRESS rules above
+    # have already fired and returned if they hit.
+    #
+    # Covers:
+    #   - Qualified location: "current location", "home location",
+    #     "primary location", "preferred location", "residence location",
+    #     "your location".
+    #   - "Where" questions: "where do you live", "where are you based",
+    #     "where are you located", "where do you currently reside",
+    #     "where are you currently (based|located|living|residing)",
+    #     "where do you call home", "where are you from" (treated as
+    #     current-location since ATS forms don't distinguish), "where
+    #     can we reach you".
+    #   - Generic address: "your address", "home address", "mailing
+    #     address", "residential address", "current address".
+    #   - Combined: "city and state", "city, state", "city/state",
+    #     "city or state", "Location (City, State)",
+    #     "Location (City, State, Country)".
+    #   - Bare label: "Location", "Location*".
     (
         QuestionType.CURRENT_LOCATION,
         re.compile(
-            r"current\s+(?:location|city|address|residence|home\s+address)"
-            r"|where\s+(?:do\s+you\s+live|are\s+you\s+based|are\s+you\s+located)"
-            r"|where\s+are\s+you\s+currently"
-            r"|your\s+(?:current\s+)?(?:mailing\s+)?address"
-            r"|(?:home|mailing|residential)\s+address"
-            r"|city\s+(?:and\s+state|,\s*state)"
+            # Qualified location: "current location", "home location", etc.
+            r"\b(?:current(?:ly)?|home|primary|preferred|residence|residential|your|present|main)\s+location\b"
+            # "Where" questions — all tenses of live/reside/based/located/call-home.
+            r"|\bwhere\s+(?:do|are|have)\s+you\s+(?:(?:currently|presently|now)\s+)?"
+            r"(?:live|living|reside|residing|based|located|situated|call\s+home|from|been\s+living)\b"
+            r"|\bwhere\s+(?:are\s+you\s+)?currently\s+(?:based|located|living|residing)\b"
+            r"|\bwhere\s+can\s+we\s+(?:reach|contact|find)\s+you\b"
+            # Generic address phrasings
+            r"|\byour\s+(?:current\s+)?(?:mailing\s+|home\s+|residential\s+)?address\b"
+            r"|\b(?:home|mailing|residential|current|permanent)\s+address\b"
+            # Combined city + state / country
+            r"|\bcity\s*(?:,|/|\s+and|\s+or)\s*state\b"
+            r"|\bcity\s*(?:,|/)\s*state\s*(?:,|/)\s*country\b"
+            # Parenthetical combined: "Location (City, State)", "Location - City, State"
+            r"|\blocation\s*[\-\u2013\u2014\(:/]\s*city\s*(?:,|/|\s+and|\s+or)\s*(?:state|province)\b"
+            # Bare "Location" label (last resort — fires only when nothing else did)
+            r"|^location$"
         ),
         None,
     ),
@@ -429,7 +523,10 @@ _RULES: list[_Rule] = [
     ),
     (
         QuestionType.MAJOR,
-        re.compile(r"\b(?:major|field\s+of\s+study|area\s+of\s+study|concentration)\b"),
+        re.compile(
+            r"\b(?:major|field\s+of\s+study|area\s+of\s+study|"
+            r"concentration|discipline|course\s+of\s+study)\b"
+        ),
         None,
     ),
     (
@@ -473,7 +570,13 @@ _RULES: list[_Rule] = [
     ),
     (
         QuestionType.DEMO_GENDER,
-        re.compile(r"^gender$|what\s+is\s+your\s+gender|gender\s+identity"),
+        re.compile(
+            r"^gender$|what\s+is\s+your\s+gender|gender\s+identity"
+            # "I identify my gender as:" / "Gender:"
+            r"|identify\s+(?:my\s+)?gender"
+            # Mthree / Greenhouse-EEO variants
+            r"|my\s+gender\s+(?:is|identity)"
+        ),
         None,
     ),
     (
@@ -504,6 +607,61 @@ _RULES: list[_Rule] = [
     (
         QuestionType.DEMO_PRONOUNS,
         re.compile(r"\bpronouns?\b|preferred\s+pronoun"),
+        None,
+    ),
+
+    # -- Military service (distinct from EEO veteran status) -------------
+    # Covers "Are you in/have you served in the military", "Military
+    # Service*" (jjsnackfoods), "Served in the US Armed Forces?",
+    # "Active duty", etc. This is the "are you currently or have you
+    # ever been in the military" flavor — NOT the EEO-veteran self-ID
+    # question which is ``demo_veteran`` above. Order-sensitive: must
+    # come AFTER demo_veteran so the EEO form's "protected veteran"
+    # phrasing matches there.
+    (
+        QuestionType.MILITARY_SERVICE,
+        re.compile(
+            r"^military\s+service$"
+            r"|(?:have\s+you\s+)?served\s+(?:in\s+the\s+)?(?:us\s+|u\.?s\.?\s+)?(?:armed\s+forces|military)"
+            r"|active\s+(?:duty|military)"
+            r"|(?:are\s+you\s+)?(?:currently\s+)?in\s+the\s+(?:us\s+)?(?:armed\s+forces|military)"
+            r"|military\s+(?:experience|background|history)"
+            r"|(?:prior|current|former)\s+military"
+        ),
+        None,
+    ),
+
+    # -- Permanent work authorization (green-card-level) -----------------
+    # Distinct from ``work_authorized_us`` (which OPT satisfies) — this
+    # one specifically asks about PERMANENT authorization (green card
+    # or citizenship). For an F-1 OPT student the answer is always No.
+    (
+        QuestionType.PERMANENT_WORK_AUTHORIZATION,
+        re.compile(
+            r"permanent\s+(?:(?:and\s+)?unrestricted\s+)?(?:right|authorization)\s+to\s+work"
+            r"|have\s+(?:the\s+)?permanent\s+(?:right\s+)?(?:to\s+)?work"
+            r"|permanent(?:ly)?\s+authorized\s+to\s+work"
+            r"|lawfully\s+authorized\s+to\s+work\s+.*?permanent"
+        ),
+        None,
+    ),
+
+    # -- Willing to work from a specific location / office --------------
+    # "Are you willing to work from our Sterling, VA office?" /
+    # "This role is work from home but requires you to be based out of X"
+    # / "Are you able to work onsite 4 days/week" — all route to a
+    # Yes/No answer that defaults to Yes per the "answer subjective
+    # willingness questions positively" policy.
+    (
+        QuestionType.WILLING_WORK_LOCATION,
+        re.compile(
+            r"willing\s+to\s+work\s+(?:from|at|in)\s+(?:our|the)"
+            r"|based\s+out\s+of\s+(?:our\s+)?\w+,?\s+\w+"
+            r"|(?:able|willing)\s+to\s+(?:work|be)\s+(?:onsite|on[- ]?site|in[- ]?(?:office|person))"
+            r"|(?:this\s+role\s+)?requires\s+(?:you\s+to\s+be\s+)?(?:onsite|on[- ]?site|in[- ]?(?:office|person))"
+            r"|work\s+(?:from|at)\s+(?:our\s+)?(?:office|hq|headquarters)"
+            r"|onsite\s+\d+\s+days?"
+        ),
         None,
     ),
 
@@ -615,7 +773,17 @@ _RULES: list[_Rule] = [
     ),
     (
         QuestionType.AGREE_TO_TERMS,
-        re.compile(r"agree\s+to\s+(?:the\s+)?(?:terms|privacy|policy)"),
+        re.compile(
+            # Canonical forms
+            r"agree\s+to\s+(?:the\s+)?(?:terms|privacy|policy)"
+            # "I consent to..." / "I agree that..." / "By checking this box"
+            r"|\bi\s+(?:agree|consent|accept|acknowledge)\b"
+            r"|by\s+(?:checking|clicking|submitting)\s+(?:this\s+)?(?:box|information|your\s+info)"
+            # "Please accept the terms" / "Accept the terms"
+            r"|(?:please\s+)?accept\s+(?:the\s+)?(?:terms|conditions|privacy|policy|agreement)"
+            # "Read and agree to the privacy notice"
+            r"|(?:read\s+(?:and\s+)?(?:agree|accept))"
+        ),
         None,
     ),
 ]

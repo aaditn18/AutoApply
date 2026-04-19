@@ -199,7 +199,62 @@ class AnswerBank:
 
 
 def _from_profile(qt: QuestionType, profile: Profile, slot: dict[str, str]) -> str | None:
-    """Map a PROFILE_SOURCED QuestionType to a string from the parsed resume."""
+    """Map a PROFILE_SOURCED QuestionType to a string from the parsed resume.
+
+    Extended beyond resume-parsed fields to include common-across-tracks
+    fields (EEO, citizenship/immigration, current location, etc.) that
+    now live on ``Profile``. These have sensible defaults on the Pydantic
+    schema so older ``profile.json`` files without the new keys still
+    produce correct answers.
+    """
+    # EEO / demographic — common across tracks (see Profile schema).
+    if qt is QuestionType.DEMO_GENDER:
+        return getattr(profile, "demo_gender", None) or None
+    if qt is QuestionType.DEMO_RACE:
+        return getattr(profile, "demo_race", None) or None
+    if qt is QuestionType.DEMO_HISPANIC_LATINO:
+        return getattr(profile, "demo_hispanic_latino", None) or None
+    if qt is QuestionType.DEMO_VETERAN:
+        return getattr(profile, "demo_veteran", None) or None
+    if qt is QuestionType.DEMO_DISABILITY:
+        return getattr(profile, "demo_disability", None) or None
+    if qt is QuestionType.DEMO_PRONOUNS:
+        return getattr(profile, "demo_pronouns", None) or None
+    if qt is QuestionType.DEMO_SEXUAL_ORIENTATION:
+        return getattr(profile, "demo_sexual_orientation", None) or None
+    if qt is QuestionType.DEMO_TRANSGENDER:
+        return getattr(profile, "demo_transgender", None) or None
+
+    # Military / prior service.
+    if qt is QuestionType.MILITARY_SERVICE:
+        return getattr(profile, "military_service", None) or None
+
+    # Citizenship / immigration.
+    if qt is QuestionType.CITIZENSHIP:
+        return getattr(profile, "citizenship_country", None) or None
+    if qt is QuestionType.US_CITIZEN:
+        return getattr(profile, "us_citizen", None) or None
+    if qt is QuestionType.WORK_AUTHORIZED_US:
+        return getattr(profile, "work_authorized_us", None) or None
+    if qt is QuestionType.PERMANENT_WORK_AUTHORIZATION:
+        return getattr(profile, "permanent_work_authorization", None) or None
+    if qt is QuestionType.REQUIRE_SPONSORSHIP_NOW:
+        return getattr(profile, "require_sponsorship_now", None) or None
+    if qt is QuestionType.REQUIRE_SPONSORSHIP_FUTURE:
+        return getattr(profile, "require_sponsorship_future", None) or None
+    if qt is QuestionType.VISA_STATUS:
+        return getattr(profile, "visa_status", None) or None
+
+    # Current location atoms.
+    if qt is QuestionType.CURRENT_CITY:
+        return getattr(profile, "current_city", None) or None
+    if qt is QuestionType.CURRENT_STATE:
+        return getattr(profile, "current_state", None) or None
+    if qt is QuestionType.CURRENT_ZIP:
+        return getattr(profile, "current_zip", None) or None
+    if qt is QuestionType.CURRENT_LOCATION:
+        return getattr(profile, "current_location", None) or None
+
     # Identity
     if qt is QuestionType.FULL_NAME:
         return profile.full_name

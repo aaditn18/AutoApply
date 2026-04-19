@@ -20,6 +20,14 @@
 # (24-month STEM extension thereafter), but H-1B sponsorship is eventually
 # needed for long-term employment.
 
+# NOTE: work_authorized_us, require_sponsorship_now/future, visa_status,
+# citizenship, us_citizen, and the EEO demographic fields below are now
+# PROFILE_SOURCED (see src/autoapply/answers/types.py). The canonical
+# values live on ``Profile`` in ``state/profile.json`` so they're
+# consistent across every resume track. The bank entries below are
+# kept as a *fallback* — if ``profile.json`` is missing a field, the
+# resolver falls through to the bank for that field only.
+
 work_authorized_us:
   _default: "Yes"            # OPT is valid US work authorization
 
@@ -30,7 +38,17 @@ require_sponsorship_future:
   _default: "Yes"            # H-1B sponsorship will be required after OPT
 
 visa_status:
-  _default: "F-1 (OPT)"     # snap_to_option will match "F-1", "OPT", etc.
+  # Long-form visa status string. Greenhouse/Lever questions asking
+  # "What is your visa / work authorization status?" get this back.
+  # For simple checkbox lists (Yes/No on F-1, Yes/No on OPT), the
+  # option matcher still picks the correct verbatim option.
+  _default: "F-1 visa OPT (STEM extension till 2029)"
+
+# Yes/No — "Do you have permanent work authorization in the US?"
+# (i.e., green-card-level permanent authorization). Aadit is on F-1
+# OPT which is time-limited, NOT permanent.
+permanent_work_authorization:
+  _default: "No"
 
 citizenship:
   # Country of citizenship — long-form fields ask "What is your citizenship?"
@@ -40,6 +58,12 @@ us_citizen:
   # Yes/No — "Are you a U.S. citizen?". Aadit is an Indian citizen on F-1 OPT,
   # so this is always No. Do NOT confuse with work authorization
   # (work_authorized_us = Yes, because OPT IS valid US work auth).
+  _default: "No"
+
+# Yes/No — "Have you served in the US Armed Forces?" / "Military service?"
+# Aadit hasn't served, so always No. Don't confuse with veteran status
+# (``demo_veteran``), which is an EEO self-ID question with its own phrasing.
+military_service:
   _default: "No"
 
 # -- Experience (general) ---------------------------------------------------
@@ -71,6 +95,15 @@ full_address:
   _default: "8150 Baltimore Ave, Apt. 308-C, College Park, MD 20740"
 
 willing_to_relocate:
+  _default: "Yes"
+
+# "Are you willing to work from our Sterling, VA office?" /
+# "This role requires you to be based out of X" — subjective
+# willingness questions. Per policy, we default to Yes; the candidate
+# can always decline later. Don't confuse with ``willing_to_relocate``
+# (generic Yes/No relocation) — this one targets the specific "from
+# our location" variant.
+willing_work_location:
   _default: "Yes"
 
 available_start_date:

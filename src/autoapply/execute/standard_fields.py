@@ -161,14 +161,29 @@ def resolve_field(
         return ResolvedField(
             spec.name, spec.label, cover_letter_text or "", "machine_key"
         )
-    # Text-area variant of resume upload (e.g. Greenhouse `resume_text`).
-    # The actual PDF is submitted via the file-upload input; the text-paste
-    # variant is redundant and is NOT rendered by the new job-boards.greenhouse.io
-    # SPA.  Return empty value so build_payload's `if r.value:` gate silently
-    # skips this field — prevents a spurious fill:resume_text:ValueError in
-    # field_errors when the DOM element doesn't exist.
+    # Text-area variant of resume upload (e.g. Greenhouse ``resume_text``).
+    # Some tenants render BOTH the file-upload input AND a paste-text
+    # textarea and require the textarea to be non-empty. We derive the
+    # plain-text version from the SAME .tex source the PDF was
+    # compiled from — guaranteed identical content, no LLM round-trip.
+    # When the .tex isn't available (edge case in tests), fall back to
+    # empty string + machine_key source so the batch resolver skips.
     if attr == "resume" and spec.kind in ("text", "textarea"):
-        return ResolvedField(spec.name, spec.label, "", "machine_key")
+        try:
+            from autoapply.config import get_settings
+            from autoapply.profile.tex_to_text import resume_plaintext_for_track
+
+            settings = get_settings()
+            text = resume_plaintext_for_track(
+                str(settings.resumes_dir), track,
+            )
+            return ResolvedField(spec.name, spec.label, text, "machine_key")
+        except Exception as exc:
+            log.debug(
+                "resume_text .tex plaintext extraction failed for track=%s: %s",
+                track, exc,
+            )
+            return ResolvedField(spec.name, spec.label, "", "machine_key")
     if attr:
         val = _profile_value(attr, profile)
         if val is not None and val != "":
@@ -218,13 +233,15 @@ def resolve_field(
             )
 
     # 3.5 LLM / template fallback for genuinely novel text fields.
-    # Reached only when the classifier returns UNKNOWN (step 3 found no type).
-    # For text/textarea: Gemini Flash drafts an answer from the profile context.
-    # For select/multi_select: same, but constrained to the option list.
-    # Marked source="llm_answer" for audit logging.
-    # Does NOT set requires_review — caller auto-submits and the answer is
-    # visible in the Application.answers audit column.
-    if spec.kind in ("text", "textarea", "select", "multi_select"):
+    # ONLY fires for ``select`` / ``multi_select`` kinds now — we need a
+    # best-guess pick from the API's option list at resolver time so the
+    # form's dropdowns have a concrete value. For free-response ``text``
+    # / ``textarea`` kinds, we DEFER to the batched LLM resolver
+    # (:mod:`autoapply.answers.llm_batch`) which gets the full job
+    # description as context and can tailor essay answers accordingly.
+    # Using the per-field ``draft_field_answer`` here would generate
+    # a generic answer WITHOUT the JD context.
+    if spec.kind in ("select", "multi_select"):
         try:
             from autoapply.answers.llm_fallback import draft_field_answer
 
@@ -325,3 +342,246 @@ def resolve_all(
         except UnresolvedField as exc:
             unresolved.append(exc)
     return resolved, unresolved
+
+
+# -- Batched-LLM resolver ----------------------------------------------------
+
+
+def resolve_all_batched(
+    specs: list[FieldSpec],
+    *,
+    profile: Profile,
+    bank: AnswerBank,
+    track: str,
+    classify_fn: ClassifyFn = classifier_mod.classify,
+    cover_letter_text: str | None = None,
+    resume_path: str | None = None,
+    company: str = "",
+    job_title: str = "",
+    job_description: str = "",
+    answer_bank_yaml: str | None = None,
+) -> tuple[list[ResolvedField], list[UnresolvedField], dict[str, Any]]:
+    """Two-phase resolver: deterministic first, then ONE batched LLM call.
+
+    Phase 1 — :func:`resolve_all` runs the existing classifier + bank +
+    profile pipeline. Trivial fields (first_name, email, phone, etc.)
+    resolve for free without touching the LLM.
+
+    Phase 2 — identify **required** fields that Phase 1 couldn't resolve
+    confidently AND would therefore block submission:
+      * ``kind`` in ``select``/``multi_select`` AND required AND the Phase-1
+        value isn't an exact option match → dropdown needs LLM to pick.
+      * ``kind`` in ``text``/``textarea`` AND required AND Phase-1 flagged
+        ``requires_llm`` / ``requires_review`` (unknown question type, or
+        a ``LLM_REQUIRED`` type like ``why_company``) → needs LLM text.
+      * Unresolved exceptions from Phase 1 — always batched if required.
+
+    NON-required fields that Phase 1 couldn't answer are **left blank** by
+    design — per the user's "leave blank" policy, we don't waste LLM
+    tokens on optional questions. They were producing noise
+    ("Decline to self-identify" for an optional pronouns field) and could
+    route applications to review for no real reason.
+
+    Phase 3 — call :func:`autoapply.answers.llm_batch.resolve_batch` with
+    all collected questions in a single request. On success, backfill each
+    Phase-1 ResolvedField's value and mark source=``llm_batch``.
+
+    Returns ``(resolved, unresolved, audit)`` where ``audit`` contains::
+
+        {
+          "batch_asked": [question_id, ...],   # what we sent to LLM
+          "model_used": "gemini-2.5-flash-lite",
+          "cascade_trace": [{...}, {...}],     # per-model attempt log
+          "error": "" | "<final failure msg>",
+          "answer_count": N,
+        }
+
+    The caller logs this and stores it in ``Application.artifacts`` so we
+    can audit per-field resolution sources after the fact.
+    """
+    # Phase 1 — deterministic.
+    resolved, unresolved = resolve_all(
+        specs,
+        profile=profile,
+        bank=bank,
+        track=track,
+        classify_fn=classify_fn,
+        cover_letter_text=cover_letter_text,
+        resume_path=resume_path,
+    )
+
+    # Phase 2 — build the batch.
+    from autoapply.answers.llm_batch import BatchQuestion, resolve_batch
+
+    spec_by_name = {s.name: s for s in specs}
+    batch_qs: list[BatchQuestion] = []
+    # Remember which ResolvedField we'll backfill for each batch id.
+    backfill_map: dict[str, ResolvedField] = {}
+
+    # A) From Phase-1 resolved list — the ones that were unconfident.
+    for r in resolved:
+        sp = spec_by_name.get(r.name)
+        if sp is None or not sp.required:
+            continue
+        # Machine-key resolved fields (first_name, email, resume,
+        # cover_letter, resume_text, ...) are intentionally set by
+        # the applicator — including deliberately empty ones like
+        # resume_text (the PDF upload carries the resume, so the
+        # text field stays blank). NEVER batch these to the LLM, or
+        # it'll helpfully paste the whole resume into a text field
+        # the form actually ignores.
+        if r.source == "machine_key":
+            continue
+        needs_batch = False
+
+        if sp.kind in ("select", "multi_select"):
+            # Required select with no exact option match? → batch it.
+            # (The existing _snap_to_option tries hard but falls back to
+            # the original value when nothing matches — that original
+            # value won't work if the dropdown rejects it.)
+            if not _value_matches_option(r.value, sp.options):
+                needs_batch = True
+        elif sp.kind in ("text", "textarea"):
+            # Free-response that Phase 1 flagged as needing LLM or review.
+            if r.requires_llm or r.requires_review:
+                needs_batch = True
+            elif not r.value:
+                # Required text with no value — treat as needing LLM.
+                needs_batch = True
+
+        if needs_batch:
+            batch_qs.append(BatchQuestion(
+                id=r.name,
+                label=r.label or sp.label or r.name,
+                kind=sp.kind,
+                required=True,
+                options=list(sp.options),
+            ))
+            backfill_map[r.name] = r
+
+    # B) From Phase-1 unresolved — always required by contract of UnresolvedField.
+    for u in unresolved:
+        sp = spec_by_name.get(u.name)
+        if sp is None or not sp.required:
+            continue
+        batch_qs.append(BatchQuestion(
+            id=u.name,
+            label=u.label or sp.label or u.name,
+            kind=sp.kind,
+            required=True,
+            options=list(sp.options),
+        ))
+        # No pre-existing ResolvedField — we'll synthesize one after the batch.
+        backfill_map[u.name] = None  # type: ignore[assignment]
+
+    audit: dict[str, Any] = {
+        "batch_asked": [q.id for q in batch_qs],
+        "model_used": "",
+        "cascade_trace": [],
+        "error": "",
+        "answer_count": 0,
+    }
+
+    # No batch needed — Phase 1 answered everything.
+    if not batch_qs:
+        return resolved, unresolved, audit
+
+    # Phase 3 — the one LLM call.
+    if answer_bank_yaml is None:
+        answer_bank_yaml = _load_bank_yaml_text()
+
+    result = resolve_batch(
+        questions=batch_qs,
+        profile=profile,
+        answer_bank_yaml=answer_bank_yaml,
+        track=track,
+        company=company,
+        job_title=job_title,
+        job_description=job_description,
+    )
+
+    audit["model_used"] = result.model_used
+    audit["cascade_trace"] = result.cascade_trace
+    audit["error"] = result.error
+    audit["answer_count"] = len(result.answers)
+
+    if result.error or not result.answers:
+        # Batch failed wholesale — leave Phase-1 state intact. The caller
+        # will route to review for any required unresolved.
+        log.warning(
+            "resolve_all_batched: batch resolution failed: %s", result.error,
+        )
+        return resolved, unresolved, audit
+
+    # Phase 4 — backfill.
+    resolved_by_name = {r.name: r for r in resolved}
+    still_unresolved = [u for u in unresolved]  # we'll rewrite this list
+    for qid, answer in result.answers.items():
+        sp = spec_by_name.get(qid)
+        if sp is None:
+            continue
+
+        # Multi-select values come back as list[str]; join into the
+        # comma-separated form downstream code expects.
+        val: str
+        if isinstance(answer.value, list):
+            val = ", ".join(answer.value)
+        elif answer.value is None:
+            val = ""
+        else:
+            val = str(answer.value)
+
+        if answer.source == "needs_review":
+            # LLM declined. Leave Phase-1 state as-is for this field.
+            # If it was unresolved (required), it stays unresolved.
+            continue
+
+        if qid in resolved_by_name:
+            r = resolved_by_name[qid]
+            r.value = val
+            r.source = f"llm_batch:{answer.source}"
+            # Clear the LLM/review flags now that the batch resolved it.
+            r.requires_llm = False
+            r.requires_review = False
+        else:
+            # Was in `unresolved`; promote to resolved.
+            resolved.append(ResolvedField(
+                name=qid,
+                label=sp.label or qid,
+                value=val,
+                source=f"llm_batch:{answer.source}",
+            ))
+            # Remove from unresolved.
+            still_unresolved = [u for u in still_unresolved if u.name != qid]
+
+    return resolved, still_unresolved, audit
+
+
+def _value_matches_option(value: str, options: list[str]) -> bool:
+    """Case-insensitive exact-match check for select values.
+
+    Returns True only when the value exactly equals (case-insensitively)
+    one of the options. Substring matches don't count — React-Select
+    will reject a substring during post-submit validation, so we want
+    the LLM to pick a verbatim option instead of trusting a loose match.
+    """
+    if not value or not options:
+        return False
+    v = value.strip().lower()
+    return any(v == o.strip().lower() for o in options)
+
+
+def _load_bank_yaml_text() -> str:
+    """Load the raw YAML content of state/answer_bank.yml for the prompt.
+
+    Returned as a string rather than a parsed dict so the LLM can see
+    both keys and values — mimics how a human reading the file would.
+    """
+    try:
+        from autoapply.config import get_settings
+
+        settings = get_settings()
+        return settings.answer_bank_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        log.debug("_load_bank_yaml_text: %s", exc)
+        return ""

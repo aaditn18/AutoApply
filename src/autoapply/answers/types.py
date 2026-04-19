@@ -47,9 +47,15 @@ class QuestionType(str, Enum):
     WORK_AUTHORIZED_US = "work_authorized_us"
     REQUIRE_SPONSORSHIP_NOW = "require_sponsorship_now"
     REQUIRE_SPONSORSHIP_FUTURE = "require_sponsorship_future"
-    VISA_STATUS = "visa_status"
-    CITIZENSHIP = "citizenship"              # country of citizenship (e.g. "India")
-    US_CITIZEN = "us_citizen"                # Yes/No — "Are you a U.S. citizen?"
+    VISA_STATUS = "visa_status"                  # long-form status text ("F-1 OPT (STEM ext till 2029)")
+    CITIZENSHIP = "citizenship"                  # country of citizenship (e.g. "India")
+    US_CITIZEN = "us_citizen"                    # Yes/No — "Are you a U.S. citizen?"
+    PERMANENT_WORK_AUTHORIZATION = "permanent_work_authorization"  # Yes/No — green-card-level permanent auth
+    WILLING_WORK_LOCATION = "willing_work_location"   # Yes/No — "willing to work from our Sterling/NYC/etc office?"
+    # NOTE: multi-state willing-to-work-in checkbox grids are NOT
+    # classified through QuestionType — ``dom_batch`` reads the per-state
+    # checkbox labels against ``profile.willing_to_work_states``
+    # directly, so a dedicated classifier type isn't needed.
 
     # -- Experience -------------------------------------------------------
     YOE_LANGUAGE = "yoe_language"           # slot: skill
@@ -98,6 +104,7 @@ class QuestionType(str, Enum):
     # -- Prior / current employment --------------------------------------
     PREVIOUSLY_EMPLOYED = "previously_employed_here"
     CURRENTLY_EMPLOYED = "currently_employed_elsewhere"
+    MILITARY_SERVICE = "military_service"    # Yes/No — "Have you served in the US Armed Forces?"
 
     # -- Consents ---------------------------------------------------------
     AGREE_TO_TERMS = "agree_to_terms"
@@ -130,21 +137,46 @@ PROFILE_SOURCED: frozenset[QuestionType] = frozenset({
     QuestionType.GRADUATION_DATE,
     QuestionType.EXPECTED_GRADUATION,
     QuestionType.YOE_LANGUAGE,
+    # Common answer fields (same across all tracks) now live on Profile.
+    QuestionType.DEMO_GENDER,
+    QuestionType.DEMO_RACE,
+    QuestionType.DEMO_HISPANIC_LATINO,
+    QuestionType.DEMO_VETERAN,
+    QuestionType.DEMO_DISABILITY,
+    QuestionType.DEMO_PRONOUNS,
+    QuestionType.DEMO_SEXUAL_ORIENTATION,
+    QuestionType.DEMO_TRANSGENDER,
+    QuestionType.MILITARY_SERVICE,
+    QuestionType.CITIZENSHIP,
+    QuestionType.US_CITIZEN,
+    QuestionType.WORK_AUTHORIZED_US,
+    QuestionType.PERMANENT_WORK_AUTHORIZATION,
+    QuestionType.REQUIRE_SPONSORSHIP_NOW,
+    QuestionType.REQUIRE_SPONSORSHIP_FUTURE,
+    QuestionType.VISA_STATUS,
+    QuestionType.CURRENT_CITY,
+    QuestionType.CURRENT_STATE,
+    QuestionType.CURRENT_ZIP,
+    QuestionType.CURRENT_LOCATION,
 })
 
 # Types that always require LLM generation (never answer from static data).
+# The batch LLM resolver gets the full job description as context so it
+# can tailor essays per-posting rather than recycling per-track templates.
 LLM_REQUIRED: frozenset[QuestionType] = frozenset({
     QuestionType.WHY_COMPANY,
+    QuestionType.WHY_ROLE,            # per-job, not per-track static template
     QuestionType.COVER_LETTER_BODY,
+    QuestionType.STRENGTHS,           # was REVIEW_REQUIRED — now LLM'd
+    QuestionType.WEAKNESSES,          # was REVIEW_REQUIRED — now LLM'd
 })
 
 # Types that always require human review (never auto-submit).
-# Note: REFERRAL_NAME / REFERRAL_EMAIL are NOT in this set anymore —
-# they default to empty / "None" via the bank so we can auto-submit forms
-# that ask "Who referred you?" without a referral. When we later pass a
-# specific known contact via Profile, that overrides the bank default.
+# Note: REFERRAL_NAME / REFERRAL_EMAIL are NOT in this set — they default
+# to empty / "None" via the bank. The essay types (WHY_ROLE, STRENGTHS,
+# WEAKNESSES) moved to LLM_REQUIRED so the batch resolver answers them
+# with job-description context rather than leaving the whole application
+# in the review queue.
 REVIEW_REQUIRED: frozenset[QuestionType] = frozenset({
     QuestionType.UNKNOWN,
-    QuestionType.STRENGTHS,
-    QuestionType.WEAKNESSES,
 })

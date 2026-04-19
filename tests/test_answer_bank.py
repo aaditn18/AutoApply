@@ -82,9 +82,23 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
     ("Full legal name", QuestionType.FULL_NAME, None),
     ("Preferred name", QuestionType.PREFERRED_NAME, None),
 
-    # -- Location --------------------------------------------------------
+    # -- Location: combined / long-form "where are you" -----------------
+    # These all route to CURRENT_LOCATION (combined city+state answer).
     ("Where are you currently located?", QuestionType.CURRENT_LOCATION, None),
-    ("Current city", QuestionType.CURRENT_LOCATION, None),
+    ("Where do you live?", QuestionType.CURRENT_LOCATION, None),
+    ("Where are you based?", QuestionType.CURRENT_LOCATION, None),
+    ("Where are you from?", QuestionType.CURRENT_LOCATION, None),
+    ("Where do you currently reside?", QuestionType.CURRENT_LOCATION, None),
+    ("Where are you currently based?", QuestionType.CURRENT_LOCATION, None),
+    ("Where are you currently living?", QuestionType.CURRENT_LOCATION, None),
+    ("Current Location", QuestionType.CURRENT_LOCATION, None),
+    ("Home Location", QuestionType.CURRENT_LOCATION, None),
+    ("Primary Location", QuestionType.CURRENT_LOCATION, None),
+    ("Preferred Location", QuestionType.CURRENT_LOCATION, None),
+    ("Your Location", QuestionType.CURRENT_LOCATION, None),
+    ("City and State", QuestionType.CURRENT_LOCATION, None),
+    ("City, State", QuestionType.CURRENT_LOCATION, None),
+    ("Location (City, State)", QuestionType.CURRENT_LOCATION, None),
     ("Are you willing to relocate?", QuestionType.WILLING_TO_RELOCATE, None),
     ("Open to relocation?", QuestionType.WILLING_TO_RELOCATE, None),
 
@@ -94,11 +108,56 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
     # was broader. The classifier rules for these atoms must sit BEFORE
     # CURRENT_LOCATION in _RULES (specific-first).
     ("City", QuestionType.CURRENT_CITY, None),
+    ("City*", QuestionType.CURRENT_CITY, None),
+    ("City (required)", QuestionType.CURRENT_CITY, None),
+    ("City / Town", QuestionType.CURRENT_CITY, None),
+    ("Town or City", QuestionType.CURRENT_CITY, None),
+    ("Current city", QuestionType.CURRENT_CITY, None),
+    ("Home city", QuestionType.CURRENT_CITY, None),
+    ("Your city", QuestionType.CURRENT_CITY, None),
+    ("Primary city", QuestionType.CURRENT_CITY, None),
+    ("Preferred city", QuestionType.CURRENT_CITY, None),
+    ("Nearest city", QuestionType.CURRENT_CITY, None),
+    ("City name", QuestionType.CURRENT_CITY, None),
     ("Location (City)", QuestionType.CURRENT_CITY, None),
+    ("Location — City", QuestionType.CURRENT_CITY, None),
+    ("Location - City", QuestionType.CURRENT_CITY, None),
     ("City of residence", QuestionType.CURRENT_CITY, None),
+    ("City of residency", QuestionType.CURRENT_CITY, None),
+    ("City you live in", QuestionType.CURRENT_CITY, None),
+    ("What city do you live in?", QuestionType.CURRENT_CITY, None),
+    ("What city do you currently reside in?", QuestionType.CURRENT_CITY, None),
+    ("Which city are you based in?", QuestionType.CURRENT_CITY, None),
+    ("In what city do you live?", QuestionType.CURRENT_CITY, None),
+    ("Please enter your city", QuestionType.CURRENT_CITY, None),
     ("State", QuestionType.CURRENT_STATE, None),
+    ("State*", QuestionType.CURRENT_STATE, None),
+    ("US State", QuestionType.CURRENT_STATE, None),
+    ("State abbreviation", QuestionType.CURRENT_STATE, None),
     ("Location (State)", QuestionType.CURRENT_STATE, None),
     ("State / Province", QuestionType.CURRENT_STATE, None),
+    ("State or Province", QuestionType.CURRENT_STATE, None),
+    ("Current state", QuestionType.CURRENT_STATE, None),
+    ("Home state", QuestionType.CURRENT_STATE, None),
+    ("State of residence", QuestionType.CURRENT_STATE, None),
+    ("What state do you live in?", QuestionType.CURRENT_STATE, None),
+    ("Which state are you currently in?", QuestionType.CURRENT_STATE, None),
+
+    # -- Location-adjacent negatives -------------------------------------
+    # Questions that CONTAIN "location"/"city"/"state"/"relocate" but are
+    # semantically about something else. Ensures the broad location rules
+    # don't swallow these. Grouped by actual intent.
+    #
+    # Relocation — yes/no, not current location:
+    ("Are you willing to relocate to New York?", QuestionType.WILLING_TO_RELOCATE, None),
+    ("Open to relocation to San Francisco?", QuestionType.WILLING_TO_RELOCATE, None),
+    ("Are you able to relocate?", QuestionType.WILLING_TO_RELOCATE, None),
+    ("Will you relocate for this role?", QuestionType.WILLING_TO_RELOCATE, None),
+    ("Would you be willing to relocate to Austin, TX?", QuestionType.WILLING_TO_RELOCATE, None),
+    # Work auth + citizenship contain "US"/"United States" but aren't location:
+    ("Do you have the legal right to work in the United States?", QuestionType.WORK_AUTHORIZED_US, None),
+    # Source/referral — "where" but not a location question:
+    ("How did you find this role?", QuestionType.HOW_HEARD_ABOUT, None),
     ("Zip code", QuestionType.CURRENT_ZIP, None),
     ("Postal code", QuestionType.CURRENT_ZIP, None),
     ("ZIP", QuestionType.CURRENT_ZIP, None),
@@ -131,8 +190,35 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
     ("Race/ethnicity", QuestionType.DEMO_RACE, None),
     ("Are you Hispanic or Latino?", QuestionType.DEMO_HISPANIC_LATINO, None),
     ("Veteran status", QuestionType.DEMO_VETERAN, None),
+    # "Unit" is an ADDRESS_LINE_2 alias. Without word boundaries on the
+    # regex, it matches the "unit" substring inside "United States" and
+    # hijacks veteran questions — regression test below.
+    ("Are you a veteran or active member of the United States Armed Forces?", QuestionType.DEMO_VETERAN, None),
     ("Do you have a disability?", QuestionType.DEMO_DISABILITY, None),
     ("Pronouns", QuestionType.DEMO_PRONOUNS, None),
+
+    # -- Military service vs EEO veteran self-ID -----------------------
+    # "Military Service*" (jjsnackfoods) and "Have you served in the US
+    # Armed Forces?" → military_service (→ No). Distinct from
+    # ``demo_veteran`` which uses "protected veteran" phrasing.
+    ("Military Service*", QuestionType.MILITARY_SERVICE, None),
+    ("Have you served in the US Armed Forces?", QuestionType.MILITARY_SERVICE, None),
+    ("Are you currently in the military?", QuestionType.MILITARY_SERVICE, None),
+    ("Active duty military?", QuestionType.MILITARY_SERVICE, None),
+
+    # -- Permanent (green-card-level) work authorization ---------------
+    # Distinct from ``work_authorized_us`` (which OPT satisfies). This
+    # one specifically asks about PERMANENT authorization.
+    ("Do you have the permanent and unrestricted right to work in the US?",
+     QuestionType.PERMANENT_WORK_AUTHORIZATION, None),
+
+    # -- Willing to work from specific location (subjective Yes/No) ----
+    ("Are you willing to work from our Sterling, VA office?",
+     QuestionType.WILLING_WORK_LOCATION, None),
+    ("This role requires being onsite 4 days per week",
+     QuestionType.WILLING_WORK_LOCATION, None),
+    ("This role is work from home, but requires you to be based out of Sterling, VA",
+     QuestionType.WILLING_WORK_LOCATION, None),
 
     # -- Prior employment ------------------------------------------------
     ("Have you ever worked at our company?", QuestionType.PREVIOUSLY_EMPLOYED, None),
@@ -183,6 +269,32 @@ def test_classify_unknown_routes_to_unknown():
     result = classify("Please describe a time you navigated a vegetable emergency.")
     assert result.type is QuestionType.UNKNOWN
     assert result.confidence == 0.0
+
+
+# Location-adjacent questions that mention city/state/location/country but
+# refer to *someone else* (birth, employer, office, school, job) — must
+# NOT get swallowed by the atomic CURRENT_CITY / CURRENT_STATE or the broad
+# CURRENT_LOCATION rule. UNKNOWN routes to the human review queue, which is
+# the correct behavior for these ambiguous cases.
+@pytest.mark.parametrize("raw", [
+    "City of birth",
+    "State of birth",
+    "Country of birth",
+    "Employer city",
+    "Previous employer location",
+    "Company location",
+    "Job location",
+    "Office location preference",
+    "Which office would you prefer?",
+    "City where you studied",
+])
+def test_location_adjacent_routes_to_unknown(raw: str):
+    """Questions about non-applicant locations must not hijack CURRENT_*."""
+    result = classify(raw)
+    assert result.type is QuestionType.UNKNOWN, (
+        f"classify({raw!r}) -> {result.type.value}; expected UNKNOWN "
+        "(avoid polluting current_city/state/location with birth/employer/etc.)"
+    )
 
 
 def test_classify_empty_input():
@@ -328,21 +440,32 @@ def test_yoe_language_is_case_insensitive():
 
 
 def test_bank_per_track_beats_default():
+    """Per-track override beats ``_default`` for bank-routable types.
+
+    ``why_role`` moved from bank to LLM_REQUIRED so the LLM can tailor
+    to the posting's job description. ``salary_expectation`` is now the
+    canonical per-track-override bank entry and exercises this code
+    path instead.
+    """
     bank = _bank()
     p = _fake_profile()
-    cq = classify("Why are you interested in this role?")
+    cq = classify("Salary expectation")
     ans = bank.answer(cq, profile=p, track="quant")
     assert ans.source == "bank"
-    assert "quant" in ans.value.lower() or "trading" in ans.value.lower()
+    assert "quant" in ans.value.lower()
 
 
 def test_bank_default_fallback_when_no_track_override():
     bank = _bank()
     p = _fake_profile()
-    cq = classify("Where are you currently located?")
+    # ``willing_to_relocate`` is a bank-only (no per-track override)
+    # question — ideal for exercising the ``_default`` fallback path.
+    # Previously this test used ``current_location`` / ``Where are you
+    # currently located?`` but that migrated to PROFILE_SOURCED.
+    cq = classify("Are you willing to relocate?")
     ans = bank.answer(cq, profile=p, track="hpc")
     assert ans.source == "bank:_default"
-    assert ans.value == "College Park, MD"
+    assert ans.value == "Yes"
 
 
 def test_bank_missing_entry_routes_to_review():
@@ -363,7 +486,11 @@ def test_bank_raw_resolution_end_to_end():
     p = _fake_profile()
     ans = bank.resolve_raw("Are you authorized to work in the US?", profile=p, track="swe")
     assert ans.value == "Yes"
-    assert ans.source == "bank:_default"
+    # ``work_authorized_us`` migrated from bank-sourced to PROFILE_SOURCED
+    # when we added the common-across-tracks immigration fields to the
+    # Profile schema. The bank entry is kept as a fallback for older
+    # profiles, but fresh profiles answer directly from profile.json.
+    assert ans.source == "profile"
 
 
 def test_bank_why_company_is_llm_routed():
@@ -455,6 +582,161 @@ def test_address_atom_fields_resolve_from_bank():
     assert ans_full.value, "full_address default must be non-empty"
     assert "College Park" in ans_full.value
     assert not ans_full.requires_review
+
+
+def test_pick_option_via_llm_respects_missing_api_key(monkeypatch):
+    """With no GEMINI_API_KEY, the picker returns None (falls through to
+    the caller's raise/review path)."""
+    from autoapply.answers import llm_fallback
+
+    # Clear the cached profile so the API-key check fires before the
+    # profile-load path.
+    monkeypatch.setattr(llm_fallback, "_CACHED_PROFILE", None)
+
+    class _FakeSettings:
+        GEMINI_API_KEY = ""
+    monkeypatch.setattr(
+        "autoapply.config.get_settings", lambda: _FakeSettings()
+    )
+
+    result = llm_fallback.pick_option_via_llm(
+        question="Do you have a graduating GPA of 2.75+?",
+        options=["Yes", "No"],
+    )
+    assert result is None
+
+
+def test_pick_option_via_llm_parses_numeric_response(monkeypatch):
+    """Happy path: stub Gemini to return '2' and verify the picker
+    returns index 1 (2 - 1 zero-based)."""
+    from autoapply.answers import llm_fallback
+
+    class _FakeSettings:
+        GEMINI_API_KEY = "test-key"
+    monkeypatch.setattr(
+        "autoapply.config.get_settings", lambda: _FakeSettings()
+    )
+    # Stub profile so _load_cached_profile doesn't try to read disk.
+    from autoapply.profile.schema import Profile, Skills, DateRange, Education
+    fake_profile = Profile(
+        track="swe",
+        full_name="Test User",
+        email="t@example.com",
+        phone="555-0100",
+        linkedin_url="",
+        github_url="",
+        education=[Education(
+            school="Test U", degree="B.S. CS", minor="", gpa="3.975",
+            coursework=[],
+            date_range=DateRange(raw="May 2026", start=None, end=None, is_present=False),
+        )],
+        experiences=[],
+        projects=[],
+        skills=Skills(languages=[], libraries=[], tools=[], by_category={}),
+        years_of_experience={},
+    )
+    monkeypatch.setattr(llm_fallback, "_CACHED_PROFILE", fake_profile)
+
+    def _fake_call_gemini(prompt, api_key):
+        # The prompt must mention both the question and the options —
+        # a quick sanity check that we're passing context correctly.
+        assert "GPA" in prompt or "gpa" in prompt
+        assert "Yes" in prompt and "No" in prompt
+        # Return the choice as a bare number (what the prompt requests).
+        return "2"
+
+    monkeypatch.setattr(llm_fallback, "_call_gemini", _fake_call_gemini)
+
+    result = llm_fallback.pick_option_via_llm(
+        question="Do you have a graduating GPA of 4.0+?",
+        options=["Yes", "No"],
+    )
+    # LLM returned "2" → 2-1 = index 1 = "No" (correct for 3.975 < 4.0).
+    assert result == 1
+
+
+def test_pick_option_via_llm_declines_on_zero_response(monkeypatch):
+    """LLM returning '0' means 'no plausible option' — picker returns None."""
+    from autoapply.answers import llm_fallback
+    from autoapply.profile.schema import Profile, Skills
+
+    monkeypatch.setattr(
+        "autoapply.config.get_settings",
+        lambda: type("S", (), {"GEMINI_API_KEY": "test-key"})(),
+    )
+    fake_profile = Profile(
+        track="swe",
+        full_name="Test", email="t@e.com", phone="",
+        linkedin_url="", github_url="",
+        education=[], experiences=[], projects=[],
+        skills=Skills(languages=[], libraries=[], tools=[], by_category={}),
+        years_of_experience={},
+    )
+    monkeypatch.setattr(llm_fallback, "_CACHED_PROFILE", fake_profile)
+    monkeypatch.setattr(llm_fallback, "_call_gemini", lambda p, k: "0")
+
+    result = llm_fallback.pick_option_via_llm(
+        question="Pick something impossible",
+        options=["Only option A", "Only option B"],
+    )
+    assert result is None
+
+
+def test_pick_option_via_llm_rejects_non_numeric_response(monkeypatch):
+    """LLM returning prose (model failed to follow instructions) → None."""
+    from autoapply.answers import llm_fallback
+    from autoapply.profile.schema import Profile, Skills
+
+    monkeypatch.setattr(
+        "autoapply.config.get_settings",
+        lambda: type("S", (), {"GEMINI_API_KEY": "test-key"})(),
+    )
+    fake_profile = Profile(
+        track="swe",
+        full_name="Test", email="t@e.com", phone="",
+        linkedin_url="", github_url="",
+        education=[], experiences=[], projects=[],
+        skills=Skills(languages=[], libraries=[], tools=[], by_category={}),
+        years_of_experience={},
+    )
+    monkeypatch.setattr(llm_fallback, "_CACHED_PROFILE", fake_profile)
+    monkeypatch.setattr(
+        llm_fallback, "_call_gemini",
+        lambda p, k: "I think option 2 is best because..."
+    )
+
+    # Matches the leading "\d+" regex → picks "I". Hmm, actually "I think"
+    # doesn't start with a digit, so regex fails → None. Good.
+    result = llm_fallback.pick_option_via_llm(
+        question="Q", options=["A", "B", "C"],
+    )
+    assert result is None
+
+
+def test_pick_option_via_llm_clamps_out_of_range(monkeypatch):
+    """LLM hallucinates an option number past the list length → None."""
+    from autoapply.answers import llm_fallback
+    from autoapply.profile.schema import Profile, Skills
+
+    monkeypatch.setattr(
+        "autoapply.config.get_settings",
+        lambda: type("S", (), {"GEMINI_API_KEY": "test-key"})(),
+    )
+    fake_profile = Profile(
+        track="swe",
+        full_name="Test", email="t@e.com", phone="",
+        linkedin_url="", github_url="",
+        education=[], experiences=[], projects=[],
+        skills=Skills(languages=[], libraries=[], tools=[], by_category={}),
+        years_of_experience={},
+    )
+    monkeypatch.setattr(llm_fallback, "_CACHED_PROFILE", fake_profile)
+    monkeypatch.setattr(llm_fallback, "_call_gemini", lambda p, k: "99")
+
+    result = llm_fallback.pick_option_via_llm(
+        question="Q", options=["A", "B"],
+    )
+    assert result is None
 
 
 def test_fill_select_normalize_tokens():

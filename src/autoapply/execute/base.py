@@ -35,6 +35,7 @@ from autoapply.execute.standard_fields import (
     ResolvedField,
     UnresolvedField,
     resolve_all,
+    resolve_all_batched,
 )
 
 
@@ -113,14 +114,43 @@ class Applicator(ABC):
                 outcome="failed", error_code="fetch_form", error_message=str(exc)
             )
 
-        resolved, unresolved = resolve_all(
+        # Use the batched resolver: one Gemini call per application
+        # (cascading through the free-tier model list on rate-limit
+        # errors) handles every required dropdown and every required
+        # free-response that the classifier + bank couldn't resolve.
+        # Non-required unresolved fields are left blank by design.
+        resolved, unresolved, batch_audit = resolve_all_batched(
             specs,
             profile=self.profile,
             bank=self.bank,
             track=self.track,
             cover_letter_text=self.cover_letter_text,
             resume_path=self.resume_path,
+            company=job.company or "",
+            job_title=job.title or "",
+            # Job description is passed to the batch LLM so essay answers
+            # (why_company, why_role, strengths/weaknesses, freeform
+            # textareas) can cite concrete details from the posting
+            # rather than recycling per-track templates. Sanitized +
+            # wrapped in <UNTRUSTED> inside the prompt — see llm_batch.
+            job_description=job.description or "",
         )
+
+        # Human-readable audit line — which Qs were sent to the LLM, which
+        # model answered, how many answers came back. Persisted on the
+        # ApplyResult so the daily digest can show it.
+        if batch_audit.get("batch_asked"):
+            log.info(
+                "batch-llm: asked=%d  model=%s  answered=%d  error=%s",
+                len(batch_audit.get("batch_asked", [])),
+                batch_audit.get("model_used") or "<none>",
+                batch_audit.get("answer_count", 0),
+                batch_audit.get("error") or "—",
+            )
+
+        # Per-field audit: for every resolved field, log (label, value, source).
+        # Grouped so the terminal output is scannable at a glance.
+        self._log_resolution_audit(resolved, unresolved)
 
         review_reasons: list[str] = []
         review_flags: list[dict[str, Any]] = []
@@ -184,23 +214,115 @@ class Applicator(ABC):
 
         if dry_run:
             artifact_path = self._dump_dry_run(job, payload, resolved)
+            arts: dict[str, Any] = {"batch_audit": batch_audit}
+            if artifact_path:
+                arts["payload_json"] = str(artifact_path)
             return ApplyResult(
                 outcome="dry_run",
                 answers=answers,
                 resolved=[_resolved_to_dict(r) for r in resolved],
-                artifacts={"payload_json": str(artifact_path)} if artifact_path else {},
+                artifacts=arts,
                 cover_letter_text=self.cover_letter_text or "",
             )
 
         try:
-            return self.submit(job, payload)
+            result = self.submit(job, payload)
+            # Attach the batch audit trail so downstream callers / the DB
+            # ``applications.artifacts`` column retains which model answered
+            # which questions, and we can audit the mix of
+            # code-answered vs LLM-answered fields per application.
+            if "batch_audit" not in result.artifacts:
+                result.artifacts["batch_audit"] = batch_audit
+            return result
         except Exception as exc:  # pragma: no cover — network-heavy path
             log.exception("submit failed for job %s", job.canonical_key)
             return ApplyResult(
-                outcome="failed", error_code="submit", error_message=str(exc)
+                outcome="failed",
+                error_code="submit",
+                error_message=str(exc),
+                artifacts={"batch_audit": batch_audit},
             )
 
     # ---- Helpers --------------------------------------------------------
+
+    def _log_resolution_audit(
+        self,
+        resolved: list[ResolvedField],
+        unresolved: list[UnresolvedField],
+    ) -> None:
+        """Emit a human-readable per-field audit log.
+
+        Groups resolved answers by their source bucket so you can see at
+        a glance which questions were answered by code vs. LLM::
+
+            === field audit: N resolved, M unresolved ===
+              [profile]      first_name           = 'Aadit'
+              [profile]      email                = 'aaditnilay18@gmail.com'
+              [classifier]   current_city         = 'College Park'
+              [llm_batch]    question_5783087009  = 'LinkedIn'
+              [llm_batch]    question_30051590003 = 'No'
+              [review]       question_xxx         = (unresolved: Gender*)
+
+        Sources we surface:
+          * ``profile``   — machine_key or PROFILE_SOURCED from resume.
+          * ``bank``      — from state/answer_bank.yml (classifier+bank).
+          * ``classifier``— generic classifier+bank hit.
+          * ``llm_batch`` — answered by the batched Gemini call. Includes
+                            the sub-source (llm_reasoning, llm_generation,
+                            llm_option_match) after a colon.
+          * ``review``    — flagged for human review.
+          * ``none``      — optional, left blank deliberately.
+        """
+        buckets: dict[str, list[tuple[str, str]]] = {}
+        for r in resolved:
+            src = r.source or "none"
+            # Compact the bucket key for readability.
+            if src == "machine_key":
+                bucket = "profile"
+            elif src == "profile":
+                bucket = "profile"
+            elif src.startswith("bank"):
+                bucket = "bank"
+            elif src == "classifier+bank":
+                bucket = "classifier"
+            elif src.startswith("llm_batch"):
+                bucket = "llm_batch"
+            elif src == "llm_answer":
+                bucket = "llm_single"   # legacy per-field LLM
+            elif src in ("review_required", "llm_required"):
+                bucket = "review"
+            else:
+                bucket = src or "none"
+            # Hide redundant noise (empty-value "none" entries from
+            # optional fields the pipeline intentionally left blank).
+            if bucket == "none" and not r.value:
+                continue
+            display_val = (r.value or "").replace("\n", " ")[:72]
+            buckets.setdefault(bucket, []).append((r.name, display_val))
+
+        total_answered = sum(len(v) for v in buckets.values())
+        log.info(
+            "=== field audit: %d answered, %d unresolved ===",
+            total_answered,
+            len(unresolved),
+        )
+        # Stable display order, LLM rows last so they're easy to spot.
+        ORDER = ("profile", "bank", "classifier", "llm_batch", "llm_single",
+                 "review", "none")
+        for bucket in ORDER + tuple(sorted(
+            k for k in buckets if k not in ORDER
+        )):
+            if bucket not in buckets:
+                continue
+            for name, val in buckets[bucket]:
+                log.info(
+                    "  [%-11s] %-32s = %r", bucket, name[:32], val,
+                )
+        for u in unresolved:
+            log.info(
+                "  [review     ] %-32s = (unresolved: %s)",
+                u.name[:32], (u.label or "").replace("\n", " ")[:60],
+            )
 
     def _dump_dry_run(
         self, job: Job, payload: dict[str, Any], resolved: list[ResolvedField]

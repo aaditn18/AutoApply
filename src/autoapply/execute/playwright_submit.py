@@ -55,6 +55,7 @@ def submit_greenhouse(
     imap_email: str = "",
     imap_password: str = "",
     imap_code_timeout: int = 90,
+    llm_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fill and submit a Greenhouse application form via Playwright.
 
@@ -71,14 +72,22 @@ def submit_greenhouse(
     # The new job-boards.greenhouse.io SPA renders several applicant-info
     # inputs that are NOT part of the API ``questions`` list — we detected
     # these at runtime (Fanatics, Smartsheet, and others failed on them in
-    # prior runs). Inject likely values BEFORE ``submit_form`` so the
-    # generic ``fill_field(page, name, value)`` pass picks them up via
-    # ``[name="..."]`` / ``[id="..."]`` match.
+    # prior runs). Two complementary mechanisms handle them:
     #
-    # Safe overlay: if any of these keys are already in ``data`` (from the
-    # resolver), those take precedence. If the DOM doesn't have the
-    # element (older ``boards.greenhouse.io`` route), ``fill_field`` just
-    # records a ``fill:<name>:ValueError`` in ``field_errors`` — harmless.
+    # 1. ``augmented_data`` below prepopulates guessed ``name``/``id``
+    #    attributes on common variants (``city``, ``state``, ``zip``, …).
+    #    If the element exists, it's filled; if not, it's skipped silently.
+    # 2. ``label_values`` below drives the label-aware fallback pass in
+    #    :mod:`.submitter.label_fallback`. That pass walks the DOM after
+    #    ``augmented_data`` runs, reads each empty required field's visible
+    #    label, classifies it via :func:`autoapply.answers.classifier.classify`,
+    #    and fills the value matching the resulting ``QuestionType`` — so
+    #    even SPA-injected fields with per-tenant random ids get filled as
+    #    long as their label matches our classifier's location family.
+    #
+    # The overlay is safe: if any of these keys are already in ``data``
+    # (from the resolver), those take precedence. The label fallback only
+    # fires on empty fields — so it never clobbers a resolver-set value.
     augmented_data = {
         "country": "United States",
         "location": "College Park, MD",   # SPA "Location (City)*" input
@@ -89,9 +98,26 @@ def submit_greenhouse(
         **data,
     }
 
+    # Label-aware fallback: any field whose label classifies to one of
+    # these QuestionType values (see autoapply.answers.types) will be
+    # filled with the mapped value. Only atomic-location fields are
+    # included — demographic / policy questions still route through the
+    # bank + review path, never via this fallback.
+    label_values = {
+        "current_city": "College Park",
+        "current_state": "MD",
+        "current_zip": "20740",
+        "current_location": "College Park, MD",
+        "full_address": "8150 Baltimore Ave, Apt. 308-C, College Park, MD 20740",
+        "street_address": "8150 Baltimore Ave",
+        "address_line_2": "Apt. 308-C",
+    }
+
     return submit_form(
         url=url,
         data=augmented_data,
+        label_values=label_values,
+        llm_context=llm_context,
         files=files,
         headless=headless,
         # Old boards.greenhouse.io used #submit_app.
@@ -128,6 +154,7 @@ def submit_lever(
     captcha_solver: str = "",
     captcha_solver_api_key: str = "",
     captcha_solver_timeout: int = 180,
+    llm_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fill and submit a Lever application form via Playwright.
 
@@ -188,4 +215,5 @@ def submit_lever(
         captcha_solver=captcha_solver,
         captcha_solver_api_key=captcha_solver_api_key,
         captcha_solver_timeout=captcha_solver_timeout,
+        llm_context=llm_context,
     )

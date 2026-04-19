@@ -99,3 +99,59 @@ class Profile(BaseModel):
     # Computed at build time: skill -> years of exposure (union of overlapping
     # experience intervals). Used for deterministic YOE answers.
     years_of_experience: dict[str, float] = Field(default_factory=dict)
+
+    # ── Common answers (same across every resume track) ────────────────
+    # These are populated from ``state/profile.json``'s per-track blocks
+    # with identical values — having them on Profile lets the classifier
+    # + bank route EEO / immigration / willing-to-work questions
+    # directly from deterministic data rather than relying on the LLM.
+    # When the candidate's situation changes (e.g., OPT → H-1B, more
+    # willing states), update these in one place.
+
+    # EEO / demographic
+    demo_gender: str = "Decline to self-identify"
+    demo_race: str = "Decline to self-identify"
+    demo_hispanic_latino: str = "No"
+    demo_veteran: str = "I am not a protected veteran"
+    demo_disability: str = "I do not wish to answer"
+    demo_pronouns: str = "He/Him"
+    demo_sexual_orientation: str = "Decline to self-identify"
+    demo_transgender: str = "Decline to self-identify"
+
+    # Military / prior-service
+    military_service: str = "No"
+
+    # Citizenship / immigration
+    citizenship_country: str = "India"
+    us_citizen: str = "No"
+    work_authorized_us: str = "Yes"
+    permanent_work_authorization: str = "No"   # green-card-equivalent
+    require_sponsorship_now: str = "No"         # OPT covers near-term
+    require_sponsorship_future: str = "Yes"     # H-1B after OPT
+    visa_status: str = "F-1 visa OPT (STEM extension till 2029)"
+
+    # Current location logistics
+    current_city: str = "College Park"
+    current_state: str = "MD"
+    current_state_full: str = "Maryland"
+    current_zip: str = "20740"
+    current_country: str = "United States"
+    current_location: str = "College Park, MD"
+
+    # Willing-to-work locations — defaults to all 50 states + DC. The
+    # multi-state checkbox grid on some ATS (mthree) uses this list to
+    # check every one. When the candidate limits relocation to a few
+    # target states, reduce this list.
+    willing_to_work_states: list[str] = Field(default_factory=lambda: [
+        "Alabama", "Alaska", "Arizona", "Arkansas", "California",
+        "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
+        "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas",
+        "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts",
+        "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana",
+        "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+        "New Mexico", "New York", "North Carolina", "North Dakota",
+        "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island",
+        "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah",
+        "Vermont", "Virginia", "Washington", "Washington DC",
+        "West Virginia", "Wisconsin", "Wyoming",
+    ])

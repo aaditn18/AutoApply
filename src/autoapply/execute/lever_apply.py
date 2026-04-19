@@ -272,6 +272,22 @@ class LeverApplicator(Applicator):
         )
 
         settings = get_settings()
+        # Stage-2 DOM batch context — same shape as the Greenhouse
+        # applicator. Lever qualifying cards are already handled by
+        # ``fill_lever_cards`` in the driver; dom_batch picks up any
+        # remaining empty required selects (EEO questions, referral
+        # sources, custom tenant fields).
+        try:
+            bank_yaml_text = settings.answer_bank_path.read_text(encoding="utf-8")
+        except Exception:
+            bank_yaml_text = ""
+        llm_context = {
+            "profile": self.profile,
+            "answer_bank_yaml": bank_yaml_text,
+            "track": self.track,
+            "company": job.company or "",
+            "job_title": job.title or "",
+        }
         try:
             result = submit_lever(
                 token=job.board_token,
@@ -288,6 +304,7 @@ class LeverApplicator(Applicator):
                 captcha_solver=settings.CAPTCHA_SOLVER,
                 captcha_solver_api_key=settings.CAPTCHA_SOLVER_API_KEY,
                 captcha_solver_timeout=settings.CAPTCHA_SOLVER_TIMEOUT,
+                llm_context=llm_context,
             )
         except CaptchaDetected as exc:
             log.warning("CAPTCHA detected for job %s: %s", job.canonical_key, exc)
