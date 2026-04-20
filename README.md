@@ -8,7 +8,7 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status (2026-04-19):** 678 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver split into phases (phase 2) · dom_batch split into dom/ (phase 3) · field_fill split into fillers/ (phase 4) ·
+- **Status (2026-04-19):** 689 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver split into phases (phase 2) · dom_batch split into dom/ (phase 3) · field_fill split into fillers/ (phase 4) · standard_fields split into resolution/ (phase 5) ·
   DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
   apps now submit (including 2 that were stuck in review on essay questions) ·
   Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
@@ -199,7 +199,16 @@ AutoApply/
 │   │
 │   ├── execute/
 │   │   ├── base.py                 ← Applicator ABC + ApplyResult + audit log
-│   │   ├── standard_fields.py      ← resolve_all_batched (phase 1 + phase 2)
+│   │   ├── standard_fields.py      ← public facade (ResolvedField/FieldSpec +
+│   │   │                              resolve_field/resolve_all/resolve_all_batched
+│   │   │                              re-exports from resolution/)
+│   │   ├── resolution/             ← two-phase resolver internals
+│   │   │   ├── machine_key.py      ← name → Profile attr mapping
+│   │   │   ├── options_snap.py     ← select-option canonicalization
+│   │   │   ├── phase1.py           ← resolve_field + resolve_all
+│   │   │   ├── batch_builder.py    ← pick fields for the LLM batch
+│   │   │   ├── backfill.py         ← apply LLM answers to Phase-1 state
+│   │   │   └── orchestrator.py     ← resolve_all_batched composition
 │   │   ├── greenhouse_apply.py     ← Greenhouse applicator
 │   │   ├── lever_apply.py          ← Lever applicator
 │   │   ├── playwright_submit.py    ← thin shim exposing submit_greenhouse/lever
@@ -280,7 +289,7 @@ AutoApply/
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (678 tests)
+├── tests/                          ← pytest (689 tests)
 │   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
 │   │                                 calls, clears GEMINI_API_KEY. Every
 │   │                                 test is hermetic; LLM-involved tests
@@ -510,7 +519,7 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 678 tests
+python -m pytest -q                  # ~5 s, 689 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v

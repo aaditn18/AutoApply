@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 678 passing.**
+**Current test tally: 689 passing.**
 
 ---
 
@@ -1278,3 +1278,70 @@ still work.
 
 666 → 678 tests, all passing. Behavior-preserving split; DRY-fixed the
 duplicate `_DECLINE_KEYWORDS`.
+
+---
+
+## Y. Structural refactor — Phase 5: split standard_fields.py into resolution/ (2026-04-19)
+
+### Why
+
+`standard_fields.py` was 575 LOC with a 207-LOC `resolve_all_batched`
+function and two other substantial functions (`resolve_field` at 135
+LOC, `_snap_to_option` at 37 LOC). The two-phase resolver's four
+pipeline phases (deterministic → build batch → LLM → backfill) were
+inline in one function body, making each phase hard to test in
+isolation.
+
+### What moved
+
+Created `src/autoapply/execute/resolution/` with 6 modules:
+
+| Module | LOC | Role |
+|--------|-----|------|
+| `machine_key.py` | 72 | `_MACHINE_KEY_RULES`, `_match_machine_key`, `_profile_value` |
+| `options_snap.py` | 75 | `_snap_to_option` + ITAR/EAR fallback markers |
+| `phase1.py` | 240 | `resolve_field` + `resolve_all` (deterministic) |
+| `batch_builder.py` | 124 | build `BatchQuestion` list from Phase-1 state |
+| `backfill.py` | 85 | apply LLM answers onto Phase-1 state |
+| `orchestrator.py` | 146 | `resolve_all_batched` composition (was 207-LOC monolith) |
+
+`standard_fields.py` shrunk from 575 → 129 LOC. It now exposes the
+dataclasses (`ResolvedField`, `FieldSpec`, `UnresolvedField`,
+`ClassifyFn`) — which dozens of callers import — plus re-exports the
+three public functions from `resolution/`. Private helpers
+(`_match_machine_key`, `_snap_to_option`, etc.) are re-exported too
+for backcompat with existing tests.
+
+Inside `phase1.py`, `resolve_field` was refactored: the 60-LOC
+file-upload branch extracted to `_resolve_file`, the 20-LOC
+`.tex`-plaintext branch to `_resolve_resume_text`, the per-field LLM
+fallback to `_try_per_field_llm`. Main body reads top-to-bottom as a
+6-step pipeline instead of a deeply-nested cascade.
+
+Inside `orchestrator.py`, `resolve_all_batched` is now ~45 readable
+LOC of composition — one call each to `resolve_all`, `build_batch`,
+`resolve_batch`, and `apply_answers`.
+
+### Tests
+
+`tests/test_resolution_package.py` (11 tests):
+
+- Backcompat identity (`standard_fields.X is resolution.Y`) for every
+  re-exported name.
+- `_value_matches_option` — exact-match, substring-does-not-count
+  (regression for React-Select verbatim-option requirement).
+- `_serialize_answer_value` — list / None / plain string / scalar.
+- `build_batch`:
+  - Skips machine-key resolved fields (regression — never batch
+    `resume_text` so the LLM doesn't paste the whole resume).
+  - Batches unconfident required select (no exact option match).
+  - Leaves optional unresolved fields BLANK (the "leave blank" policy).
+  - Promotes Phase-1 unresolved required fields.
+  - Batches required text with empty Phase-1 value.
+- `apply_answers`:
+  - Promotes unresolved → resolved when LLM answers; removes from
+    unresolved list.
+  - `source="needs_review"` leaves Phase-1 state intact.
+  - Clears `requires_llm` / `requires_review` flags on backfill.
+
+678 → 689 tests, all passing. Behavior-preserving split.

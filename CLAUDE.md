@@ -84,10 +84,16 @@ shape, and a typo in a rename would fail silently at apply time.
 
 ## Recent architecture (2026-04-19)
 
-- **Resolver pipeline** is two phases in
-  `src/autoapply/execute/standard_fields.py::resolve_all_batched`:
-  - Phase 1 — classifier + Profile / bank (free, deterministic)
-  - Phase 2 — ONE batched Gemini call with JD + remaining questions
+- **Resolver pipeline** lives under `src/autoapply/execute/resolution/`
+  (split from the old `standard_fields.py` monolith; that module is
+  now a thin facade exposing the dataclasses + public functions):
+  - Phase 1 — `resolution/phase1.py`: classifier + Profile / bank
+    (free, deterministic).
+  - Phase 2 — `resolution/batch_builder.py`: decide what needs the LLM.
+  - Phase 3 — `answers/llm_batch.py::resolve_batch`: ONE batched
+    Gemini call with JD + remaining questions.
+  - Phase 4 — `resolution/backfill.py`: apply answers onto Phase-1 state.
+  The top-level composition is `resolution/orchestrator.py::resolve_all_batched`.
 - **Submitter** is split across `src/autoapply/execute/submitter/`
   (was a 2142-LOC file). `driver.py` is the orchestrator composing
   phases from `submitter/phases/` (browser, upload, api_fill, stage2,
@@ -120,7 +126,7 @@ shape, and a typo in a rename would fail silently at apply time.
 
 ```bash
 # 1. Tests
-python -m pytest -q           # must print "678 passed" (plus any you added)
+python -m pytest -q           # must print "689 passed" (plus any you added)
 
 # 2. Dry-run on a single job to see the resolution pipeline
 python scripts/apply_by_job_ids.py <JOB_ID>
