@@ -7,6 +7,18 @@
       "Read(**/secrets*)",
       "Read(**/*_secret*)",
       "Read(**/*credentials*)"
+    ],
+    "allow": [
+      "Bash(.claude/bin/test.sh:*)",
+      "Bash(.claude/bin/test-fast.sh:*)",
+      "Bash(.claude/bin/dry.sh:*)",
+      "Bash(.claude/bin/apply.sh:*)",
+      "Bash(.claude/bin/applied.sh:*)",
+      "Bash(.claude/bin/audit.sh:*)",
+      "Bash(.claude/bin/security.sh:*)",
+      "Bash(.claude/bin/classify.sh:*)",
+      "Bash(.claude/bin/presubmit.sh:*)",
+      "Bash(.claude/bin/push-safe.sh:*)"
     ]
   },
   "hooks": {

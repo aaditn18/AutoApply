@@ -54,16 +54,58 @@ Every command is a single file under `.claude/commands/*.md`. Type
 | `/classify` | `/classify <question label>` | Run a raw label through the classifier; prints `QuestionType`, confidence, slot, source |
 | `/security` | `/security [days]` | `SecurityEvent` rows (injection attempts, etc.) from the last `N` days (default 7) |
 
+### Two-layer architecture
+
+Every slash command is a thin invoker over a script in `.claude/bin/`:
+
+```
+.claude/commands/test.md         → shell block: `.claude/bin/test.sh $ARGUMENTS`
+.claude/bin/test.sh              → actual logic (variable setup, pytest invocation)
+```
+
+Why the split:
+- **Clean permission patterns.** Claude Code's permission matcher
+  operates on the command string. A slash-command inline block
+  starting with `N="${1:-10}"; sqlite3 ...` doesn't match
+  `Bash(sqlite3 *)` because the first token is a variable
+  assignment. A single-line invocation like `.claude/bin/applied.sh 10`
+  matches `Bash(.claude/bin/applied.sh:*)` cleanly — the permission
+  system allows the command in one line of `settings.json`.
+- **Scripts are testable standalone.** You can run
+  `.claude/bin/audit.sh 183` from any terminal — no Claude Code
+  required.
+- **Python-aware.** `.claude/bin/_lib.sh` picks the venv python
+  (`.venv/bin/python`) when available so commands using
+  `pyyaml`/`google-genai` don't hit "ModuleNotFoundError".
+
 ### Adding a new command
 
-Copy an existing file under `.claude/commands/` and edit the
-frontmatter. The `description` shows in `/help`. Argument access:
+1. Create `.claude/bin/<name>.sh` with the actual logic. Start with:
+   ```bash
+   #!/usr/bin/env bash
+   set -eo pipefail
+   cd "$(dirname "$0")/../.."
+   source "$(dirname "$0")/_lib.sh"   # pulls in $PY
+   ```
+2. `chmod +x .claude/bin/<name>.sh`.
+3. Create `.claude/commands/<name>.md` with frontmatter:
+   ```yaml
+   ---
+   description: "One-line shown in /help"
+   argument-hint: "<args>"
+   allowed-tools: "Bash(.claude/bin/<name>.sh:*)"
+   ---
+   ```
+   Body includes one shell block:
+   ```!
+   .claude/bin/<name>.sh $ARGUMENTS
+   ```
+4. Add the allow pattern to `.claude/settings.json` under
+   `permissions.allow`: `"Bash(.claude/bin/<name>.sh:*)"`.
+5. Restart Claude Code to pick up the new settings.json allow entry.
 
-- `$ARGUMENTS` — all args as one string
-- `$1`, `$2`, … — positional
-- Inline shell: `` ```! ... ``` `` block
-
-Re-reads every invocation — no restart needed.
+Re-reads live for `.md` + `.sh` edits after restart — no restart
+needed per command iteration, only per allow-pattern addition.
 
 ---
 

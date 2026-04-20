@@ -42,6 +42,10 @@ htmlcov/
 *.pem
 *.key
 
+# Claude Code — local-only state
+.claude/worktrees/
+.claude/settings.local.json
+
 # Playwright
 playwright-report/
 test-results/
