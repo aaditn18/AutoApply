@@ -45,12 +45,14 @@ there's already a paragraph explaining why it's the way it is.
   answer_bank covers the vast majority of fields. Only fields the
   classifier can't answer confidently (novel essays, dropdowns with
   non-matching options, SPA-injected fields) go to the batched LLM.
-- **One LLM call per application**, not per-field. See
-  `src/autoapply/answers/llm_batch.py`. Model cascade:
-  `gemini-3.1-flash-lite → gemini-2.5-flash-lite → gemini-3-flash →
-  gemini-2.5-flash` (first 3 often 404 on v1 stable; 2.5-flash-lite is
-  the workhorse). Use `api_version="v1"` — **`gemini-2.0-flash` is
-  deprecated** (removed from free tier March 2026).
+- **One LLM call per application**, not per-field. Public entry point
+  lives in `src/autoapply/answers/llm_batch.py`; implementation is
+  split: `answers/batch_prompt.py` (prompt construction), `answers/batch_parse.py`
+  (response validation), `adapters/gemini.py` (SDK + model cascade).
+  Cascade order: `gemini-3.1-flash-lite → gemini-2.5-flash-lite →
+  gemini-3-flash → gemini-2.5-flash` (first 3 often 404 on v1 stable;
+  2.5-flash-lite is the workhorse). Use `api_version="v1"` —
+  **`gemini-2.0-flash` is deprecated** (removed from free tier March 2026).
 - **Every LLM prompt wraps untrusted input in `<UNTRUSTED>` tags**
   (JD and scraped question list each in their own block). Output is
   re-scanned for canary leaks. See `src/autoapply/security/`.
@@ -126,7 +128,7 @@ shape, and a typo in a rename would fail silently at apply time.
 
 ```bash
 # 1. Tests
-python -m pytest -q           # must print "689 passed" (plus any you added)
+python -m pytest -q           # must print "706 passed" (plus any you added)
 
 # 2. Dry-run on a single job to see the resolution pipeline
 python scripts/apply_by_job_ids.py <JOB_ID>

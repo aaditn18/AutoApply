@@ -8,7 +8,7 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status (2026-04-19):** 689 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver split into phases (phase 2) · dom_batch split into dom/ (phase 3) · field_fill split into fillers/ (phase 4) · standard_fields split into resolution/ (phase 5) ·
+- **Status (2026-04-19):** 706 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver→phases (phase 2) · dom_batch→dom/ (phase 3) · field_fill→fillers/ (phase 4) · standard_fields→resolution/ (phase 5) · llm_batch split + adapters/ (phase 6) ·
   DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
   apps now submit (including 2 that were stuck in review on essay questions) ·
   Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
@@ -172,8 +172,14 @@ AutoApply/
 │   │   ├── types.py                ← QuestionType enum + policy frozensets
 │   │   ├── classifier.py           ← rule-based question classifier
 │   │   ├── bank.py                 ← (question_type, track) → answer
-│   │   ├── llm_fallback.py         ← per-field Gemini fallback (select-only now) + template
-│   │   └── llm_batch.py            ← one Gemini call per application with model cascade
+│   │   ├── llm_fallback.py         ← per-field Gemini fallback (select-only) + template
+│   │   ├── llm_batch.py            ← public facade: BatchQuestion / BatchAnswer /
+│   │   │                             BatchResult / resolve_batch
+│   │   ├── batch_prompt.py         ← prompt construction + profile serialization
+│   │   └── batch_parse.py          ← response parsing + option validation
+│   │
+│   ├── adapters/                   ← IO BOUNDARY — SDK wrappers
+│   │   └── gemini.py               ← google-genai client + model cascade
 │   │
 │   ├── rules/                      ← POLICY LAYER (loader only; data under state/rules/)
 │   │   ├── __init__.py             ← exposes load_rules(), load_prompt()
@@ -289,7 +295,7 @@ AutoApply/
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (689 tests)
+├── tests/                          ← pytest (706 tests)
 │   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
 │   │                                 calls, clears GEMINI_API_KEY. Every
 │   │                                 test is hermetic; LLM-involved tests
@@ -519,7 +525,7 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 689 tests
+python -m pytest -q                  # ~5 s, 706 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v

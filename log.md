@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 689 passing.**
+**Current test tally: 706 passing.**
 
 ---
 
@@ -1345,3 +1345,80 @@ LOC of composition — one call each to `resolve_all`, `build_batch`,
   - Clears `requires_llm` / `requires_review` flags on backfill.
 
 678 → 689 tests, all passing. Behavior-preserving split.
+
+---
+
+## Z. Structural refactor — Phase 6: split llm_batch.py along change-boundaries (2026-04-19)
+
+### Why
+
+`llm_batch.py` was 632 LOC mixing three concerns that change on
+different cadences:
+
+- **Gemini SDK + model cascade** — changes when Gemini deprecates a
+  model (every ~6 months). Touching this shouldn't force a diff to
+  the prompt engineering code.
+- **Prompt construction** — changes when essays land flat / rules
+  need tweaking. Touching this shouldn't force a diff to the SDK
+  wrapper.
+- **Response parsing** — changes when the model's JSON-format
+  compliance regresses. Independent of both above.
+
+Keeping them in one file meant every Gemini SDK nudge touched the
+file that also owns prompt wording, confusing the diff history.
+
+### What moved
+
+Created:
+
+- `src/autoapply/adapters/gemini.py` (187 LOC) — the SOLE place that
+  imports `google.genai`. Exposes `MODEL_CASCADE`, `call_with_cascade`,
+  `is_cascade_error`. Accepts a prompt + parse callback; knows nothing
+  about answer schemas.
+- `src/autoapply/answers/batch_prompt.py` (218 LOC) — `build_prompt`,
+  `profile_as_json`, the `_PROFILE_MAX_CHARS` / `_BANK_MAX_CHARS` /
+  `_JD_MAX_CHARS` budgets. Consumes `prompts/batch.md` +
+  `prompts/batch_rules.md` (loaded once at import).
+- `src/autoapply/answers/batch_parse.py` (164 LOC) — `parse_response`,
+  `_validate_select_value`, `_validate_multi_select_value`. Applies
+  markdown-fence stripping, option-match validation, confidence gate,
+  omitted-question fillin.
+
+`llm_batch.py` is now a 297-LOC public facade: the three
+dataclasses (`BatchQuestion`, `BatchAnswer`, `BatchResult`),
+`resolve_batch` entry point, and backcompat re-exports for every
+underscore-prefixed name `conftest.py` / existing tests reach for
+(`_call_with_cascade`, `_parse_response`, `_build_prompt`, etc.).
+
+### New top-level package: `autoapply.adapters`
+
+First citizen of the new IO-boundary layer. The package docstring
+states the policy: nothing outside `adapters/` imports an external
+SDK directly. Future moves (Playwright → `adapters/playwright.py`,
+IMAP → `adapters/imap.py`, Greenhouse REST → `adapters/greenhouse.py`)
+follow the same template.
+
+### Tests
+
+`tests/test_batch_split.py` (17 tests):
+
+- Backcompat: all `llm_batch` public + underscore names still
+  importable; monkeypatch fixture still works.
+- Cascade order preserved (identity check on MODEL_CASCADE).
+- `is_cascade_error`: 6 true cases, 4 false cases.
+- `build_prompt` wraps JD in `<UNTRUSTED>` (regression: injection
+  defense).
+- `build_prompt` sanitizes question labels before embedding.
+- `profile_as_json` includes core fields (name, track, YOE).
+- `parse_response`: markdown fences stripped; confidence < 0.5 →
+  `needs_review`; omitted questions synthesized; non-option select
+  values rejected; invalid JSON returns empty dict.
+- `_validate_select_value` case-insensitive canonical match.
+- `_validate_multi_select_value` filters invalid elements.
+- `resolve_batch` short-circuits when no required questions;
+  returns error without API key.
+
+689 → 706 tests, all passing. Behavior-preserving split. The
+hermetic-Gemini autouse fixture keeps working because
+`_call_with_cascade` still lives on `llm_batch` (re-export from the
+adapter).
