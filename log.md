@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 666 passing.**
+**Current test tally: 678 passing.**
 
 ---
 
@@ -1210,3 +1210,71 @@ reaches into the old path for the preference-matcher — untouched.
 
 656 → 666 tests, all passing. Behavior-preserving split; no existing
 test modified.
+
+---
+
+## X. Structural refactor — Phase 4: split field_fill.py into fillers/ (2026-04-19)
+
+### Why
+
+`field_fill.py` was 889 LOC mixing six concerns: dispatch, React-Select
+detection, React-Select filling (a 380-LOC waterfall with a 6-step
+match ladder), native `<select>` filling, radio filling, and string-
+matching utilities. The React-Select filler alone had 6 helper blocks
+inlined (dropdown open, prefix-delay typing, 3 option-locator
+strategies, option-text snapshot, pick commit) — all as anonymous code
+paragraphs inside one massive function.
+
+Bug this surfaced: an inline `_DECLINE_KEYWORDS` tuple in `fill_select`
+duplicated the module-level one (missed during Phase 1's rule
+extraction). Both now load from `state/rules/eeo_semantics.yml` once.
+
+### What moved
+
+Created `src/autoapply/execute/submitter/fillers/` with 7 modules —
+one per strategy:
+
+| Module | LOC | Role |
+|--------|-----|------|
+| `matching.py` | 42 | `_normalize_tokens`, `_looks_like_placeholder` — pure string helpers |
+| `detect.py` | 150 | `_is_react_select`, `_combobox_has_value`, `_read_input_label` — DOM probes |
+| `checkbox_radio.py` | 59 | `fill_radio` |
+| `native_select.py` | 203 | `fill_select` (6-step waterfall + LLM fallback split out) |
+| `react_select.py` | 386 | `fill_combobox` — 380-LOC body split into 7 named helpers |
+| `dispatch.py` | 113 | `fill_field` — unified entry point |
+| `__init__.py` | 53 | public-surface re-exports |
+
+Inside `react_select.py`, the 380-LOC `fill_combobox` body was
+refactored into a readable ladder calling 7 private helpers —
+`_open_dropdown`, `_type_value_with_prefix_delay`, `_locate_options`,
+`_locate_options_menu_fallback`, `_locate_options_visible_listbox`,
+`_snapshot_texts`, `_commit_pick`. The match ladder (preferred-pattern,
+exact, prefix, token-set, decline) now reads top-to-bottom without
+being buried inside an else-branch of a try/except.
+
+Inside `native_select.py`, the LLM fallback is its own
+`_try_llm_fallback` function so callers can see the primary match
+waterfall on its own.
+
+`field_fill.py` is now a 41-line re-export shim. All existing imports
+(`from ...field_fill import fill_field`, `_normalize_tokens`, etc.)
+still work.
+
+### Tests
+
+`tests/test_fillers_package.py` (12 tests):
+
+- Backcompat identity checks (`field_fill.X is fillers.X`).
+- `_normalize_tokens` collapses punctuation ("University of Maryland,
+  College Park" ≡ "University of Maryland-College Park").
+- `_normalize_tokens` drops 1-char tokens (`"J. P. Morgan" → {"morgan"}`).
+- `_looks_like_placeholder` matches 10 placeholder variants and 6 real
+  option texts correctly.
+- `_DECLINE_KEYWORDS` loaded identically by native-select and react-
+  select modules (no duplication).
+- Public-surface contract (9 callables exposed from `fillers/__init__`).
+- `_is_react_select` via combobox role / ancestor control class / plain
+  input — stub-driven.
+
+666 → 678 tests, all passing. Behavior-preserving split; DRY-fixed the
+duplicate `_DECLINE_KEYWORDS`.

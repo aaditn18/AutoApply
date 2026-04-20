@@ -120,7 +120,7 @@ shape, and a typo in a rename would fail silently at apply time.
 
 ```bash
 # 1. Tests
-python -m pytest -q           # must print "666 passed" (plus any you added)
+python -m pytest -q           # must print "678 passed" (plus any you added)
 
 # 2. Dry-run on a single job to see the resolution pipeline
 python scripts/apply_by_job_ids.py <JOB_ID>

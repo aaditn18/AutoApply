@@ -8,7 +8,7 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status (2026-04-19):** 666 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver split into phases (phase 2) · dom_batch split into dom/ subpackage (phase 3) ·
+- **Status (2026-04-19):** 678 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver split into phases (phase 2) · dom_batch split into dom/ (phase 3) · field_fill split into fillers/ (phase 4) ·
   DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
   apps now submit (including 2 that were stuck in review on essay questions) ·
   Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
@@ -213,8 +213,15 @@ AutoApply/
 │   │   │   │   ├── submit_click.py ← click + post-submit CAPTCHA
 │   │   │   │   ├── verification.py ← email OTP (IMAP fetch + entry)
 │   │   │   │   └── verify.py       ← success detect + error capture
-│   │   │   ├── field_fill.py       ← fill_field / fill_select / fill_combobox
-│   │   │   │                         (+ preferred-pattern matching)
+│   │   │   ├── fillers/            ← per-strategy field fillers (split
+│   │   │   │   │                     from the old 889-LOC field_fill.py)
+│   │   │   │   ├── matching.py     ← _normalize_tokens, _looks_like_placeholder
+│   │   │   │   ├── detect.py       ← _is_react_select + label/value probes
+│   │   │   │   ├── dispatch.py     ← fill_field (unified entry point)
+│   │   │   │   ├── native_select.py← fill_select (6-step match waterfall)
+│   │   │   │   ├── react_select.py ← fill_combobox (React-Select ladder)
+│   │   │   │   └── checkbox_radio.py← fill_radio
+│   │   │   ├── field_fill.py       ← backcompat re-export shim
 │   │   │   ├── file_upload.py      ← resume/cover-letter upload helpers
 │   │   │   ├── lever_cards.py      ← Lever qualifying cards
 │   │   │   ├── imap_otp.py         ← email OTP verification helpers
@@ -273,7 +280,7 @@ AutoApply/
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (666 tests)
+├── tests/                          ← pytest (678 tests)
 │   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
 │   │                                 calls, clears GEMINI_API_KEY. Every
 │   │                                 test is hermetic; LLM-involved tests
@@ -503,7 +510,7 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 666 tests
+python -m pytest -q                  # ~5 s, 678 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v
