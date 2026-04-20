@@ -8,7 +8,7 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status (2026-04-19):** 642 tests passing · batch-LLM resolver live · rules as data (phase 1 refactor) ·
+- **Status (2026-04-19):** 656 tests passing · batch-LLM resolver live · rules as data (phase 1) · submission pipeline split into phases (phase 2) ·
   DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
   apps now submit (including 2 that were stuck in review on essay questions) ·
   Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
@@ -204,12 +204,20 @@ AutoApply/
 │   │   ├── lever_apply.py          ← Lever applicator
 │   │   ├── playwright_submit.py    ← thin shim exposing submit_greenhouse/lever
 │   │   ├── submitter/              ← split from playwright_submit.py
-│   │   │   ├── driver.py           ← orchestrator (navigate → upload → fill → submit)
+│   │   │   ├── driver.py           ← orchestrator — composes phases/
+│   │   │   ├── phases/             ← one module per pipeline phase
+│   │   │   │   ├── browser.py      ← launch + stealth + UA pool
+│   │   │   │   ├── upload.py       ← files + resume-analysis wait
+│   │   │   │   ├── api_fill.py     ← iterate Stage-1 data dict
+│   │   │   │   ├── stage2.py       ← DOM-batch LLM + audit logging
+│   │   │   │   ├── submit_click.py ← click + post-submit CAPTCHA
+│   │   │   │   ├── verification.py ← email OTP (IMAP fetch + entry)
+│   │   │   │   └── verify.py       ← success detect + error capture
 │   │   │   ├── field_fill.py       ← fill_field / fill_select / fill_combobox
 │   │   │   │                         (+ preferred-pattern matching)
-│   │   │   ├── file_upload.py      ← resume/cover-letter upload
+│   │   │   ├── file_upload.py      ← resume/cover-letter upload helpers
 │   │   │   ├── lever_cards.py      ← Lever qualifying cards
-│   │   │   ├── imap_otp.py         ← email OTP verification
+│   │   │   ├── imap_otp.py         ← email OTP verification helpers
 │   │   │   ├── success_detect.py   ← post-submit success detection
 │   │   │   ├── captcha_detect.py   ← captcha presence + site-key extraction
 │   │   │   ├── captcha_retry.py    ← solver dispatch + retry
@@ -257,7 +265,7 @@ AutoApply/
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (642 tests)
+├── tests/                          ← pytest (656 tests)
 │   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
 │   │                                 calls, clears GEMINI_API_KEY. Every
 │   │                                 test is hermetic; LLM-involved tests
@@ -487,7 +495,7 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 642 tests
+python -m pytest -q                  # ~5 s, 656 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v

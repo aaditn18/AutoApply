@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 642 passing.**
+**Current test tally: 656 passing.**
 
 ---
 
@@ -1078,3 +1078,66 @@ rule file between assertions.
 
 626 → 642 tests, all passing. No existing tests modified — the
 extraction is behavior-preserving.
+
+---
+
+## V. Structural refactor — Phase 2: split driver.py into phases (2026-04-19)
+
+### Why
+
+`driver.py::submit_form` was a 315-LOC linear orchestrator with 11
+numbered phases (navigate, upload, api-fill, lever-cards, stage-2
+batch, label-fallback, pre-submit diagnostics, submit-click, captcha,
+OTP, success-detect). Issues:
+
+- Impossible to unit-test any single phase — the function was all-or-
+  nothing with a live Playwright context.
+- Adding a new ATS (YC WAAS, Handshake, Workday) would have forced
+  another 40-LOC branch into an already-busy function.
+- Composition pattern was implicit (numbered inline comments); easy to
+  miss a phase when reading top-to-bottom.
+
+### What moved
+
+Created `src/autoapply/execute/submitter/phases/` with seven modules —
+one per concern:
+
+| Phase | Module | LOC | Role |
+|-------|--------|-----|------|
+| Browser setup | `browser.py` | 101 | `launch_browser_context(p, headless, cookies)` + stealth |
+| Upload | `upload.py` | 109 | `upload_files` + `wait_for_resume_analysis` |
+| API fill | `api_fill.py` | 62 | `fill_api_fields(page, data, field_errors)` |
+| Stage-2 | `stage2.py` | 93 | `run_stage2_batch` + audit logging (exception-safe wrapper) |
+| Verification | `verification.py` | 76 | `handle_email_verification` (IMAP fetch + entry) |
+| Submit click | `submit_click.py` | 73 | `click_submit_and_handle_captcha` |
+| Final verify | `verify.py` | 69 | `check_submit_success` + Lever post-submit dump |
+
+`driver.py` now 205 LOC (was 467) — 56% smaller. `submit_form` body is
+a readable, commented sequence of phase calls:
+
+```python
+launch_browser_context → navigate → upload_files → wait_for_resume_analysis
+→ fill_api_fields → fill_lever_cards (if Lever) → run_stage2_batch
+→ fill_by_label (if label_values) → dump_pre_submit_state
+→ click_submit_and_handle_captcha → check early success
+→ handle_email_verification (if OTP prompt) → check_submit_success
+```
+
+`USER_AGENTS` re-exported from `driver.py` for backcompat.
+
+### Tests
+
+`tests/test_driver_phases.py` (14 tests):
+
+- Import-surface contracts — each phase module exposes the expected
+  callable(s). If a rename happens, CI fails before the driver breaks.
+- `run_stage2_batch` returns empty when `llm_context` is None.
+- `run_stage2_batch` swallows dom_batch exceptions (stage-2 crashes
+  must never kill a submission).
+- `handle_email_verification` raises `SubmitFailed` when IMAP creds
+  are empty OR when the code doesn't arrive in time.
+- `upload_files` records `missing_file:<name>` on missing paths and
+  skips empty values silently.
+
+642 → 656 tests, all passing. No behavior change — split is
+composition-only.

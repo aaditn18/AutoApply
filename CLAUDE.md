@@ -89,8 +89,10 @@ shape, and a typo in a rename would fail silently at apply time.
   - Phase 1 — classifier + Profile / bank (free, deterministic)
   - Phase 2 — ONE batched Gemini call with JD + remaining questions
 - **Submitter** is split across `src/autoapply/execute/submitter/`
-  (was a 2142-LOC file). `driver.py` is the orchestrator; other modules
-  are leaf helpers.
+  (was a 2142-LOC file). `driver.py` is the orchestrator composing
+  phases from `submitter/phases/` (browser, upload, api_fill, stage2,
+  submit_click, verification, verify). Other siblings
+  (field_fill, lever_cards, captcha_*, etc.) are leaf helpers.
 - **Stage-2 DOM batch** (`submitter/dom_batch.py`) — after resume upload
   + SPA re-render, scrape visible required fields and batch-LLM them.
   Needed for Greenhouse's new `job-boards.greenhouse.io` SPA which
@@ -115,7 +117,7 @@ shape, and a typo in a rename would fail silently at apply time.
 
 ```bash
 # 1. Tests
-python -m pytest -q           # must print "642 passed" (plus any you added)
+python -m pytest -q           # must print "656 passed" (plus any you added)
 
 # 2. Dry-run on a single job to see the resolution pipeline
 python scripts/apply_by_job_ids.py <JOB_ID>
