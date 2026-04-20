@@ -198,130 +198,172 @@ class AnswerBank:
 # -- Profile-sourced resolution ---------------------------------------------
 
 
-def _from_profile(qt: QuestionType, profile: Profile, slot: dict[str, str]) -> str | None:
+# Simple QuestionType → Profile-attribute lookups. Every entry resolves
+# via ``getattr(profile, attr, None) or None`` — falsy values (empty
+# string, etc.) return None so the bank's caller can decide the policy.
+#
+# Adding a new PROFILE_SOURCED type: add both the enum entry and
+# one line here. Non-trivial lookups (names, education, YOE) have
+# dedicated handlers below.
+_SIMPLE_PROFILE_ATTRS: dict[QuestionType, str] = {
+    # EEO / demographic
+    QuestionType.DEMO_GENDER: "demo_gender",
+    QuestionType.DEMO_RACE: "demo_race",
+    QuestionType.DEMO_HISPANIC_LATINO: "demo_hispanic_latino",
+    QuestionType.DEMO_VETERAN: "demo_veteran",
+    QuestionType.DEMO_DISABILITY: "demo_disability",
+    QuestionType.DEMO_PRONOUNS: "demo_pronouns",
+    QuestionType.DEMO_SEXUAL_ORIENTATION: "demo_sexual_orientation",
+    QuestionType.DEMO_TRANSGENDER: "demo_transgender",
+    # Military / prior service
+    QuestionType.MILITARY_SERVICE: "military_service",
+    # Citizenship / immigration
+    QuestionType.CITIZENSHIP: "citizenship_country",
+    QuestionType.US_CITIZEN: "us_citizen",
+    QuestionType.WORK_AUTHORIZED_US: "work_authorized_us",
+    QuestionType.PERMANENT_WORK_AUTHORIZATION: "permanent_work_authorization",
+    QuestionType.REQUIRE_SPONSORSHIP_NOW: "require_sponsorship_now",
+    QuestionType.REQUIRE_SPONSORSHIP_FUTURE: "require_sponsorship_future",
+    QuestionType.VISA_STATUS: "visa_status",
+    # Current location atoms
+    QuestionType.CURRENT_CITY: "current_city",
+    QuestionType.CURRENT_STATE: "current_state",
+    QuestionType.CURRENT_ZIP: "current_zip",
+    QuestionType.CURRENT_LOCATION: "current_location",
+    # Contact
+    QuestionType.EMAIL: "email",
+    QuestionType.PHONE: "phone",
+    QuestionType.LINKEDIN_URL: "linkedin_url",
+    QuestionType.GITHUB_URL: "github_url",
+}
+
+
+# Types handled by the non-trivial handlers below. Never in
+# ``_SIMPLE_PROFILE_ATTRS`` — the dispatch order matters.
+_NAME_QUESTION_TYPES = frozenset({
+    QuestionType.FULL_NAME,
+    QuestionType.FIRST_NAME,
+    QuestionType.LAST_NAME,
+    QuestionType.PREFERRED_NAME,
+})
+
+_EDUCATION_QUESTION_TYPES = frozenset({
+    QuestionType.SCHOOL,
+    QuestionType.DEGREE,
+    QuestionType.MAJOR,
+    QuestionType.MINOR,
+    QuestionType.GPA,
+    QuestionType.GRADUATION_DATE,
+    QuestionType.EXPECTED_GRADUATION,
+})
+
+
+# Types we know about but have no profile source for — returning None
+# here routes the caller to the review / LLM path rather than falsely
+# claiming we don't know about the type.
+_KNOWN_NULL_TYPES = frozenset({
+    QuestionType.PORTFOLIO_URL,  # not tracked on Profile yet
+    QuestionType.WEBSITE_URL,
+})
+
+
+def _from_profile(
+    qt: QuestionType, profile: Profile, slot: dict[str, str],
+) -> str | None:
     """Map a PROFILE_SOURCED QuestionType to a string from the parsed resume.
 
-    Extended beyond resume-parsed fields to include common-across-tracks
-    fields (EEO, citizenship/immigration, current location, etc.) that
-    now live on ``Profile``. These have sensible defaults on the Pydantic
-    schema so older ``profile.json`` files without the new keys still
-    produce correct answers.
+    Simple attribute-copy types are handled via :data:`_SIMPLE_PROFILE_ATTRS`
+    (one line per new type). Types with non-trivial extraction (splitting
+    names, formatting graduation dates, skill-keyed YOE lookup) have
+    their own handlers.
     """
-    # EEO / demographic — common across tracks (see Profile schema).
-    if qt is QuestionType.DEMO_GENDER:
-        return getattr(profile, "demo_gender", None) or None
-    if qt is QuestionType.DEMO_RACE:
-        return getattr(profile, "demo_race", None) or None
-    if qt is QuestionType.DEMO_HISPANIC_LATINO:
-        return getattr(profile, "demo_hispanic_latino", None) or None
-    if qt is QuestionType.DEMO_VETERAN:
-        return getattr(profile, "demo_veteran", None) or None
-    if qt is QuestionType.DEMO_DISABILITY:
-        return getattr(profile, "demo_disability", None) or None
-    if qt is QuestionType.DEMO_PRONOUNS:
-        return getattr(profile, "demo_pronouns", None) or None
-    if qt is QuestionType.DEMO_SEXUAL_ORIENTATION:
-        return getattr(profile, "demo_sexual_orientation", None) or None
-    if qt is QuestionType.DEMO_TRANSGENDER:
-        return getattr(profile, "demo_transgender", None) or None
+    # 1. Identity — split full_name according to which slot was asked.
+    if qt in _NAME_QUESTION_TYPES:
+        return _name_from_profile(qt, profile)
 
-    # Military / prior service.
-    if qt is QuestionType.MILITARY_SERVICE:
-        return getattr(profile, "military_service", None) or None
+    # 2. Education — first entry wins (UMD for Aadit).
+    if qt in _EDUCATION_QUESTION_TYPES:
+        return _education_from_profile(qt, profile)
 
-    # Citizenship / immigration.
-    if qt is QuestionType.CITIZENSHIP:
-        return getattr(profile, "citizenship_country", None) or None
-    if qt is QuestionType.US_CITIZEN:
-        return getattr(profile, "us_citizen", None) or None
-    if qt is QuestionType.WORK_AUTHORIZED_US:
-        return getattr(profile, "work_authorized_us", None) or None
-    if qt is QuestionType.PERMANENT_WORK_AUTHORIZATION:
-        return getattr(profile, "permanent_work_authorization", None) or None
-    if qt is QuestionType.REQUIRE_SPONSORSHIP_NOW:
-        return getattr(profile, "require_sponsorship_now", None) or None
-    if qt is QuestionType.REQUIRE_SPONSORSHIP_FUTURE:
-        return getattr(profile, "require_sponsorship_future", None) or None
-    if qt is QuestionType.VISA_STATUS:
-        return getattr(profile, "visa_status", None) or None
+    # 3. YOE for a specific skill (slot["skill"]).
+    if qt is QuestionType.YOE_LANGUAGE:
+        return _yoe_from_profile(profile, slot)
 
-    # Current location atoms.
-    if qt is QuestionType.CURRENT_CITY:
-        return getattr(profile, "current_city", None) or None
-    if qt is QuestionType.CURRENT_STATE:
-        return getattr(profile, "current_state", None) or None
-    if qt is QuestionType.CURRENT_ZIP:
-        return getattr(profile, "current_zip", None) or None
-    if qt is QuestionType.CURRENT_LOCATION:
-        return getattr(profile, "current_location", None) or None
+    # 4. Known-null types — not on Profile, deliberate.
+    if qt in _KNOWN_NULL_TYPES:
+        return None
 
-    # Identity
+    # 5. Simple attribute lookup.
+    attr = _SIMPLE_PROFILE_ATTRS.get(qt)
+    if attr is None:
+        return None
+    return getattr(profile, attr, None) or None
+
+
+def _name_from_profile(qt: QuestionType, profile: Profile) -> str | None:
+    """Extract first/last/full/preferred from ``profile.full_name``.
+
+    Preferred-name falls back to first name since we don't track an
+    explicit preferred-name field yet.
+    """
+    name = profile.full_name or ""
     if qt is QuestionType.FULL_NAME:
-        return profile.full_name
-    if qt is QuestionType.FIRST_NAME:
-        return profile.full_name.split(" ", 1)[0] if profile.full_name else None
+        return name or None
+    if not name:
+        return None
+    if qt is QuestionType.FIRST_NAME or qt is QuestionType.PREFERRED_NAME:
+        return name.split(" ", 1)[0]
     if qt is QuestionType.LAST_NAME:
-        parts = profile.full_name.rsplit(" ", 1)
+        parts = name.rsplit(" ", 1)
         return parts[1] if len(parts) == 2 else None
-    if qt is QuestionType.PREFERRED_NAME:
-        # Fall back to first name if no explicit preferred name.
-        return profile.full_name.split(" ", 1)[0] if profile.full_name else None
+    return None
 
-    # Contact
-    if qt is QuestionType.EMAIL:
-        return profile.email or None
-    if qt is QuestionType.PHONE:
-        return profile.phone or None
-    if qt is QuestionType.LINKEDIN_URL:
-        return profile.linkedin_url or None
-    if qt is QuestionType.GITHUB_URL:
-        return profile.github_url or None
-    if qt is QuestionType.PORTFOLIO_URL:
-        # Not tracked on Profile yet — route to review.
-        return None
-    if qt is QuestionType.WEBSITE_URL:
-        return None
 
-    # Education (first entry wins — UMD for Aadit)
+def _education_from_profile(qt: QuestionType, profile: Profile) -> str | None:
+    """Read an education-backed field from ``profile.education[0]``."""
     edu = profile.education[0] if profile.education else None
+    if edu is None:
+        return None
     if qt is QuestionType.SCHOOL:
-        return edu.school if edu else None
+        return edu.school or None
     if qt is QuestionType.DEGREE:
-        return edu.degree if edu else None
+        return edu.degree or None
     if qt is QuestionType.MAJOR:
-        return _extract_major(edu.degree) if edu else None
+        return _extract_major(edu.degree)
     if qt is QuestionType.MINOR:
-        return edu.minor or None if edu else None
+        return edu.minor or None
     if qt is QuestionType.GPA:
-        return edu.gpa or None if edu else None
+        return edu.gpa or None
     if qt is QuestionType.GRADUATION_DATE or qt is QuestionType.EXPECTED_GRADUATION:
-        if not edu:
-            return None
-        # Prefer the end date (or start if no end) formatted as "Month YYYY".
+        # Prefer the end date (or start if no end) as "Month YYYY".
         dr = edu.date_range
         if dr.end is not None:
             return dr.end.strftime("%B %Y")
         if dr.is_present and dr.start is not None:
             return dr.start.strftime("%B %Y")
         return dr.raw or None
-
-    # YOE for a specific skill
-    if qt is QuestionType.YOE_LANGUAGE:
-        skill = slot.get("skill", "")
-        if not skill:
-            return None
-        yoe = profile.years_of_experience or {}
-        # Try exact, then case-insensitive.
-        if skill in yoe:
-            return _format_yoe(yoe[skill])
-        for k, v in yoe.items():
-            if k.lower() == skill.lower():
-                return _format_yoe(v)
-        # Not present on this resume → explicitly "0" rather than missing, so
-        # the form gets a valid numeric answer. (Many ATS forms reject empty.)
-        return "0"
-
     return None
+
+
+def _yoe_from_profile(profile: Profile, slot: dict[str, str]) -> str | None:
+    """Look up years-of-experience for ``slot["skill"]``.
+
+    Returns "0" (not None) when the skill isn't on the resume — most ATS
+    forms reject an empty numeric answer, so an explicit zero is better
+    than a blank.
+    """
+    skill = slot.get("skill", "")
+    if not skill:
+        return None
+    yoe = profile.years_of_experience or {}
+    # Exact match.
+    if skill in yoe:
+        return _format_yoe(yoe[skill])
+    # Case-insensitive match.
+    for k, v in yoe.items():
+        if k.lower() == skill.lower():
+            return _format_yoe(v)
+    return "0"
 
 
 def _format_yoe(years: float) -> str:

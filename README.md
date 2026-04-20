@@ -8,7 +8,7 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status (2026-04-19):** 706 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver→phases (phase 2) · dom_batch→dom/ (phase 3) · field_fill→fillers/ (phase 4) · standard_fields→resolution/ (phase 5) · llm_batch split + adapters/ (phase 6) ·
+- **Status (2026-04-19):** 719 tests passing · batch-LLM resolver live · 7-phase structural refactor complete (rules→YAML, driver→phases, dom_batch→dom/, field_fill→fillers/, standard_fields→resolution/, llm_batch→adapters/ + split, bank/audit/review_flags extracted) ·
   DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
   apps now submit (including 2 that were stuck in review on essay questions) ·
   Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
@@ -204,7 +204,9 @@ AutoApply/
 │   │   └── payload.py              ← merge {data, files, cover_letter}
 │   │
 │   ├── execute/
-│   │   ├── base.py                 ← Applicator ABC + ApplyResult + audit log
+│   │   ├── base.py                 ← Applicator ABC + ApplyResult
+│   │   ├── audit.py                ← per-field audit log formatter
+│   │   ├── review_flags.py         ← build GH-Issues review payload
 │   │   ├── standard_fields.py      ← public facade (ResolvedField/FieldSpec +
 │   │   │                              resolve_field/resolve_all/resolve_all_batched
 │   │   │                              re-exports from resolution/)
@@ -295,7 +297,7 @@ AutoApply/
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (706 tests)
+├── tests/                          ← pytest (719 tests)
 │   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
 │   │                                 calls, clears GEMINI_API_KEY. Every
 │   │                                 test is hermetic; LLM-involved tests
@@ -525,7 +527,7 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 706 tests
+python -m pytest -q                  # ~5 s, 719 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v

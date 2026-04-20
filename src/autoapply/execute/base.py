@@ -30,6 +30,8 @@ from autoapply.answers.bank import AnswerBank
 from autoapply.profile.schema import Profile
 from autoapply.tracker.models import Job
 
+from autoapply.execute.audit import log_resolution_audit
+from autoapply.execute.review_flags import build_review_payload
 from autoapply.execute.standard_fields import (
     FieldSpec,
     ResolvedField,
@@ -149,53 +151,17 @@ class Applicator(ABC):
             )
 
         # Per-field audit: for every resolved field, log (label, value, source).
-        # Grouped so the terminal output is scannable at a glance.
-        self._log_resolution_audit(resolved, unresolved)
+        # Grouped so the terminal output is scannable at a glance. Lives
+        # in :mod:`.audit` so it can be re-used outside the Applicator.
+        log_resolution_audit(resolved, unresolved)
 
-        review_reasons: list[str] = []
-        review_flags: list[dict[str, Any]] = []
-        spec_by_name = {s.name: s for s in specs}
-
-        if unresolved:
-            review_reasons.extend(
-                f"unresolved:{u.name or u.label}" for u in unresolved
-            )
-            for u in unresolved:
-                sp = spec_by_name.get(u.name)
-                review_flags.append({
-                    "field_name": u.name,
-                    "field_label": u.label,
-                    "field_kind": sp.kind if sp else "",
-                    "required": sp.required if sp else False,
-                    "options": list(sp.options) if sp else [],
-                    "reason": "unresolved",
-                    "question_type": None,
-                    "attempted_value": "",
-                })
-
-        if any(r.requires_llm or r.requires_review for r in resolved):
-            review_reasons.extend(
-                f"{'llm' if r.requires_llm else 'review'}:{r.name}"
-                for r in resolved
-                if r.requires_llm or r.requires_review
-            )
-            for r in resolved:
-                if not (r.requires_llm or r.requires_review):
-                    continue
-                sp = spec_by_name.get(r.name)
-                qt = r.question_type.value if r.question_type and hasattr(r.question_type, "value") else (
-                    r.question_type if isinstance(r.question_type, str) else None
-                )
-                review_flags.append({
-                    "field_name": r.name,
-                    "field_label": r.label,
-                    "field_kind": sp.kind if sp else "",
-                    "required": sp.required if sp else False,
-                    "options": list(sp.options) if sp else [],
-                    "reason": "requires_llm" if r.requires_llm else "requires_review",
-                    "question_type": qt,
-                    "attempted_value": r.value or "",
-                })
+        # Build review-queue payload: tags for the issue title plus the
+        # structured per-field flags the GH-Issues renderer uses. Logic
+        # extracted to :mod:`.review_flags` so the "does this need
+        # review?" decision is independently testable.
+        review_reasons, review_flags = build_review_payload(
+            specs, resolved, unresolved,
+        )
 
         answers = {r.name: r.value for r in resolved if r.value}
 
@@ -250,79 +216,8 @@ class Applicator(ABC):
         resolved: list[ResolvedField],
         unresolved: list[UnresolvedField],
     ) -> None:
-        """Emit a human-readable per-field audit log.
-
-        Groups resolved answers by their source bucket so you can see at
-        a glance which questions were answered by code vs. LLM::
-
-            === field audit: N resolved, M unresolved ===
-              [profile]      first_name           = 'Aadit'
-              [profile]      email                = 'aaditnilay18@gmail.com'
-              [classifier]   current_city         = 'College Park'
-              [llm_batch]    question_5783087009  = 'LinkedIn'
-              [llm_batch]    question_30051590003 = 'No'
-              [review]       question_xxx         = (unresolved: Gender*)
-
-        Sources we surface:
-          * ``profile``   — machine_key or PROFILE_SOURCED from resume.
-          * ``bank``      — from state/answer_bank.yml (classifier+bank).
-          * ``classifier``— generic classifier+bank hit.
-          * ``llm_batch`` — answered by the batched Gemini call. Includes
-                            the sub-source (llm_reasoning, llm_generation,
-                            llm_option_match) after a colon.
-          * ``review``    — flagged for human review.
-          * ``none``      — optional, left blank deliberately.
-        """
-        buckets: dict[str, list[tuple[str, str]]] = {}
-        for r in resolved:
-            src = r.source or "none"
-            # Compact the bucket key for readability.
-            if src == "machine_key":
-                bucket = "profile"
-            elif src == "profile":
-                bucket = "profile"
-            elif src.startswith("bank"):
-                bucket = "bank"
-            elif src == "classifier+bank":
-                bucket = "classifier"
-            elif src.startswith("llm_batch"):
-                bucket = "llm_batch"
-            elif src == "llm_answer":
-                bucket = "llm_single"   # legacy per-field LLM
-            elif src in ("review_required", "llm_required"):
-                bucket = "review"
-            else:
-                bucket = src or "none"
-            # Hide redundant noise (empty-value "none" entries from
-            # optional fields the pipeline intentionally left blank).
-            if bucket == "none" and not r.value:
-                continue
-            display_val = (r.value or "").replace("\n", " ")[:72]
-            buckets.setdefault(bucket, []).append((r.name, display_val))
-
-        total_answered = sum(len(v) for v in buckets.values())
-        log.info(
-            "=== field audit: %d answered, %d unresolved ===",
-            total_answered,
-            len(unresolved),
-        )
-        # Stable display order, LLM rows last so they're easy to spot.
-        ORDER = ("profile", "bank", "classifier", "llm_batch", "llm_single",
-                 "review", "none")
-        for bucket in ORDER + tuple(sorted(
-            k for k in buckets if k not in ORDER
-        )):
-            if bucket not in buckets:
-                continue
-            for name, val in buckets[bucket]:
-                log.info(
-                    "  [%-11s] %-32s = %r", bucket, name[:32], val,
-                )
-        for u in unresolved:
-            log.info(
-                "  [review     ] %-32s = (unresolved: %s)",
-                u.name[:32], (u.label or "").replace("\n", " ")[:60],
-            )
+        """Back-compat delegator. New code calls :func:`.audit.log_resolution_audit` directly."""
+        log_resolution_audit(resolved, unresolved)
 
     def _dump_dry_run(
         self, job: Job, payload: dict[str, Any], resolved: list[ResolvedField]

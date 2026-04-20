@@ -67,6 +67,24 @@ there's already a paragraph explaining why it's the way it is.
 
 ---
 
+## Refactor state (7 phases complete, 2026-04-19)
+
+Large-scale structural refactor shipped in 7 commits. Net: every
+previously-monolithic hot-spot module split into cohesive subpackages
+with isolated concerns. 626 → 719 tests (+93). Behavior-preserving —
+no functional changes. See `log.md` sections U–Z' for per-phase
+rationale and the final summary table.
+
+Key post-refactor landmarks:
+- `state/rules/*.yml` + `prompts/*.md` — all policy rules as data.
+- `execute/submitter/phases/` — one module per submission phase.
+- `execute/submitter/dom/` — Stage-2 DOM pipeline (7 modules).
+- `execute/submitter/fillers/` — per-strategy field fillers.
+- `execute/resolution/` — two-phase resolver (6 modules).
+- `adapters/gemini.py` — IO-boundary layer; the only google-genai import.
+- `answers/batch_prompt.py` + `answers/batch_parse.py` — prompt + parse split from llm_batch.
+- `execute/audit.py` + `execute/review_flags.py` — extracted from base.apply.
+
 ## Policy layer — rules as data (2026-04-19 refactor, Phase 1)
 
 Business rules live as **data files**, not Python constants:
@@ -128,7 +146,7 @@ shape, and a typo in a rename would fail silently at apply time.
 
 ```bash
 # 1. Tests
-python -m pytest -q           # must print "706 passed" (plus any you added)
+python -m pytest -q           # must print "719 passed" (plus any you added)
 
 # 2. Dry-run on a single job to see the resolution pipeline
 python scripts/apply_by_job_ids.py <JOB_ID>

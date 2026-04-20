@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 706 passing.**
+**Current test tally: 719 passing.**
 
 ---
 
@@ -1422,3 +1422,85 @@ follow the same template.
 hermetic-Gemini autouse fixture keeps working because
 `_call_with_cascade` still lives on `llm_batch` (re-export from the
 adapter).
+
+---
+
+## Z'. Structural refactor — Phase 7 (final): shrink bank / extract audit + review_flags (2026-04-19)
+
+### Why
+
+Three remaining tangles flagged in the audit:
+
+1. `bank._from_profile` — a 124-LOC if-ladder mapping 30+ QuestionType
+   values to profile attributes. Most branches were identical one-line
+   `getattr` lookups; only a handful had real logic (name splitting,
+   education-date formatting, YOE skill lookup).
+2. `base.apply` — included a 75-LOC `_log_resolution_audit` method and
+   a 45-LOC review-flag construction loop inlined in the orchestrator.
+3. No unit tests for the audit formatter because it was a method and
+   needed an Applicator instance.
+
+### What changed
+
+**bank.py:**
+- `_from_profile` shrunk from 124 LOC → ~40 LOC.
+- Introduced `_SIMPLE_PROFILE_ATTRS: dict[QuestionType, str]` — the
+  30+ trivial lookups are now a mapping, not a ladder of `if` branches.
+  Adding a new PROFILE_SOURCED type is a **one-line dict entry**.
+- Non-trivial branches extracted to `_name_from_profile`,
+  `_education_from_profile`, `_yoe_from_profile` — small, independently
+  testable helpers.
+- `_KNOWN_NULL_TYPES` frozenset documents the "we know about this type
+  but have no Profile source" path (PORTFOLIO_URL, WEBSITE_URL).
+
+**base.py:**
+- `_log_resolution_audit` extracted to `execute/audit.py` as a pure
+  function (plus the `bucket_source` helper, also exposed). The method
+  on Applicator remains as a back-compat delegator.
+- Review-flag construction extracted to `execute/review_flags.py` as
+  `build_review_payload(specs, resolved, unresolved) → (reasons, flags)`.
+- `base.apply` shrunk from 135 → ~90 LOC. Reads as a cleaner pipeline:
+  fetch → resolve → audit-log → review-payload → dry-run-or-submit.
+
+### Tests
+
+`tests/test_audit_review_flags.py` (13 tests):
+
+- `bucket_source`: covers every source-string → bucket mapping
+  (machine_key/profile/bank/classifier+bank/llm_batch/llm_answer/
+  review_required/empty/unknown).
+- `log_resolution_audit`: hides empty-value "none" entries; shows
+  unresolved as `[review]` lines; stable bucket order
+  (profile → classifier → llm_batch).
+- `build_review_payload`: empty when everything resolved; unresolved
+  fields get `unresolved:<name>` tag + structured flag; both
+  `requires_llm` and `requires_review` produce correct reason tags;
+  non-flagged resolved fields don't leak into the payload.
+- `_from_profile` regression suite: simple attr lookup, name
+  splitting, YOE returns "0" for unknown skills (not None — many ATS
+  forms reject empty), known-null types return None.
+- `_SIMPLE_PROFILE_ATTRS` growth-path test: every dict value must
+  correspond to a real Profile field (catches silent renames).
+
+706 → 719 tests, all passing. Behavior-preserving split; `base.apply`
+is now meaningfully shorter and each extracted concern is independently
+testable.
+
+---
+
+## Summary of the 7-phase structural refactor
+
+| Phase | Target | Before | After | Tests |
+|-------|--------|--------|-------|-------|
+| 1 | Rules → data | inline constants in 6 modules | `state/rules/*.yml` + `prompts/*.md` via `rules/` loader | +16 |
+| 2 | driver.py | 467 LOC monolith | 205 LOC composing `phases/` × 7 | +14 |
+| 3 | dom_batch.py | 1189 LOC god-module | 41 LOC shim → `dom/` × 7 | +10 |
+| 4 | field_fill.py | 889 LOC with 380-LOC fill_combobox | 41 LOC shim → `fillers/` × 7 | +12 |
+| 5 | standard_fields.py | 575 LOC with 207-LOC resolve_all_batched | 129 LOC facade → `resolution/` × 6 | +11 |
+| 6 | llm_batch.py | 632 LOC mixing SDK + prompt + parse | 297 LOC facade; new `adapters/` layer | +17 |
+| 7 | bank._from_profile + base.apply | 124-LOC ladder + 135-LOC apply | dict-driven + extracted `audit.py` + `review_flags.py` | +13 |
+
+Total: 626 → 719 tests (+93 tests), all behavior-preserving. Seven
+commits on main: `4c4a965`, `f2880e4`, `84c8d52`, `ea8c301`, `3806449`,
+`950b9d0`, and Phase 7. Every invariant locked down; every
+previously-monolithic function decomposed into named, testable units.
