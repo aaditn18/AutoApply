@@ -8,7 +8,7 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status (2026-04-19):** 656 tests passing · batch-LLM resolver live · rules as data (phase 1) · submission pipeline split into phases (phase 2) ·
+- **Status (2026-04-19):** 666 tests passing · batch-LLM resolver live · rules as data (phase 1) · driver split into phases (phase 2) · dom_batch split into dom/ subpackage (phase 3) ·
   DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
   apps now submit (including 2 that were stuck in review on essay questions) ·
   Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
@@ -223,8 +223,16 @@ AutoApply/
 │   │   │   ├── captcha_retry.py    ← solver dispatch + retry
 │   │   │   ├── diagnostics.py      ← pre-submit DOM state dump + screenshot
 │   │   │   ├── label_fallback.py   ← hardcoded-value fallback by DOM label
-│   │   │   ├── dom_batch.py        ← STAGE-2 DOM scrape + batch LLM for
-│   │   │   │                         SPA-injected fields + late-rescan
+│   │   │   ├── dom/                ← STAGE-2 DOM pipeline (split from
+│   │   │   │   │                     the old 1200-LOC dom_batch.py)
+│   │   │   │   ├── fields.py       ← _DomField dataclass (shared)
+│   │   │   │   ├── preferences.py  ← education regex prefs (pure data)
+│   │   │   │   ├── options.py      ← React-Select detection + scraping
+│   │   │   │   ├── scrape.py       ← collect_empty_required_fields
+│   │   │   │   ├── resolve.py      ← classifier+profile pre-resolve
+│   │   │   │   ├── fill.py         ← per-field fill dispatch
+│   │   │   │   └── batch.py        ← batch_resolve_dom_fields orchestrator
+│   │   │   ├── dom_batch.py        ← backcompat re-export shim
 │   │   │   └── util.py             ← jitter, text, react_set_value
 │   │   ├── captcha_types.py        ← detect_captcha(page) → kind + site_key
 │   │   ├── captcha_solver.py       ← 4-provider captcha token solver
@@ -265,7 +273,7 @@ AutoApply/
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (656 tests)
+├── tests/                          ← pytest (666 tests)
 │   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
 │   │                                 calls, clears GEMINI_API_KEY. Every
 │   │                                 test is hermetic; LLM-involved tests
@@ -495,7 +503,7 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 656 tests
+python -m pytest -q                  # ~5 s, 666 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v

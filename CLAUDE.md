@@ -93,15 +93,18 @@ shape, and a typo in a rename would fail silently at apply time.
   phases from `submitter/phases/` (browser, upload, api_fill, stage2,
   submit_click, verification, verify). Other siblings
   (field_fill, lever_cards, captcha_*, etc.) are leaf helpers.
-- **Stage-2 DOM batch** (`submitter/dom_batch.py`) — after resume upload
-  + SPA re-render, scrape visible required fields and batch-LLM them.
-  Needed for Greenhouse's new `job-boards.greenhouse.io` SPA which
-  injects fields not in the API `/questions` endpoint. Includes a
-  "late-rescan" pass for EEO fields that only appear once others fill.
+- **Stage-2 DOM batch** lives under `submitter/dom/` (package split
+  from the former 1200-LOC `dom_batch.py` — now a re-export shim).
+  After resume upload + SPA re-render, `dom/batch.py::batch_resolve_dom_fields`
+  scrapes visible required fields and batch-LLM's them. Needed for
+  Greenhouse's new `job-boards.greenhouse.io` SPA which injects fields
+  not in the API `/questions` endpoint. Includes a "late-rescan" pass
+  for EEO fields that only appear once others fill.
 - **Education preference matching** — School/Degree/Major dropdowns on
   multi-option tenants (UMD has 4 campuses; "Bachelor's Degree" vs
   "B.S." vs "Bachelor of Science") use ordered regex preference lists
-  in `submitter/dom_batch.py::_SCHOOL_OPTION_PREFERENCES` etc.
+  under `submitter/dom/preferences.py` (loaded from
+  `state/rules/education_preferences.yml`).
   `fill_combobox(prefer_patterns=...)` applies these before the
   alphabetical-first prefix match.
 - **`resume_text` field**: plain-text extracted from the `.tex` source
@@ -117,7 +120,7 @@ shape, and a typo in a rename would fail silently at apply time.
 
 ```bash
 # 1. Tests
-python -m pytest -q           # must print "656 passed" (plus any you added)
+python -m pytest -q           # must print "666 passed" (plus any you added)
 
 # 2. Dry-run on a single job to see the resolution pipeline
 python scripts/apply_by_job_ids.py <JOB_ID>

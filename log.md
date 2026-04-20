@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 656 passing.**
+**Current test tally: 666 passing.**
 
 ---
 
@@ -1141,3 +1141,72 @@ launch_browser_context → navigate → upload_files → wait_for_resume_analysi
 
 642 → 656 tests, all passing. No behavior change — split is
 composition-only.
+
+---
+
+## W. Structural refactor — Phase 3: split dom_batch.py into dom/ (2026-04-19)
+
+### Why
+
+`dom_batch.py` was 1189 LOC with 7 distinct concerns mashed together:
+DOM scraping, React-Select detection, option harvesting (sync + async-
+typeahead), education preference matching, classifier+profile pre-
+resolve, per-field fill dispatch, and the batch-LLM orchestrator. The
+main entry point `batch_resolve_dom_fields` alone was 290 LOC.
+
+Consequences:
+- Unit-testing any piece required mocking a huge surface. The preference
+  matcher (a pure function) was only tested via the full Playwright
+  path, despite having zero browser coupling.
+- Imports were lazy at function scope to break cycles with `field_fill`,
+  obscuring the dependency graph.
+- Adding a new scrape path (e.g. for a new ATS) meant touching a god-
+  module and hoping no other concern got perturbed.
+
+### What moved
+
+Created `src/autoapply/execute/submitter/dom/` with 7 modules. Each
+owns ONE concern:
+
+| Module | LOC | Role |
+|--------|-----|------|
+| `fields.py` | 40 | `_DomField` dataclass + `_SUPPORTED_INPUT_TYPES` |
+| `preferences.py` | 78 | education regex prefs + US state set (pure data) |
+| `options.py` | 277 | React-Select detection + sync/async option scraping + close-dropdown helper |
+| `scrape.py` | 256 | `collect_empty_required_fields` — DOM walk for required empties |
+| `resolve.py` | 214 | `_try_classifier_resolve` — deterministic pre-resolve |
+| `fill.py` | 108 | `_fill_one` — per-field fill dispatch |
+| `batch.py` | 356 | `batch_resolve_dom_fields` + its 4 private helpers |
+
+The big function shrank: inside `batch.py`, `batch_resolve_dom_fields`
+is now an 88-line pipeline body calling four private helpers
+(`_populate_select_options`, `_run_preresolve`,
+`_rescan_for_late_fields`, `_apply_llm_answers`) instead of a 290-line
+inline monolith. The late-rescan pass is its own named function; the
+LLM-answer-apply loop is its own named function. Each of those is a
+self-contained unit of work.
+
+`dom_batch.py` is now a 41-line re-export shim so every existing
+import (`from ...dom_batch import _SCHOOL_OPTION_PREFERENCES`,
+`batch_resolve_dom_fields`, etc.) still works. `tests/test_llm_batch.py`
+reaches into the old path for the preference-matcher — untouched.
+
+### Tests
+
+`tests/test_dom_package.py` (10 tests):
+
+- Backcompat: `dom_batch.X` IS `dom.X` (identity check — not a duplicate).
+- `dom.batch_resolve_dom_fields` identical to `dom.batch.batch_resolve_dom_fields`.
+- Preference matcher picks UMD College Park over Baltimore.
+- Preference matcher picks "Bachelor of Science" over "B.S." over "Bachelor's Degree".
+- Preference matcher picks "Computer Science" over "Computing".
+- Empty inputs → None.
+- `_education_patterns_for_label` maps School/University/College/Degree/
+  Major/Field-of-study/Concentration correctly.
+- "Degree discipline" maps to DISCIPLINE (not DEGREE) preferences.
+- `_US_STATE_LABELS` all lowercase, contains DC + territories.
+- `batch_resolve_dom_fields` on an empty page returns a well-formed
+  empty audit without crashing.
+
+656 → 666 tests, all passing. Behavior-preserving split; no existing
+test modified.
