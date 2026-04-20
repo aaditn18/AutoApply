@@ -61,7 +61,7 @@ changed_files="$(printf '%s\n' "$diff_files" | grep -v '^state/jobs\.sqlite$' ||
 
 # Run the analysis via Python — YAML parsing + glob matching + set
 # diff is cleaner there than in bash.
-python3 <<PY 2>/dev/null || true
+python3 <<PY || true
 import fnmatch
 import os
 import sys
