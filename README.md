@@ -25,11 +25,12 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 6. [Configuration](#configuration)
 7. [CLI usage](#cli-usage)
 8. [Scripts](#scripts)
-9. [Testing](#testing)
-10. [Operations (GitHub Actions)](#operations-github-actions)
-11. [Safety model](#safety-model)
-12. [Current limitations](#current-limitations)
-13. [Extension points](#extension-points)
+9. [Developer tooling (Claude Code)](#developer-tooling-claude-code)
+10. [Testing](#testing)
+11. [Operations (GitHub Actions)](#operations-github-actions)
+12. [Safety model](#safety-model)
+13. [Current limitations](#current-limitations)
+14. [Extension points](#extension-points)
 
 ---
 
@@ -520,6 +521,49 @@ Prints a report of past submissions (time, company, outcome, track).
 
 Summarizes the scoring pipeline's current state — how many jobs at each
 status, rejection reasons, rank distribution.
+
+---
+
+## Developer tooling (Claude Code)
+
+This repo is configured for agentic coding via `.claude/`. See
+[`.claude/README.md`](./.claude/README.md) for the full index.
+
+**Highest-value slash commands** (type in a Claude chat):
+
+| Command | What it does |
+|---------|--------------|
+| `/test [pattern]` | Run full pytest or `-k pattern` subset (<2s) |
+| `/applied [N]` | Last N applications from `state/jobs.sqlite` with outcomes |
+| `/audit <APP_ID>` | Full batch-audit + cascade trace for one application |
+| `/dry <JOB_ID>` | Dry-run the resolver on a specific job (no Playwright) |
+| `/classify <label>` | Debug a classifier regex — prints the `QuestionType` for a label |
+| `/push-safe` | Run tests; if green, push to origin. Blocks on red tests |
+
+**Automation running in the background:**
+
+- **Ruff format/lint on every Python edit** — matches CI's ruff
+  config; silent on success.
+- **YAML/prompt schema smoke-test on every policy edit** — runs
+  `tests/test_rules_loader.py` (~0.2s).
+- **Destructive-bash blocker** — refuses `rm -rf state/jobs.sqlite`,
+  `git push --force`, `alembic downgrade`, bulk sqlite `DELETE`.
+- **Skill-hint on prompt submit** — points Claude at the right
+  per-directory `CLAUDE.md` or walkthrough skill when the prompt
+  matches a known phrase (e.g., "add a question type" →
+  `.claude/skills/add-question-type/`).
+
+To disable hooks for a session, drop this in a gitignored
+`.claude/settings.local.json`:
+
+```json
+{"disableAllHooks": true}
+```
+
+Per-directory `CLAUDE.md` files auto-load when Claude reads files in
+that package — `src/autoapply/execute/submitter/`,
+`src/autoapply/execute/resolution/`, `src/autoapply/answers/`,
+`src/autoapply/select/`, `state/rules/`, `prompts/`, `tests/`.
 
 ---
 

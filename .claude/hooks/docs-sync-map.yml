@@ -1,0 +1,93 @@
+# Dispatch table for .claude/hooks/docs-sync.sh.
+#
+# Each entry maps a set of code-path globs to the documentation files
+# that should be reviewed / updated when anything under those globs
+# changes. When you `git commit` or `git push`, the hook analyzes the
+# diff against origin/main + staged changes, matches each changed
+# file against these globs, and emits a reminder listing the doc
+# files that (a) should plausibly need updating, but (b) were NOT
+# themselves touched in the current diff.
+#
+# Patterns are shell globs (NOT regex). ** = recursive directory.
+# Paths are relative to repo root.
+#
+# Adding a new mapping: one YAML block. No bash changes.
+
+mappings:
+  - paths:
+      - "src/autoapply/execute/submitter/**"
+    docs:
+      - "src/autoapply/execute/submitter/CLAUDE.md"
+      - "log.md"
+      - "README.md"
+
+  - paths:
+      - "src/autoapply/execute/resolution/**"
+      - "src/autoapply/execute/standard_fields.py"
+    docs:
+      - "src/autoapply/execute/resolution/CLAUDE.md"
+      - "log.md"
+
+  - paths:
+      - "src/autoapply/answers/**"
+    docs:
+      - "src/autoapply/answers/CLAUDE.md"
+      - "CLAUDE.md"
+      - "log.md"
+
+  - paths:
+      - "src/autoapply/select/**"
+    docs:
+      - "src/autoapply/select/CLAUDE.md"
+
+  - paths:
+      - "src/autoapply/adapters/**"
+    docs:
+      - "CLAUDE.md"
+      - "log.md"
+
+  - paths:
+      - "state/rules/**"
+    docs:
+      - "state/rules/CLAUDE.md"
+
+  - paths:
+      - "prompts/**"
+    docs:
+      - "prompts/CLAUDE.md"
+
+  - paths:
+      - "tests/**"
+    docs:
+      - "tests/CLAUDE.md"
+      - "log.md"
+      - "README.md"
+
+  - paths:
+      - ".claude/hooks/**"
+      - ".claude/commands/**"
+      - ".claude/skills/**"
+      - ".claude/settings.json"
+    docs:
+      - ".claude/README.md"
+      - "README.md"
+
+  - paths:
+      - "src/autoapply/tracker/**"
+      - "src/autoapply/tracker/migrations/**"
+    docs:
+      - "README.md"
+      - "log.md"
+
+  - paths:
+      - "src/autoapply/cli.py"
+      - "scripts/**"
+    docs:
+      - "README.md"
+
+# Test-count autosync: if any tests/ file changes and the test count
+# in README.md / log.md / CLAUDE.md might be stale, flag it.
+test_count_files:
+  - "README.md"
+  - "log.md"
+  - "CLAUDE.md"

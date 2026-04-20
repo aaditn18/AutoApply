@@ -67,6 +67,28 @@ there's already a paragraph explaining why it's the way it is.
 
 ---
 
+## `.claude/` tooling (2026-04-20)
+
+This repo has a full agentic-coding layer under `.claude/`. See
+[`.claude/README.md`](./.claude/README.md) for the user-facing index.
+
+- **Slash commands** (type in chat): `/test`, `/test-fast`,
+  `/applied`, `/audit`, `/dry`, `/apply`, `/classify`, `/security`,
+  `/presubmit`, `/push-safe`.
+- **Hooks** that fire automatically: ruff format on `.py` edits,
+  schema-smoke on YAML/prompt edits, destructive-bash blocker
+  (`rm -rf state/jobs.sqlite`, force push, alembic downgrade),
+  skill-hint injection on prompt submit, docs-sync warning at
+  commit/push time.
+- **Per-directory `CLAUDE.md`** auto-loads when editing a file under
+  `execute/submitter/`, `execute/resolution/`, `answers/`, `select/`,
+  `state/rules/`, `prompts/`, or `tests/` — each holds local
+  invariants so you don't need to re-read this file.
+- **Skills** (auto-surfaced): `add-question-type` and
+  `add-state-rule` walk through the multi-file checklists.
+- **Data-driven dispatch**: `.claude/hooks/skill-hints.yml` and
+  `.claude/hooks/docs-sync-map.yml` are edited without touching bash.
+
 ## Refactor state (7 phases complete, 2026-04-19)
 
 Large-scale structural refactor shipped in 7 commits. Net: every

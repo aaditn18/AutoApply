@@ -1504,3 +1504,62 @@ Total: 626 → 719 tests (+93 tests), all behavior-preserving. Seven
 commits on main: `4c4a965`, `f2880e4`, `84c8d52`, `ea8c301`, `3806449`,
 `950b9d0`, and Phase 7. Every invariant locked down; every
 previously-monolithic function decomposed into named, testable units.
+
+---
+
+## 2026-04-20 — `.claude/` developer-experience layer
+
+### Why
+
+Day-to-day development had friction points that the 719-test suite
+couldn't solve on its own: local lint drift (ruff in CI but not on
+save), repeated manual commands for DB queries and re-applies,
+invariants buried in the top-level `CLAUDE.md` that were easy to
+miss when editing a specific subpackage, and no guardrail against
+`rm -rf state/jobs.sqlite` or `git push --force` (the rebase
+conflict during Phase-1's push was a near-miss).
+
+### What shipped
+
+Six layers under `.claude/` + 7 per-directory `CLAUDE.md` files:
+
+1. **Hooks** (6): `ruff-fix` + `rules-smoke` PostToolUse auto-format
+   and run schema tests on edit; `block-destructive` PreToolUse
+   refuses to destroy `jobs.sqlite` / force-push / `alembic
+   downgrade`; `context-dump` + `skill-hint` inject repo state and
+   the right skill/doc pointer on UserPromptSubmit; `docs-sync`
+   flags undocumented structural changes at commit/push time.
+2. **Slash commands** (10): `/test`, `/test-fast`, `/dry`, `/apply`,
+   `/applied`, `/audit`, `/security`, `/classify`, `/presubmit`,
+   `/push-safe`. Each is a small `.md` with `description` frontmatter
+   so `/help` renders a scannable menu.
+3. **Per-directory `CLAUDE.md`** (7): `submitter/`, `resolution/`,
+   `answers/`, `select/`, `state/rules/`, `prompts/`, `tests/`.
+   Auto-loaded when Claude opens a file in each package. Each captures
+   the local invariants (phase ordering, classifier rule ordering,
+   PROFILE_SOURCED flow, hermetic test policy, etc.).
+4. **Skills** (2): `add-question-type` and `add-state-rule` — full
+   walkthroughs for error-prone multi-file tasks.
+5. **Data-driven dispatch tables**: `skill-hints.yml` (UserPromptSubmit
+   pattern → skill/doc pointer) and `docs-sync-map.yml` (code path
+   glob → doc file). Adding a new hint / mapping is one YAML line.
+6. **Documentation**: `.claude/README.md` user-facing index + new
+   "Developer tooling" section in top-level `README.md`.
+
+### Files added
+
+28 new files under `.claude/` + 7 per-dir `CLAUDE.md` + 2 doc edits.
+All hook scripts are < 100 LOC. Every rule is data-driven where
+possible.
+
+### How to use
+
+- `/test` / `/applied` / `/audit` / `/dry` / `/classify` —
+  one-keystroke access to the most-repeated workflows.
+- Hooks run silently — only visible when something needs attention
+  (blocked destructive bash, schema-test failure, undocumented
+  structural change).
+- Disable for a session: `echo '{"disableAllHooks": true}' >
+  .claude/settings.local.json`.
+
+See `.claude/README.md` for the complete reference.

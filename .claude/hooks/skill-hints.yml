@@ -1,0 +1,50 @@
+# Skill-hint dispatch table for .claude/hooks/skill-hint.sh.
+#
+# Each entry: a case-insensitive regex matched against the user's
+# prompt, and a one-line hint that gets injected into Claude's
+# context when the pattern fires. Keep hints short (< 160 chars)
+# and specific — the goal is "here's the authoritative doc for what
+# you're about to do", not restating the doc itself.
+#
+# Adding a hint is a one-line edit here. No bash changes needed.
+# Order matters in the sense that the FIRST matching pattern wins;
+# put more-specific patterns before more-general ones.
+
+patterns:
+  # ─── Skill triggers ────────────────────────────────────────────
+  - pattern: '(add|new)\s+(question\s*type|QuestionType|PROFILE_SOURCED|LLM_REQUIRED)'
+    hint: 'Skill: .claude/skills/add-question-type/ — touches answers/types.py, classifier.py, bank.py, state/profile.json, schema.py. Decide PROFILE_SOURCED vs LLM_REQUIRED vs bank-routed first.'
+
+  - pattern: '(add|new).*(yaml|rule).*state/rules|state/rules.*(add|new)'
+    hint: 'Skill: .claude/skills/add-state-rule/ — create YAML with header comment naming consumer, update consumer via autoapply.rules.load_rules(name), add smoke test in tests/test_rules_loader.py.'
+
+  # ─── Per-directory CLAUDE.md pointers ─────────────────────────
+  - pattern: 'react[-\s]?select|combobox|fill_combobox|dropdown pick|option match'
+    hint: 'Context: src/autoapply/execute/submitter/fillers/CLAUDE.md — 6-step match ladder, decline keywords in state/rules/eeo_semantics.yml, re-locate-fresh pattern for stale locators.'
+
+  - pattern: 'classifier|regex rule|QuestionType regex|new pattern.*match'
+    hint: 'Context: src/autoapply/answers/CLAUDE.md — classifier regex order matters (specific-first), skill aliases in state/rules/skill_aliases.yml.'
+
+  - pattern: 'prompt|essay tailoring|batch prompt|LLM prompt|untrusted'
+    hint: 'Prompts live in prompts/*.md — see prompts/CLAUDE.md. Untrusted input ALWAYS wrapped in <UNTRUSTED>. Placeholder contract: {rules}, {profile_block}, {bank_block}, {jd_body}, {questions_json}.'
+
+  - pattern: 'phase|pipeline|driver|submit_form|stage[-\s]?2'
+    hint: 'Phase order: browser → upload → api_fill → stage2 → submit_click → verification → verify. See src/autoapply/execute/submitter/CLAUDE.md.'
+
+  - pattern: 'gemini|model cascade|LLM model|gemini-2\.0'
+    hint: 'Model cascade lives in src/autoapply/adapters/gemini.py. NEVER re-add gemini-2.0-flash (deprecated March 2026, removed from free tier).'
+
+  - pattern: 'resolve_all_batched|resolution pipeline|batch_builder|backfill'
+    hint: 'Context: src/autoapply/execute/resolution/CLAUDE.md — 4-phase contract. Machine-key fields NEVER batched. Optional unresolved fields left blank by design.'
+
+  - pattern: 'track picker|pay extract|yoe filter|location filter|dedup'
+    hint: 'Context: src/autoapply/select/CLAUDE.md — hard filters (US-only, ≥3yr reject) vs soft signals (pay/loc bonus). No firm-list track picker by design.'
+
+  - pattern: 'hermetic|test fixture|conftest|_stub_cascade|monkeypatch.*gemini'
+    hint: 'Context: tests/CLAUDE.md — autouse fixture in conftest.py blocks live Gemini. Use _stub_cascade_factory pattern for LLM tests. Never hit real API even when GEMINI_API_KEY is set.'
+
+  - pattern: 'captcha|hCaptcha|reCAPTCHA|2captcha|anti-captcha'
+    hint: 'Captcha stack: execute/captcha_*.py + submitter/captcha_detect.py + submitter/captcha_retry.py. Solver types in captcha_types.py. hCaptcha accessibility cookie bypass in settings.'
+
+  - pattern: 'imap|otp|verification code|one.?time.?code'
+    hint: 'IMAP OTP path: submitter/phases/verification.py + submitter/imap_otp.py. Gmail App Password in IMAP_EMAIL/IMAP_PASSWORD env vars.'
