@@ -1,0 +1,86 @@
+# Skill canonicalization table.
+#
+# When the YOE_LANGUAGE classifier captures a skill keyword from a
+# question like "How many years of experience with Python?", we map
+# the raw match to its canonical name (e.g. "py" → "Python") so the
+# answer_bank lookup finds the right entry.
+#
+# Consumer:
+#   * src/autoapply/answers/classifier.py (_canon_skill, _is_noise_skill)
+#
+# Aliases are case-insensitive on lookup (the consumer lowercases the
+# key before checking). Adding a new skill: append to ``aliases`` with
+# the canonical form as the value.
+
+aliases:
+  py: Python
+  python3: Python
+  python: Python
+  cpp: C++
+  c++: C++
+  c/c++: C++
+  c plus plus: C++
+  c sharp: C#
+  c#: C#
+  csharp: C#
+  golang: Go
+  go: Go
+  js: JavaScript
+  javascript: JavaScript
+  ts: TypeScript
+  typescript: TypeScript
+  node: Node.js
+  node.js: Node.js
+  nodejs: Node.js
+  react: React
+  reactjs: React
+  java: Java
+  kotlin: Kotlin
+  swift: Swift
+  rust: Rust
+  ruby: Ruby
+  scala: Scala
+  sql: SQL
+  postgres: PostgreSQL
+  postgresql: PostgreSQL
+  mysql: MySQL
+  mongodb: MongoDB
+  redis: Redis
+  aws: AWS
+  gcp: GCP
+  azure: Azure
+  kubernetes: Kubernetes
+  k8s: Kubernetes
+  docker: Docker
+  pytorch: PyTorch
+  tensorflow: TensorFlow
+  ml: Machine Learning
+  nlp: NLP
+  cuda: CUDA
+  mpi: MPI
+  openmp: OpenMP
+  sklearn: Scikit-learn
+  scikit-learn: Scikit-learn
+  pandas: Pandas
+  numpy: NumPy
+
+# Generic/noise words that should never be captured as a skill. These
+# sometimes match the YOE skill-capture regex ("How many years of
+# overall experience?" captures "overall") — reject them early.
+stopwords:
+  - work
+  - relevant
+  - professional
+  - total
+  - overall
+  - prior
+  - general
+  - past
+  - full-time
+  - full time
+  - industry
+  - the
+  - a
+  - an
+  - experience
+  - years

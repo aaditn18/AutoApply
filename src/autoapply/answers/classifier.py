@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from autoapply.answers.types import QuestionType
+from autoapply.rules import load_rules
 
 
 # -- Public data structure ---------------------------------------------------
@@ -57,66 +58,12 @@ def _norm(q: str) -> str:
 # --- Slot extractors --------------------------------------------------------
 
 
-_SKILL_ALIASES = {
-    "py": "Python",
-    "python3": "Python",
-    "python": "Python",
-    "cpp": "C++",
-    "c++": "C++",
-    "c/c++": "C++",
-    "c plus plus": "C++",
-    "c sharp": "C#",
-    "c#": "C#",
-    "csharp": "C#",
-    "golang": "Go",
-    "go": "Go",
-    "js": "JavaScript",
-    "javascript": "JavaScript",
-    "ts": "TypeScript",
-    "typescript": "TypeScript",
-    "node": "Node.js",
-    "node.js": "Node.js",
-    "nodejs": "Node.js",
-    "react": "React",
-    "reactjs": "React",
-    "java": "Java",
-    "kotlin": "Kotlin",
-    "swift": "Swift",
-    "rust": "Rust",
-    "ruby": "Ruby",
-    "scala": "Scala",
-    "sql": "SQL",
-    "postgres": "PostgreSQL",
-    "postgresql": "PostgreSQL",
-    "mysql": "MySQL",
-    "mongodb": "MongoDB",
-    "redis": "Redis",
-    "aws": "AWS",
-    "gcp": "GCP",
-    "azure": "Azure",
-    "kubernetes": "Kubernetes",
-    "k8s": "Kubernetes",
-    "docker": "Docker",
-    "pytorch": "PyTorch",
-    "tensorflow": "TensorFlow",
-    "ml": "Machine Learning",
-    "nlp": "NLP",
-    "cuda": "CUDA",
-    "mpi": "MPI",
-    "openmp": "OpenMP",
-    "sklearn": "Scikit-learn",
-    "scikit-learn": "Scikit-learn",
-    "pandas": "Pandas",
-    "numpy": "NumPy",
-}
-
-
-# Generic/noise words that should never be captured as a skill.
-_SKILL_STOPWORDS = frozenset({
-    "work", "relevant", "professional", "total", "overall", "prior",
-    "general", "past", "full-time", "full time", "industry", "the", "a", "an",
-    "experience", "years",
-})
+# Skill canonicalization + stopwords — loaded from
+# state/rules/skill_aliases.yml. Kept at module scope so the YAML parse
+# happens once at import. See the rule file's header for the rationale.
+_SKILL_RULES = load_rules("skill_aliases")
+_SKILL_ALIASES: dict[str, str] = dict(_SKILL_RULES["aliases"])
+_SKILL_STOPWORDS: frozenset[str] = frozenset(_SKILL_RULES["stopwords"])
 
 
 def _canon_skill(raw: str) -> str:

@@ -1,0 +1,51 @@
+# Machine-key → Profile attribute map.
+#
+# Greenhouse / Lever expose form fields with a stable machine ``name``
+# attribute (``first_name``, ``email``, ``urls[linkedin]`` …). Before we
+# reach for the classifier, we try a direct match against these names
+# because they're zero-ambiguity and free to resolve.
+#
+# Consumer:
+#   * src/autoapply/execute/standard_fields.py (_match_machine_key)
+#
+# ORDER MATTERS: patterns match top-to-bottom, first hit wins. The
+# disability-signature-date rule MUST come before the plain
+# disability-signature rule because both would match the date label —
+# see the inline comment in the rule list.
+#
+# All patterns are compiled case-insensitive.
+
+rules:
+  - pattern: '^first[_\-]?name$'
+    attr: first_name
+  - pattern: '^last[_\-]?name$'
+    attr: last_name
+  - pattern: '^full[_\-]?name$'
+    attr: full_name
+  - pattern: '^name$'
+    attr: full_name
+  - pattern: '^email(?:[_\-]?address)?$'
+    attr: email
+  - pattern: '^phone(?:[_\-]?number)?$'
+    attr: phone
+  - pattern: '^resume(?:_file|_text|_doc|_upload)?$'
+    attr: resume
+  - pattern: '^cv$'
+    attr: resume
+  - pattern: '^cover[_\-]?letter$'
+    attr: cover_letter
+  # Lever EEO / ADA disability attestation fields — signature date MUST
+  # be matched before signature (date ends in "Date"; the plain
+  # signature rule would also match that substring, so order matters).
+  - pattern: 'disability.*signature.*date'
+    attr: today_date
+  - pattern: 'disability.*signature'
+    attr: full_name
+  - pattern: 'linkedin'
+    attr: linkedin_url
+  - pattern: 'github'
+    attr: github_url
+  - pattern: 'portfolio|website'
+    attr: website_url
+  - pattern: 'location|city'
+    attr: location

@@ -1,0 +1,54 @@
+# Ordered regex preference lists for education dropdown option matching.
+#
+# When a form renders School / Degree / Major (Discipline) dropdowns with
+# multiple option variants (e.g. UMD has 4 campuses; "Bachelor's Degree"
+# vs "B.S." vs "Bachelor of Science"), we pick the most specific match
+# from this ordered list BEFORE falling back to alphabetical-first
+# prefix match. First pattern to match an option wins.
+#
+# Consumers:
+#   * src/autoapply/execute/submitter/dom_batch.py (_match_preferred_option)
+#   * src/autoapply/execute/submitter/field_fill.py (fill_combobox prefer_patterns arg)
+#
+# Updating: when the option matcher picks the wrong synonym on a new
+# tenant, add the correct phrasing HIGHER in the list rather than
+# changing the answer_bank value — the bank value should stay generic.
+# All patterns are matched case-insensitively.
+
+school:
+  # Punctuation variants for "University of Maryland - College Park"
+  # seen on real Greenhouse tenants. Anchor to "university of maryland"
+  # + "college park" with any of space / comma-space / dash-space /
+  # hyphen / slash between the two.
+  - '^university\s+of\s+maryland[\s,\-–—/]+college\s+park$'
+  - '\buniversity\s+of\s+maryland[\s,\-–—/]+college\s+park\b'
+  - '\bumd[\s,\-–—/]+college\s+park\b'
+  - '^university\s+of\s+maryland$'
+  - '\buniversity\s+of\s+maryland\b'
+  - '\bumd\b'
+  - '\bmaryland,?\s+college\s+park\b'
+
+degree:
+  # Exact canonical names first — the vendor-standard strings most
+  # tenants list. Bachelor's Degree is the generic fallback; Bachelor
+  # of Science is preferred when present.
+  - '^bachelor\s+of\s+science$'
+  - '^b\.?s\.?$'
+  - "^bachelor(?:'s)?(?:\\s+degree)?$"
+  - "^bachelor(?:'s)?\\s+of\\s+science"
+  - '\bbachelor\s+of\s+science\b'
+  - '\bb\.?s\.?\b'
+  - "\\bbachelor'?s?\\s+degree\\b"
+  - '\bundergraduate\b'
+
+discipline:
+  # "Computer Science" (plain) is preferred; "Computer and Information
+  # Sciences" (IPEDS CIP category name) is the common alternative on
+  # education-vendor dropdowns.
+  - '^computer\s+science$'
+  - '^computer\s+and\s+information\s+sciences?$'
+  - '^computer\s+sciences?$'
+  - '\bcomputer\s+science\b'
+  - '\bcomputer\s+and\s+information\b'
+  - '\bcomputing\b'
+  - '\bsoftware\s+engineering\b'

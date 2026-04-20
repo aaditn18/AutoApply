@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 626 passing.**
+**Current test tally: 642 passing.**
 
 ---
 
@@ -998,3 +998,83 @@ LLM gets the JD and writes tailored essays.
 - `3a12bf4` refactor: split playwright_submit.py (2142 LOC) into submitter/ package
 - `2bb84fa` feat: city/state/zip/address QuestionTypes, referral defaults, --retry-non-ok
 - `24fdde3` feat: batch-LLM resolver + DOM stage-2 + .tex-sourced resume_text
+- `6e8dcdf` docs: overhaul README + log with batch-LLM / stage-2 + add CLAUDE.md
+
+---
+
+## U. Structural refactor — Phase 1: rules as data (2026-04-19)
+
+### Why
+
+The audit of 8 hot-spot files (see `CLAUDE.md` onboarding) showed that
+business rules — education-dropdown preference regexes, skill aliases,
+EEO decline keywords, machine-key regexes, ITAR markers, the 12-rule
+LLM prompt — were all embedded as Python module constants. Consequences:
+
+- Editing a rule meant touching `src/` and getting a code diff reviewed
+  rather than a policy diff. Discouraged quick iteration.
+- Rules and orchestration code changed together in the same files, so
+  a refactor that moved a function could silently drop or reorder a
+  rule entry.
+- Tests had to monkeypatch module-level constants to exercise a rule
+  change, which is finicky and error-prone.
+
+### What moved
+
+| From | To |
+|------|-----|
+| `dom_batch.py:_DEGREE_OPTION_PREFERENCES` etc. (3 tuples, ~60 LOC) | `state/rules/education_preferences.yml` |
+| `dom_batch.py:_US_STATE_LABELS` (frozenset of 60 labels) | `state/rules/geography.yml` |
+| `classifier.py:_SKILL_ALIASES` + `_SKILL_STOPWORDS` | `state/rules/skill_aliases.yml` |
+| `standard_fields.py:_MACHINE_KEY_RULES` (17 compiled regexes) | `state/rules/machine_keys.yml` |
+| `standard_fields.py:_US_PERSON_MARKERS` + `_OTHER_MARKERS` (function-local) | `state/rules/export_control.yml` |
+| `field_fill.py:_DECLINE_KEYWORDS` (function-local) | `state/rules/eeo_semantics.yml` |
+| `driver.py:USER_AGENTS` | `state/rules/browser_pool.yml` |
+| `llm_batch.py:_RULES_BLOCK` (~110-line 12-rule template) | `prompts/batch_rules.md` |
+| `llm_batch.py:_PROMPT_TEMPLATE` (~65-line wrapper) | `prompts/batch.md` |
+
+Every consumer now reads its rules through `autoapply.rules.load_rules(name)`
+or `load_prompt(name)` — both are `@lru_cache`d so the YAML parse
+happens exactly once per process.
+
+### New module: `autoapply.rules`
+
+Two functions, ~30 LOC each:
+
+- `load_rules(name) -> dict` — loads `state/rules/<name>.yml`, asserts
+  top-level is a dict, caches.
+- `load_prompt(name) -> str` — loads `prompts/<name>.md`, caches.
+
+A `clear_cache()` helper is provided for tests that mutate a fixture
+rule file between assertions.
+
+### Deliberately not moved in Phase 1
+
+- `classifier.py:_RULES` (140 regex patterns with optional Python
+  slot-extractor callables) — the slot functions are code, not data.
+  Needs a two-part rule format (pattern in YAML + callable registry
+  in code). Deferred to a dedicated follow-up.
+- `llm_batch.py:MODEL_CASCADE` + `_CASCADE_ERROR_MARKERS` — these
+  live next to the Gemini SDK call and change together when the API
+  changes. Will move in Phase 6 along with the SDK adapter extraction.
+
+### Tests
+
+`tests/test_rules_loader.py` (16 tests) validates:
+
+- Missing file raises `FileNotFoundError`; list-at-top raises `ValueError`.
+- Loader caches results (`a is b`).
+- Each shipped rule file has the keys its consumer expects
+  (`school`/`degree`/`discipline` in `education_preferences`;
+  `aliases`/`stopwords` in `skill_aliases`; etc.).
+- Regex patterns compile.
+- Regression: education-preferences `school[0]` matches "College Park"
+  but not "Baltimore County" (catches the UMD-branch bug we fixed
+  earlier).
+- Regression: `machine_keys` has the disability-date rule BEFORE the
+  plain disability-signature rule.
+- `prompts/batch.md` and `prompts/batch_rules.md` format cleanly with
+  all expected placeholders.
+
+626 → 642 tests, all passing. No existing tests modified — the
+extraction is behavior-preserving.

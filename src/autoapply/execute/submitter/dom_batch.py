@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from autoapply.answers.llm_batch import BatchQuestion, resolve_batch
+from autoapply.rules import load_rules
 
 from .util import jitter
 
@@ -825,76 +826,21 @@ def batch_resolve_dom_fields(
 
 # ─── Education-field option preferences ──────────────────────────────────
 #
-# When the LLM and raw profile value don't exact-match a scraped option
-# (common on school/degree/discipline dropdowns where vendors use every
-# permutation of "Bachelor's Degree" / "B.S." / "Bachelor of Science"),
-# we pick the first option matching the ordered preference regex list.
-#
-# Each list is ORDERED — earlier patterns are preferred. Each entry is
-# a regex applied case-insensitively against each scraped option text.
-# The first option matching the highest-priority pattern wins.
-#
-# Updating: when the option matcher picks the wrong synonym on a new
-# tenant, add the correct phrasing higher in the list rather than
-# changing the bank value.
+# Ordered preference regexes for school / degree / discipline dropdowns,
+# loaded from state/rules/education_preferences.yml. See that file's
+# header for semantics and update-policy; each list is an ORDERED
+# preference — earlier patterns win.
 
-_DEGREE_OPTION_PREFERENCES: tuple[str, ...] = (
-    # Exact canonical names first — these are the vendor-standard
-    # strings most tenants list.
-    r"^bachelor\s+of\s+science$",
-    r"^b\.?s\.?$",
-    r"^bachelor(?:'s)?(?:\s+degree)?$",
-    r"^bachelor(?:'s)?\s+of\s+science",
-    r"\bbachelor\s+of\s+science\b",
-    r"\bb\.?s\.?\b",
-    r"\bbachelor'?s?\s+degree\b",
-    r"\bundergraduate\b",
-)
+_EDU_PREFS = load_rules("education_preferences")
+_SCHOOL_OPTION_PREFERENCES: tuple[str, ...] = tuple(_EDU_PREFS["school"])
+_DEGREE_OPTION_PREFERENCES: tuple[str, ...] = tuple(_EDU_PREFS["degree"])
+_DISCIPLINE_OPTION_PREFERENCES: tuple[str, ...] = tuple(_EDU_PREFS["discipline"])
 
-_DISCIPLINE_OPTION_PREFERENCES: tuple[str, ...] = (
-    # "Computer Science" (plain, preferred)
-    r"^computer\s+science$",
-    r"^computer\s+and\s+information\s+sciences?$",
-    r"^computer\s+sciences?$",
-    r"\bcomputer\s+science\b",
-    r"\bcomputer\s+and\s+information\b",
-    r"\bcomputing\b",
-    r"\bsoftware\s+engineering\b",
-)
-
-# US states + DC + territories — lowercase, used by the checkbox
+# US states + DC + territories, lowercase. Used by the checkbox
 # pre-resolve to auto-check Maryland on multi-state "which locations
-# are you 100% committed to" grids.
-_US_STATE_LABELS: frozenset[str] = frozenset({
-    "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
-    "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho",
-    "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana",
-    "maine", "maryland", "massachusetts", "michigan", "minnesota",
-    "mississippi", "missouri", "montana", "nebraska", "nevada",
-    "new hampshire", "new jersey", "new mexico", "new york",
-    "north carolina", "north dakota", "ohio", "oklahoma", "oregon",
-    "pennsylvania", "rhode island", "south carolina", "south dakota",
-    "tennessee", "texas", "utah", "vermont", "virginia", "washington",
-    "washington dc", "washington d.c.", "west virginia", "wisconsin",
-    "wyoming",
-    # Territories commonly shown on US-hiring-location grids.
-    "american samoa", "guam", "northern mariana islands", "puerto rico",
-    "united states virgin islands", "u.s. virgin islands",
-    "district of columbia", "dc",
-})
-
-
-_SCHOOL_OPTION_PREFERENCES: tuple[str, ...] = (
-    # All the punctuation variants we've seen on real Greenhouse tenants.
-    # Anchor to "university of maryland" + "college park" with any of
-    # space / comma-space / dash-space / hyphen / slash between the two.
-    r"^university\s+of\s+maryland[\s,\-–—/]+college\s+park$",
-    r"\buniversity\s+of\s+maryland[\s,\-–—/]+college\s+park\b",
-    r"\bumd[\s,\-–—/]+college\s+park\b",
-    r"^university\s+of\s+maryland$",
-    r"\buniversity\s+of\s+maryland\b",
-    r"\bumd\b",
-    r"\bmaryland,?\s+college\s+park\b",
+# are you 100% committed to" grids. Loaded from state/rules/geography.yml.
+_US_STATE_LABELS: frozenset[str] = frozenset(
+    load_rules("geography")["us_state_labels"]
 )
 
 

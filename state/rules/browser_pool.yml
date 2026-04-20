@@ -1,0 +1,14 @@
+# Chromium user-agent pool for anti-bot rotation.
+#
+# The Playwright driver picks one at random per submission. All entries
+# should be recent, stable Chrome desktop UAs — adding a mobile or an
+# obscure browser here will tip off bot detectors that the UA doesn't
+# match the downstream fingerprint.
+#
+# Consumer:
+#   * src/autoapply/execute/submitter/driver.py
+
+user_agents:
+  - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
+  - Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
+  - Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36

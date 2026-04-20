@@ -9,10 +9,21 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from autoapply.rules import load_rules
+
 from .util import jitter
 
 
 log = logging.getLogger(__name__)
+
+
+# EEO decline-option synonyms — loaded from state/rules/eeo_semantics.yml.
+# Module-level so the YAML parse happens once at import time, not once
+# per combobox fill. See the rule file's header for why this list is
+# what it is.
+_DECLINE_KEYWORDS: tuple[str, ...] = tuple(
+    load_rules("eeo_semantics")["decline_keywords"]
+)
 
 
 def fill_field(page: Any, name: str, value: str) -> None:
@@ -505,16 +516,8 @@ def fill_combobox(
         # d. EEO decline fallback — "Decline to self-identify" should
         #    match "Prefer not to say" / "I don't wish to answer" /
         #    "I do not want to answer" / etc. across EEO widget variants.
-        _DECLINE_KEYWORDS = (
-            "decline",
-            "prefer not", "don't prefer", "do not prefer",
-            "not wish", "don't wish", "do not wish",
-            "not want", "don't want", "do not want",
-            "not identify", "don't identify", "do not identify",
-            "not disclose", "don't disclose", "do not disclose",
-            "choose not", "rather not",
-            "not to answer", "not to say",
-        )
+        #    Keyword list lives in state/rules/eeo_semantics.yml
+        #    (loaded once at module import).
         if any(kw in v_lower for kw in _DECLINE_KEYWORDS):
             for i, txt in enumerate(texts):
                 tl = txt.lower()

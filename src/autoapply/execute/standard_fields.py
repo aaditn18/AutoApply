@@ -26,6 +26,7 @@ from autoapply.answers import classifier as classifier_mod
 from autoapply.answers.bank import AnswerBank
 from autoapply.answers.types import PROFILE_SOURCED, QuestionType
 from autoapply.profile.schema import Profile
+from autoapply.rules import load_rules
 
 
 log = logging.getLogger(__name__)
@@ -69,26 +70,20 @@ class FieldSpec:
 # -- Machine-key → profile attribute -----------------------------------------
 
 
+# Machine-key → profile attribute rules loaded from
+# state/rules/machine_keys.yml. Compiled once at import (case-insensitive).
+# See the rule file's header for ordering constraints.
 _MACHINE_KEY_RULES: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"^first[_\-]?name$", re.I), "first_name"),
-    (re.compile(r"^last[_\-]?name$", re.I), "last_name"),
-    (re.compile(r"^full[_\-]?name$", re.I), "full_name"),
-    (re.compile(r"^name$", re.I), "full_name"),
-    (re.compile(r"^email(?:[_\-]?address)?$", re.I), "email"),
-    (re.compile(r"^phone(?:[_\-]?number)?$", re.I), "phone"),
-    (re.compile(r"^resume(?:_file|_text|_doc|_upload)?$", re.I), "resume"),
-    (re.compile(r"^cv$", re.I), "resume"),
-    (re.compile(r"^cover[_\-]?letter$", re.I), "cover_letter"),
-    # Lever EEO / ADA disability attestation fields — signature date MUST be
-    # matched before signature (date ends in "Date"; the plain signature rule
-    # would also match that substring, so order matters here).
-    (re.compile(r"disability.*signature.*date", re.I), "today_date"),
-    (re.compile(r"disability.*signature", re.I), "full_name"),
-    (re.compile(r"linkedin", re.I), "linkedin_url"),
-    (re.compile(r"github", re.I), "github_url"),
-    (re.compile(r"portfolio|website", re.I), "website_url"),
-    (re.compile(r"location|city", re.I), "location"),
+    (re.compile(_row["pattern"], re.I), _row["attr"])
+    for _row in load_rules("machine_keys")["rules"]
 ]
+
+
+# ITAR / EAR export-control dropdown markers loaded from
+# state/rules/export_control.yml. See the rule file for semantics.
+_EXPORT_CONTROL_RULES = load_rules("export_control")
+_US_PERSON_MARKERS: tuple[str, ...] = tuple(_EXPORT_CONTROL_RULES["us_person_markers"])
+_OTHER_MARKERS: tuple[str, ...] = tuple(_EXPORT_CONTROL_RULES["other_markers"])
 
 
 def _match_machine_key(name: str) -> str | None:
@@ -289,20 +284,12 @@ def _snap_to_option(value: str, spec: FieldSpec) -> str:
     # (ITAR / export-control forms) and pick the appropriate "other" option.
     # These selects list US immigration statuses; a non-US country name like
     # "India" won't substring-match any of them, so we fall back explicitly.
-    _US_PERSON_MARKERS = (
-        "u.s. citizen", "u.s. national", "united states citizen",
-        "green card", "lawful permanent", "lawfully admitted",
-        "refugee", "asylee", "8 u.s.c",
-    )
+    # Markers are module-level constants loaded from state/rules/export_control.yml.
     has_us_options = any(
         any(m in opt.lower() for m in _US_PERSON_MARKERS)
         for opt in spec.options
     )
     if has_us_options:
-        _OTHER_MARKERS = (
-            "not currently", "other status", "not a u.s.", "not a us",
-            "other", "not yet", "none of the above",
-        )
         for opt in spec.options:
             ol = opt.lower()
             if any(m in ol for m in _OTHER_MARKERS):

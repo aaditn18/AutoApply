@@ -8,7 +8,7 @@ queue. Runs on GitHub Actions with a ~$0–$10/mo operating budget.
 
 - **Running progress & history:** see [`log.md`](./log.md)
 - **High-level plan:** see [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md)
-- **Status (2026-04-19):** 626 tests passing · batch-LLM resolver live ·
+- **Status (2026-04-19):** 642 tests passing · batch-LLM resolver live · rules as data (phase 1 refactor) ·
   DOM stage-2 for SPA-injected fields · Greenhouse 8/8 previously-failing
   apps now submit (including 2 that were stuck in review on essay questions) ·
   Lever still blocked on IP reputation (deferred fix: Bright Data Scraping Browser)
@@ -175,6 +175,10 @@ AutoApply/
 │   │   ├── llm_fallback.py         ← per-field Gemini fallback (select-only now) + template
 │   │   └── llm_batch.py            ← one Gemini call per application with model cascade
 │   │
+│   ├── rules/                      ← POLICY LAYER (loader only; data under state/rules/)
+│   │   ├── __init__.py             ← exposes load_rules(), load_prompt()
+│   │   └── loader.py               ← @lru_cache YAML/prompt reader
+│   │
 │   ├── ingest/
 │   │   ├── base.py                 ← RawJob + JobSource ABC
 │   │   ├── greenhouse.py           ← boards-api.greenhouse.io client
@@ -233,7 +237,19 @@ AutoApply/
 │   ├── answer_bank.yml             ← hand-seeded deterministic answers
 │   ├── jobs.sqlite                 ← primary data store
 │   ├── dry_runs/                   ← DRY_RUN payload dumps for audit
-│   └── failed_submits/             ← failure screenshots + captcha debug
+│   ├── failed_submits/             ← failure screenshots + captcha debug
+│   └── rules/                      ← POLICY DATA — business rules as YAML
+│       ├── education_preferences.yml  ← school/degree/discipline regexes
+│       ├── geography.yml              ← US state/territory labels
+│       ├── skill_aliases.yml          ← skill canonicalization + stopwords
+│       ├── machine_keys.yml           ← form-field machine-name → profile attr
+│       ├── export_control.yml         ← ITAR/EAR fallback option markers
+│       ├── eeo_semantics.yml          ← "decline to self-identify" synonyms
+│       └── browser_pool.yml           ← Playwright Chromium UA pool
+│
+├── prompts/                        ← LLM PROMPT TEMPLATES (markdown)
+│   ├── batch.md                    ← batched-resolver prompt wrapper
+│   └── batch_rules.md              ← 12-rule CORE RULES block
 │
 ├── scripts/
 │   ├── apply_best_per_company.py   ← apply to best job per company
@@ -241,7 +257,7 @@ AutoApply/
 │   ├── applied_log.py              ← report of past submissions
 │   └── score_report.py             ← scoring pipeline summary
 │
-├── tests/                          ← pytest (626 tests)
+├── tests/                          ← pytest (642 tests)
 │   ├── conftest.py                 ← AUTOUSE fixture: blocks live Gemini
 │   │                                 calls, clears GEMINI_API_KEY. Every
 │   │                                 test is hermetic; LLM-involved tests
@@ -471,7 +487,7 @@ status, rejection reasons, rank distribution.
 
 ```bash
 # Everything
-python -m pytest -q                  # ~5 s, 626 tests
+python -m pytest -q                  # ~5 s, 642 tests
 
 # One suite
 python -m pytest tests/test_injection_guard.py -v
@@ -627,12 +643,12 @@ Register the branch in `solve_hcaptcha()`'s dispatcher.
 
 ### Modifying the batch LLM prompt
 
-The batch prompt lives in
-`src/autoapply/answers/llm_batch.py::_PROMPT_TEMPLATE` + `_RULES_BLOCK`.
-Rules are numbered — add a new rule by appending to `_RULES_BLOCK` with
-a new number. The prompt interpolates:
+The batch prompt lives in **`prompts/batch.md`** (the wrapper) +
+**`prompts/batch_rules.md`** (the 12 numbered CORE RULES). These are
+plain markdown — no code change needed to iterate on wording. The
+prompt interpolates:
 
-- `{rules}` — the core rules block
+- `{rules}` — the core rules block (also formatted with `{track}`)
 - `{meta_block}` — track + company + role header
 - `{profile_block}` — profile JSON (trimmed to `_PROFILE_MAX_CHARS`)
 - `{bank_block}` — raw YAML from `state/answer_bank.yml`
@@ -641,24 +657,31 @@ a new number. The prompt interpolates:
 
 Any new field sent to the LLM must go through
 `autoapply.security.injection_guard.sanitize()` first. Tests for the
-prompt structure live in `tests/test_llm_batch.py`.
+prompt structure live in `tests/test_llm_batch.py`, and the prompt
+files themselves have smoke-tests in `tests/test_rules_loader.py` that
+verify all placeholders are present and `.format()` succeeds.
 
 ### Adding education-field preferences
 
 When a tenant renders School/Degree/Major as a React-Select with multiple
 similarly-worded options, the **first alphabetical match** wins unless a
-preference list picks a specific variant. See
-`src/autoapply/execute/submitter/dom_batch.py`:
+preference list picks a specific variant. Preferences live in
+**`state/rules/education_preferences.yml`** as ordered regex lists
+under the `school`, `degree`, and `discipline` keys. Examples:
 
-- `_SCHOOL_OPTION_PREFERENCES` — ordered regex list for School. Tries
-  "University of Maryland - College Park" exact match first, falls
-  through to plain "University of Maryland" as a last-resort.
-- `_DEGREE_OPTION_PREFERENCES` — "Bachelor of Science" > "B.S." >
-  "Bachelor's Degree"
-- `_DISCIPLINE_OPTION_PREFERENCES` — "Computer Science" > "Computer and
-  Information Sciences"
+- `school`: "University of Maryland - College Park" exact match first,
+  falls through to plain "University of Maryland" as a last resort.
+- `degree`: "Bachelor of Science" > "B.S." > "Bachelor's Degree".
+- `discipline`: "Computer Science" > "Computer and Information Sciences".
 
-Adding a new preference: append the regex to the appropriate tuple (or
-create a new tuple for a new classifier type) and wire it into
-`_education_patterns_for_label()` so `fill_combobox` receives the
-ordered list.
+Adding a new preference: append the regex to the list. No code change
+needed — `dom_batch.py` re-loads the YAML at import. Run
+`pytest tests/test_rules_loader.py` to confirm the new pattern compiles.
+
+### Editing any other policy rule
+
+Rule data lives under `state/rules/*.yml`; prompts under `prompts/*.md`.
+Consumers read via `autoapply.rules.load_rules(name)` /
+`load_prompt(name)`. Each rule file has a header comment naming its
+consumer and semantics. After any edit, `pytest tests/test_rules_loader.py`
+validates schema + shape. No Python changes needed for a rule update.

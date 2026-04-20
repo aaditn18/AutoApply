@@ -18,6 +18,8 @@ import random
 from pathlib import Path
 from typing import Any
 
+from autoapply.rules import load_rules
+
 from . import CaptchaDetected, SubmitFailed
 from .captcha_detect import wait_for_captcha, detect_captcha
 from .captcha_retry import maybe_solve_and_retry_captcha
@@ -39,14 +41,9 @@ from .util import inner_text_safe, jitter
 log = logging.getLogger(__name__)
 
 
-USER_AGENTS: tuple[str, ...] = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-)
+# UA pool loaded from state/rules/browser_pool.yml. ``tuple(...)`` converts
+# the YAML list to the immutable shape the random.choice sampler expects.
+USER_AGENTS: tuple[str, ...] = tuple(load_rules("browser_pool")["user_agents"])
 
 
 def submit_form(

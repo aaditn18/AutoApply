@@ -1,0 +1,41 @@
+# EEO widget phrasing — "Decline to self-identify" synonyms.
+#
+# Different ATSs spell the decline option in very different ways:
+#   "Decline to self-identify"
+#   "Prefer not to say"
+#   "I don't wish to answer"
+#   "I do not want to disclose"
+#   "Choose not to disclose"
+#   "Rather not say"
+#
+# We answer the EEO question with the canonical phrase
+# ("Decline to self-identify") and then pick the option whose text
+# contains any of these keywords. This is a semantic match, not a
+# string-equality one.
+#
+# Consumer:
+#   * src/autoapply/execute/submitter/field_fill.py (fill_combobox decline fallback)
+#
+# All keywords are matched case-insensitively.
+
+decline_keywords:
+  - decline
+  - prefer not
+  - don't prefer
+  - do not prefer
+  - not wish
+  - don't wish
+  - do not wish
+  - not want
+  - don't want
+  - do not want
+  - not identify
+  - don't identify
+  - do not identify
+  - not disclose
+  - don't disclose
+  - do not disclose
+  - choose not
+  - rather not
+  - not to answer
+  - not to say

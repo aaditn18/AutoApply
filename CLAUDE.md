@@ -65,6 +65,23 @@ there's already a paragraph explaining why it's the way it is.
 
 ---
 
+## Policy layer — rules as data (2026-04-19 refactor, Phase 1)
+
+Business rules live as **data files**, not Python constants:
+
+- `state/rules/*.yml` — YAML rule tables (education preferences, skill
+  aliases, machine-key patterns, geography, EEO semantics, export-control
+  markers, browser UA pool).
+- `prompts/*.md` — LLM prompt templates (`batch.md`, `batch_rules.md`).
+
+Loader: `autoapply.rules.load_rules(name)` and `load_prompt(name)`.
+Both are `@lru_cache`d per-process. Adding a new education-preference
+pattern or skill alias is a YAML edit, not a code change.
+
+When you add a new rule file, **also add a schema smoke-test** in
+`tests/test_rules_loader.py` — consumers assume a specific top-level
+shape, and a typo in a rename would fail silently at apply time.
+
 ## Recent architecture (2026-04-19)
 
 - **Resolver pipeline** is two phases in
@@ -98,7 +115,7 @@ there's already a paragraph explaining why it's the way it is.
 
 ```bash
 # 1. Tests
-python -m pytest -q           # must print "626 passed" (plus any you added)
+python -m pytest -q           # must print "642 passed" (plus any you added)
 
 # 2. Dry-run on a single job to see the resolution pipeline
 python scripts/apply_by_job_ids.py <JOB_ID>
@@ -126,3 +143,8 @@ sqlite3 state/jobs.sqlite "SELECT outcome, artifacts FROM applications
   handles this deterministically.
 - Don't skip the `<UNTRUSTED>` wrapping for any prompt that includes
   scraped web content.
+- Don't re-add business rules as Python constants. Education
+  preferences, skill aliases, EEO decline phrasings, UA pool, prompt
+  text — all live under `state/rules/` or `prompts/` and load via
+  `autoapply.rules`. Adding inline `_DECLINE_KEYWORDS = (...)` in a
+  module is a regression of the Phase-1 refactor.

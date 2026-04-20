@@ -1,0 +1,36 @@
+# ITAR / EAR export-control dropdown fallback markers.
+#
+# Some forms list a select of "US person status" options (US Citizen,
+# US National, Green Card holder, Refugee, Asylee, 8 USC ...) and our
+# profile value for such a field — typically a country name like "India"
+# — won't substring-match any of them. In that case we pick the "Not
+# currently a US person / Other status" option so the form accepts the
+# answer honestly.
+#
+# Consumer:
+#   * src/autoapply/execute/standard_fields.py (_snap_to_option)
+#
+# ``us_person_markers`` identifies the fact that we're looking at a
+# US-person-status dropdown. ``other_markers`` identifies the
+# fallback option to pick once we know that. Both lists are
+# substring-matched against lowercased option labels.
+
+us_person_markers:
+  - u.s. citizen
+  - u.s. national
+  - united states citizen
+  - green card
+  - lawful permanent
+  - lawfully admitted
+  - refugee
+  - asylee
+  - 8 u.s.c
+
+other_markers:
+  - not currently
+  - other status
+  - not a u.s.
+  - not a us
+  - other
+  - not yet
+  - none of the above
