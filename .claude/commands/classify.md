@@ -13,7 +13,7 @@ Use when:
 - Exploring what the classifier recognizes for an unseen label.
 
 ```!
-.claude/bin/classify.sh $ARGUMENTS
+.claude/bin/classify.sh "$ARGUMENTS"
 ```
 
 If output is `UNKNOWN`, the label matches no regex in `_RULES` —
