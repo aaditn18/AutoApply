@@ -190,3 +190,150 @@ def test_is_react_select_plain_input_returns_false():
     from autoapply.execute.submitter.fillers.detect import _is_react_select
 
     assert _is_react_select(_StubEl(role="", has_ancestor=False)) is False
+
+
+# ─── Multi-option checkbox group dispatch (dispatch.py) ─────────────────
+
+
+class _StubCheckbox:
+    """Minimal stub of a Playwright checkbox Locator.
+
+    Tracks whether ``check()`` was called so tests can assert the
+    right option in a multi-checkbox group was the one that actually
+    got clicked."""
+
+    def __init__(self, value_attr: str, label_text: str = "", cb_id: str = ""):
+        self._value = value_attr
+        self._label = label_text
+        self._id = cb_id
+        self.checked = False
+
+    def get_attribute(self, attr: str) -> str | None:
+        if attr == "value":
+            return self._value
+        if attr == "id":
+            return self._id
+        return None
+
+    def check(self, *, timeout: int = 0, force: bool = False) -> None:  # noqa: ARG002
+        self.checked = True
+
+    def uncheck(self, *, timeout: int = 0) -> None:  # noqa: ARG002
+        self.checked = False
+
+
+class _StubLabel:
+    def __init__(self, text: str):
+        self._text = text
+
+    def inner_text(self) -> str:
+        return self._text
+
+
+class _StubGroupLocator:
+    """Stub for ``page.locator(selector)`` when selector targets an
+    entire checkbox group — supports ``.count()`` and ``.nth(i)``."""
+
+    def __init__(self, checkboxes: list[_StubCheckbox]):
+        self._cbs = checkboxes
+
+    def count(self) -> int:
+        return len(self._cbs)
+
+    def nth(self, i: int) -> _StubCheckbox:
+        return self._cbs[i]
+
+    @property
+    def first(self) -> _StubCheckbox:
+        return self._cbs[0]
+
+
+class _StubPageForCheckboxGroup:
+    """Page stub where ``locator('input[type="checkbox"][name="X"]')``
+    returns the full state grid, and ``locator('label[for="cb_Y"]')``
+    returns the state's label text."""
+
+    def __init__(self, group_name: str, checkboxes: list[_StubCheckbox]):
+        self._name = group_name
+        self._cbs = checkboxes
+        self._labels = {
+            cb._id: _StubLabel(cb._label) for cb in checkboxes if cb._id
+        }
+
+    def locator(self, selector: str):
+        # Group lookup by name attr.
+        if (
+            f'[name="{self._name}"]' in selector
+            and "checkbox" in selector
+        ):
+            return _StubGroupLocator(self._cbs)
+        # Label lookup: label[for="cb_id"]
+        for cb_id, lbl in self._labels.items():
+            if f'for="{cb_id}"' in selector:
+                return _StubGroupLocator([lbl])  # type: ignore[list-item]
+        # Fall-through: empty locator.
+        return _StubGroupLocator([])
+
+
+def test_checkbox_group_picks_matching_label_not_first():
+    """Regression (mthree job 848, 2026-04-21): when multiple checkboxes
+    share ``name="question_X[]"`` (a state grid, pronoun multi-select,
+    etc.), ``fill_field`` must check the option whose value/label
+    matches the resolver's answer — NOT ``.first()``, which always
+    hit Alabama regardless of the intended state."""
+    from autoapply.execute.submitter.fillers.dispatch import fill_field
+
+    group = [
+        _StubCheckbox("AL", "Alabama", cb_id="cb_al"),
+        _StubCheckbox("AK", "Alaska", cb_id="cb_ak"),
+        _StubCheckbox("MD", "Maryland", cb_id="cb_md"),
+        _StubCheckbox("VA", "Virginia", cb_id="cb_va"),
+    ]
+    page = _StubPageForCheckboxGroup("question_8255405006[]", group)
+
+    # Mimic the api_fill call: fill_field(page, name, "Maryland").
+    fill_field(page, "question_8255405006[]", "Maryland")
+
+    # Exactly one checkbox got checked — Maryland (via label match).
+    checked = [cb for cb in group if cb.checked]
+    assert len(checked) == 1
+    assert checked[0]._label == "Maryland"
+    # Alabama NOT checked — this is the core regression.
+    assert not group[0].checked
+
+
+def test_checkbox_group_supports_comma_separated_values():
+    """Multi-select: when the LLM / bank returns "Maryland, Virginia",
+    both corresponding checkboxes are checked."""
+    from autoapply.execute.submitter.fillers.dispatch import fill_field
+
+    group = [
+        _StubCheckbox("AL", "Alabama", cb_id="cb_al"),
+        _StubCheckbox("MD", "Maryland", cb_id="cb_md"),
+        _StubCheckbox("VA", "Virginia", cb_id="cb_va"),
+    ]
+    page = _StubPageForCheckboxGroup("question_states[]", group)
+
+    fill_field(page, "question_states[]", "Maryland, Virginia")
+
+    checked = [cb._label for cb in group if cb.checked]
+    assert "Maryland" in checked
+    assert "Virginia" in checked
+    assert "Alabama" not in checked
+
+
+def test_checkbox_group_no_match_checks_nothing():
+    """When no option matches the requested value, nothing is checked
+    (don't fall through to the ``.first`` fallback — that was the
+    original bug)."""
+    from autoapply.execute.submitter.fillers.dispatch import fill_field
+
+    group = [
+        _StubCheckbox("AL", "Alabama", cb_id="cb_al"),
+        _StubCheckbox("MD", "Maryland", cb_id="cb_md"),
+    ]
+    page = _StubPageForCheckboxGroup("question_states[]", group)
+
+    fill_field(page, "question_states[]", "Nonexistent Place")
+
+    assert not any(cb.checked for cb in group)

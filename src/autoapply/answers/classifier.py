@@ -460,7 +460,13 @@ _RULES: list[_Rule] = [
     ),
     (
         QuestionType.DEGREE,
-        re.compile(r"(?:highest\s+)?degree|qualification|level\s+of\s+education"),
+        re.compile(
+            r"(?:highest\s+)?degree"
+            r"|qualification"
+            r"|level\s+of\s+(?:\w+\s+)*education"
+            r"|highest\s+(?:level\s+of\s+)?(?:\w+\s+){0,3}education"
+            r"|education\s+(?:level|attained|completed)"
+        ),
         None,
     ),
     (

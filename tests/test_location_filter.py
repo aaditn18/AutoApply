@@ -21,7 +21,6 @@ US_ACCEPT = [
     "Austin, TX, USA",
     "Chicago, IL",
     "Los Angeles, CA",
-    "Remote",
     "Remote - US",
     "Remote (US)",
     "Remote, United States",
@@ -32,10 +31,35 @@ US_ACCEPT = [
     "Denver, CO",
     "Minneapolis, MN",
     "Mountain View, CA",
+    # Flexible word-bounded match: any US token anywhere in the string.
+    # State abbreviation not comma-prefixed.
+    "Remote MD",
+    "MD Remote",
+    "MD",
+    # Full state name anywhere.
+    "Maryland",
+    "Maryland Remote",
+    "Remote Maryland",
+    # Country variants.
+    "USA",
+    "U.S.",
+    "U.S.A.",
+    # Multi-word state names with flexible whitespace.
+    "New York",
+    "North Carolina",
+    "District of Columbia",
+    "Puerto Rico",
 ]
 
 
 # -- Non-US rejects (should all fail is_us_location) -------------------------
+#
+# Strict-whitelist policy: anything lacking a positive US signal is
+# rejected, including bare "Remote" and country names not in the
+# non-US marker list. The regression fixtures at the end of this list
+# (Bulgaria, Greece, etc.) are the reason we inverted the filter —
+# they used to leak through because the non-US marker list can never
+# be exhaustive.
 
 NON_US_REJECT = [
     "London, UK",
@@ -50,6 +74,20 @@ NON_US_REJECT = [
     "Dublin, Ireland",
     "Tel Aviv, Israel",
     "Sydney, Australia",
+    # Bare "Remote" with no country signal — strict whitelist rejects.
+    "Remote",
+    # Regression: Bulgaria was missing from the non-US marker list
+    # (2026-04-20, job 990 Smartsheet). With strict whitelist, it's
+    # rejected regardless.
+    "-REMOTE, BULGARIA-",
+    "Remote, Bulgaria",
+    "Sofia, Bulgaria",
+    # Other EU countries not in the marker list — all rejected now.
+    "Athens, Greece",
+    "Zagreb, Croatia",
+    "Belgrade, Serbia",
+    "Ljubljana, Slovenia",
+    "Vilnius, Lithuania",
 ]
 
 

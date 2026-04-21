@@ -208,6 +208,25 @@ def _try_classifier_resolve(
                     value[:40], best_opt[:60],
                 )
                 return best_opt
+        # Type-mismatch defer: the bank returned a numeric value
+        # (e.g. GPA "3.975") but the options are all non-numeric
+        # (e.g. ["Yes", "No"] for a threshold question). Typing
+        # "3.975" into a Yes/No React-Select would fail validation.
+        # Defer to the batch LLM, which has the threshold rule in
+        # ``prompts/batch_rules.md`` and can compare the profile
+        # number to the threshold in the label. Non-numeric mismatches
+        # (e.g. profile school "University of Maryland - College Park"
+        # vs an async-typeahead options list) still fall through to
+        # ``fill_combobox`` which types-and-filters.
+        import re as _re
+        if _re.fullmatch(r"\d+(?:\.\d+)?", value.strip()) and not any(
+            _re.search(r"\d", opt or "") for opt in f.options
+        ):
+            log.info(
+                "pre-resolve: numeric %r vs non-numeric options %s; deferring to LLM",
+                value[:20], [o[:20] for o in f.options[:4]],
+            )
+            return None
         # Fall through — return the bank value as-is; fill_combobox
         # will type it and rely on React-Select's async filter.
 

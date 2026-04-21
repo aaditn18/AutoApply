@@ -46,6 +46,24 @@ completes).
   — it picked "Yes" for "Do you have GPA of 4.0+?" with a 3.975 GPA.
   If nothing matches the option list, raise and let the caller route
   to review.
+- **Numeric-value-vs-non-numeric-options defers to the batch LLM.**
+  `dom/resolve.py::_try_classifier_resolve` returns `None` when the
+  bank produces a strictly-numeric value and none of the select
+  options contain a digit (e.g. profile GPA `"3.975"` vs
+  `["Yes", "No"]` for a threshold question). The batch LLM applies
+  the threshold rule in `prompts/batch_rules.md`. Text-vs-text
+  mismatches (profile school vs partial async-typeahead options)
+  still fall through to `fill_combobox` which types-and-filters.
+  Do NOT broaden this to "defer any no-match select" — that path was
+  tried on 2026-04-21 and broke async-typeahead schools.
+- **Multi-option checkbox groups (`name="foo[]"`) match by label/value,
+  not `.first`.** `fillers/dispatch.py`'s checkbox branch iterates
+  every checkbox in the group and checks only those whose `value`
+  attribute or `<label for=id>` text matches the resolver's answer.
+  Supports comma-separated multi-select. When nothing matches, it
+  checks nothing (silent skip) — never fall back to `.first`, which
+  on a 50-state grid always picked Alabama. Regression test:
+  `test_fillers_package.py::test_checkbox_group_picks_matching_label_not_first`.
 - **Phone country-code picker is always mounted** on Greenhouse SPA
   forms (off-screen). Always scope option-scrape by `aria-controls`
   or ancestor container — never use page-wide `[role="listbox"]`

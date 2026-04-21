@@ -116,10 +116,43 @@ _US_CITY_MARKERS = frozenset({
     "salt lake city",
 })
 
-_US_EXPLICIT_MARKERS: tuple[str, ...] = (
-    "united states", "u.s.", "u.s", " us ", " us,", " usa", "(us)", "(u.s.)",
-    "remote - us", "remote (us)", "remote us", "us remote", "remote, us",
-    "remote, united states", "remote - united states",
+# Flexible US-token regex: matches anywhere in the string, word-bounded.
+# A single compiled regex replaces three separate matchers (explicit
+# substring list, comma-prefixed abbrev search, space-padded full-state
+# check). Any of the following hits → US:
+#
+#   • Country variants: "United States", "United States of America",
+#     "U.S.", "U.S.A.", "USA", "US"
+#   • All 50 state full names + DC + Puerto Rico (word-bounded,
+#     whitespace-flexible so "new york" and "new  york" both match)
+#   • All 50 state 2-letter abbreviations + DC (word-bounded so "MD"
+#     in "Remote MD" matches the same as "Washington, DC" does)
+#
+# Word-boundaries (`\b`) mean "MD" matches but "md" inside "mdivine"
+# does not; "US" matches at end/start of tokens and inside parens
+# "(US)" because `(` is non-word.
+
+_US_COUNTRY_PATTERN = (
+    r"\bunited\s+states(?:\s+of\s+america)?\b"
+    r"|\bu\.s\.(?:a\.?)?"          # U.S. / U.S.A.
+    r"|\busa?\b"                    # US / USA
+)
+
+_US_STATE_FULL_ALT = "|".join(
+    # Longest first so "new york" beats a hypothetical "york" prefix in
+    # a future addition. Whitespace inside multi-word names is flexible.
+    re.escape(s).replace(r"\ ", r"\s+")
+    for s in sorted(_US_STATE_FULL | {"puerto rico"}, key=len, reverse=True)
+)
+
+_US_STATE_ABBR_ALT = "|".join(sorted(_US_STATE_ABBR))
+
+_US_ACCEPT_REGEX = re.compile(
+    r"(?:"
+    + _US_COUNTRY_PATTERN
+    + r"|\b(?:" + _US_STATE_FULL_ALT + r")\b"
+    + r"|\b(?:" + _US_STATE_ABBR_ALT + r")\b"
+    + r")",
 )
 
 _NYC_MARKERS = frozenset({
@@ -139,7 +172,8 @@ def _normalize(raw: str) -> str:
 def country_from_location(raw: str) -> str | None:
     """Best-effort country ISO code. Returns:
 
-    - "US" if the string contains a US city/state marker or an explicit US tag
+    - "US" if the string contains any US country/state/abbrev token
+      matched word-bounded anywhere (see ``_US_ACCEPT_REGEX``)
     - "XX" (country code) if a non-US country/region marker is found
     - None otherwise (ambiguous — caller decides policy)
     """
@@ -147,52 +181,45 @@ def country_from_location(raw: str) -> str | None:
         return None
     norm = _normalize(raw)
 
-    # Non-US first — if Berlin and "Remote" both appear, we want Berlin to win.
+    # Non-US first — if Berlin and "Remote" both appear, we want Berlin
+    # to win. Same if "Bulgaria" and "MD" both appeared (hypothetical).
     for pattern, code in _NON_US_COUNTRY_MARKERS:
         if pattern.search(norm):
             return code
 
-    # Explicit US markers
-    for marker in _US_EXPLICIT_MARKERS:
-        if marker in norm:
-            return "US"
-
-    # US cities
-    for city in _US_CITY_MARKERS:
-        if f" {city} " in norm or f" {city}," in norm:
-            return "US"
-
-    # US state abbreviations like "Austin, TX" or "Boston, MA, USA"
-    # Matches `\b, ST\b` or `\b(ST)\b` where ST is a 2-letter state code
-    abbr_match = re.search(r",\s*([a-z]{2})(?:\b|,)", norm)
-    if abbr_match and abbr_match.group(1) in _US_STATE_ABBR:
+    # US: any state full name, 2-letter abbrev, or country variant
+    # matched word-bounded anywhere. "Remote MD" → US, "MD Remote" → US,
+    # "Maryland" → US, "United States" → US, "(US)" → US.
+    if _US_ACCEPT_REGEX.search(norm):
         return "US"
 
-    # Full state names
-    for state in _US_STATE_FULL:
-        if f" {state} " in norm or f" {state}," in norm:
+    # City-only fallback — catches markers like "Manhattan", "Bay Area",
+    # "NYC" that aren't state names.
+    for city in _US_CITY_MARKERS:
+        if f" {city} " in norm or f" {city}," in norm:
             return "US"
 
     return None
 
 
 def is_us_location(raw: str) -> bool:
-    """True if the location is US-resolvable or ambiguous-remote.
+    """True only if a positive US marker is present.
 
-    Policy: unambiguous non-US → False, US markers → True, bare "Remote"
-    with no country marker → True (most postings default to US).
+    Strict whitelist policy: a non-US marker list can never be
+    exhaustive (Bulgaria, Greece, Serbia, Baltic states, etc. keep
+    sneaking through). Instead, require positive evidence — a US
+    state (full or abbreviated), a US city, or an explicit "United
+    States" / "US" / "USA" tag. Anything else is rejected, including
+    bare "Remote" with no country signal.
+
+    Exception: empty / whitespace-only strings are accepted — an
+    unset location field isn't evidence of non-US.
     """
-    if not raw:
+    if not raw or not raw.strip():
         return True  # empty = no location constraint; accept
-    norm = _normalize(raw)
     country = country_from_location(raw)
-    if country is None:
-        # Bare "Remote" without any country signal → accept as likely US.
-        if "remote" in norm:
-            return True
-        # Nothing at all matched — be permissive, downstream scoring will
-        # handle quality filtering. A pure garbage string is rare.
-        return True
+    # Explicit non-US → reject. Explicit US → accept. Everything else
+    # (including "Remote" with no country info) → reject.
     return country == "US"
 
 

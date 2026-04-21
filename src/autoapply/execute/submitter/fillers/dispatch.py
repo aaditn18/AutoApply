@@ -56,6 +56,47 @@ def fill_field(page: Any, name: str, value: str) -> None:
     cb_id = page.locator(f'input[type="checkbox"][id="{name}"]')
     cb_loc = cb_name if cb_name.count() > 0 else cb_id
     if cb_loc.count() > 0:
+        # Multi-option checkbox GROUP (e.g. name="question_X[]" for a
+        # 50-state grid). When >1 checkbox shares the same name, we
+        # must pick the ones whose value attr OR associated <label for>
+        # text matches ``value`` — NOT just ``.first``, which always
+        # hits Alabama. Regression: mthree job 848 Jr. Java Developer,
+        # where the LLM answered "Maryland" but Alabama got checked.
+        if cb_loc.count() > 1:
+            # Support comma-separated values for multi-select.
+            wanted = {
+                v.strip().lower()
+                for v in value.split(",")
+                if v.strip()
+            }
+            any_checked = False
+            for i in range(cb_loc.count()):
+                try:
+                    cb = cb_loc.nth(i)
+                    cb_val = (cb.get_attribute("value") or "").strip().lower()
+                    label_text = ""
+                    cb_eid = cb.get_attribute("id") or ""
+                    if cb_eid:
+                        lbl = page.locator(f'label[for="{cb_eid}"]')
+                        if lbl.count() > 0:
+                            label_text = (
+                                lbl.first.inner_text() or ""
+                            ).strip().lower()
+                    if cb_val in wanted or label_text in wanted:
+                        cb.check(timeout=3_000, force=True)
+                        any_checked = True
+                except Exception as exc:  # noqa: BLE001
+                    log.debug(
+                        "fill_field: checkbox group %r iter %d failed: %s",
+                        name, i, exc,
+                    )
+            if not any_checked:
+                log.debug(
+                    "fill_field: no checkbox in group %r matches value %r",
+                    name, value,
+                )
+            return
+
         truthy = value.strip().lower() in ("yes", "true", "1", "on")
         if truthy:
             cb_loc.first.check(timeout=3_000)

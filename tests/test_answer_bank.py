@@ -179,6 +179,16 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
     ("Anticipated graduation year", QuestionType.EXPECTED_GRADUATION, None),
     ("University", QuestionType.SCHOOL, None),
     ("What is your major?", QuestionType.MAJOR, None),
+    # DEGREE phrasings. Regression: "level of completed education" (Axon
+    # job 663, 2026-04-20) — the prior regex required "level of" and
+    # "education" to be adjacent and missed any qualifier between them.
+    ("Degree", QuestionType.DEGREE, None),
+    ("Highest degree", QuestionType.DEGREE, None),
+    ("Level of education", QuestionType.DEGREE, None),
+    ("What is your highest level of completed education?", QuestionType.DEGREE, None),
+    ("Highest level of education attained", QuestionType.DEGREE, None),
+    ("Education level", QuestionType.DEGREE, None),
+    ("Highest education completed", QuestionType.DEGREE, None),
 
     # -- Compensation -----------------------------------------------------
     ("Salary expectation", QuestionType.SALARY_EXPECTATION, None),

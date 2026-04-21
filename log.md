@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 719 passing.**
+**Current test tally: 753 passing.**
 
 ---
 
@@ -1563,3 +1563,173 @@ possible.
   .claude/settings.local.json`.
 
 See `.claude/README.md` for the complete reference.
+
+---
+
+## 2026-04-21 — Three classifier / filter gaps closed (DEGREE, GPA-threshold, location)
+
+Re-ran the 30 non-`ok` Greenhouse applications after deduplicating by
+`job_id` (keeping latest outcome per job). 7 / 10 re-applies succeeded
+first try — the 04-19 DOM Stage-2 + batch-LLM work generalized to
+tenants it had never seen. Three failures remained, each a distinct
+gap worth naming.
+
+### Bug 1 — DEGREE regex missed "level of COMPLETED education"
+
+`classifier.py::_RULES` DEGREE pattern was
+`(?:highest\s+)?degree|qualification|level\s+of\s+education`. The
+substring `level\s+of\s+education` required "level", "of", "education"
+in that exact order with only whitespace between — Axon's label
+`"What is your highest level of completed education?"` failed because
+"completed" sat between "of" and "education". Classifier returned
+UNKNOWN → field went to batch LLM without the DEGREE hint → LLM
+picked a plausible but wrong option that didn't match Axon's dropdown.
+
+**Fix:** broadened the alternation to accept intervening qualifiers:
+- `level\s+of\s+(?:\w+\s+)*education` — "level of <anything> education"
+- `highest\s+(?:level\s+of\s+)?(?:\w+\s+){0,3}education` — "highest <0-3 words> education"
+- `education\s+(?:level|attained|completed)` — "education level" / "education attained"
+
+Paraphrase tests cover the exact Axon label plus six variants. Job 663
+Axon now submits on first try.
+
+### Bug 2 — GPA threshold bypassed the batch LLM
+
+Fall-through path in `dom/resolve.py::_try_classifier_resolve` for
+mthree's `"Do/will you have a graduating GPA of 2.75+ (or equivalent)?"`
+Yes/No select:
+
+1. Classifier → `QuestionType.GPA` (correct).
+2. Bank returns profile GPA `"3.975"` (correct).
+3. Options `["Yes", "No"]` — no exact match, no token-set match.
+4. Code fell through to `return value` → `fill_combobox("3.975")`
+   typed into a Yes/No React-Select → no match → validation error.
+
+The batch LLM has a threshold rule in `prompts/batch_rules.md`
+("compare the profile's actual value to the numeric threshold in the
+question. Pick 'Yes' only when the profile value meets or exceeds it")
+but never saw the question because Phase-1 had already "resolved" it
+with an unusable numeric value.
+
+**Fix — two iterations:**
+
+1. **First attempt (too broad):** `return None` from the no-match
+   branch to defer any select-with-options to the LLM. Broke School
+   async-typeaheads that rely on `fill_combobox` typing the bank value
+   and letting React-Select's async filter find the match. Caught on
+   the re-run of job 848 — mthree regressed from GPA-threshold to
+   School-required.
+2. **Final (narrow):** defer to LLM only when the bank value is
+   strictly numeric AND none of the options contain a digit — i.e.,
+   a type mismatch. Numeric-vs-Yes/No → LLM; text-vs-text (school
+   typeaheads) → keep the type-and-filter path.
+
+Verified live: job 848's `batch_audit` now shows GPA routed through
+`gemini-2.5-flash-lite` with `answer_count=3`. But the submission
+itself kept failing with `no_success_signal` because a second,
+deeper bug was gating it: **the 50-state grid's `fill_field` always
+checked Alabama instead of the requested state.**
+
+### Bug 2b — Multi-option checkbox groups always checked the first box
+
+`fillers/dispatch.py`'s checkbox branch located checkboxes by
+`[name="X"]` (for `name="question_X[]"` this matches ALL 50 state
+checkboxes since they share the name) and then called
+``cb_loc.first.check()``. Result: on mthree's "select the states
+you're 100% committed to working in" question, the resolver answered
+`"Maryland"` (via per-field `llm_fallback` because Phase-1 can't
+resolve an open-ended multi-select), but then `.first` always hit
+Alabama — not Maryland — so the form's validation "at least one
+state must match" didn't trigger, but "the state you selected
+isn't one we hire in" did silently.
+
+**Fix:** when `cb_loc.count() > 1` (multi-option group), iterate
+the group and check only the checkbox whose `value` attribute OR
+`<label for="id">` text matches (case-insensitive) one of the
+values in the resolver's answer. Supports comma-separated multi-
+select ("Maryland, Virginia" → two boxes checked). If no checkbox
+matches, skip silently instead of falling through to the old
+`.first` path — checking a random wrong box is worse than checking
+nothing.
+
+Verified live: job 848 Mthree Jr. Java Developer — `outcome=ok`,
+confirmation URL reached. Three real re-submissions to date:
+`ok / ok / ok` for Axon 663 / mthree 844 / mthree 848.
+
+### Bug 3 — Bulgaria slipped through the non-US marker list
+
+`location_filter.py` was a **non-US denylist**: 40+ countries as
+regexes, plus explicit US markers as fast-path positives, plus a
+fallback that accepted "bare remote" as probably-US. Bulgaria wasn't
+in the list. `"-REMOTE, BULGARIA-"` returned `country=None`, then
+`is_us_location` said "has 'remote' → True", and Smartsheet's
+Bulgaria-remote role was ingested, scored, and submitted (landing in
+review on the work-eligibility question).
+
+The fundamental issue: a non-US country list can never be exhaustive
+— Greece, Croatia, Serbia, Slovenia, Slovakia, Lithuania, Latvia,
+Estonia, Cyprus, Malta are all missing and would've leaked through too.
+
+**Fix — invert to a strict US whitelist with flexible matching.**
+A single compiled `_US_ACCEPT_REGEX` matches word-bounded anywhere:
+- Country variants: `United States`, `United States of America`,
+  `U.S.`, `U.S.A.`, `USA`, `US`
+- All 50 state full names + DC + Puerto Rico (whitespace-flexible for
+  multi-word names)
+- All 50 state 2-letter abbreviations + DC
+
+`country_from_location` returns `"US"` iff the regex hits (and no
+non-US marker matched first). `is_us_location` returns `country == "US"`
+— no more "bare remote = accept" fallback.
+
+Accepts: `"MD"`, `"Remote MD"`, `"MD Remote"`, `"Maryland"`, `"(US)"`,
+`"Puerto Rico"`, etc. Rejects: bare `"Remote"`, `"Bulgaria"`,
+`"Remote, Greece"`, anything without a positive US signal.
+
+This is a tradeoff: real postings whose location field is literally
+just `"Remote"` (no state, no "US" tag) are now rejected at ingest.
+In practice these are rare — most US-remote jobs include a state or
+"Remote - US" marker — and we accept the small loss as the cost of
+not mass-applying to foreign roles.
+
+### Tests
+
+**719 → 753.** Added:
+- 7 DEGREE classifier paraphrases including the exact Axon label.
+- GPA-threshold defers-to-LLM regression.
+- School async-typeahead returns bank value (regression for the first
+  too-broad Bug 2 fix).
+- Sanity: exact option match for preference-listed School options.
+- 8 non-US rejects (bare "Remote", Bulgaria variants, Greece /
+  Croatia / Serbia / Slovenia / Lithuania).
+- 13 flexible US-accept fixtures (`"MD"`, `"Remote MD"`, `"Maryland"`,
+  `"USA"`, `"U.S.A."`, `"Puerto Rico"`, etc.).
+- 3 checkbox-group dispatch tests: picks matching label (not
+  `.first`), supports comma-separated multi-select, no-match
+  checks nothing.
+
+### Live re-run outcomes
+
+| Job | Before | After | Bug |
+|---|---|---|---|
+| 663 Axon | `failed`: education dropdown | **ok** | 1 |
+| 848 mthree | `failed`: GPA threshold | **ok** (after checkbox-group fix) | 2 + 2b |
+| 990 Smartsheet | `review`: Bulgaria work eligibility | `review`: same | 3 (fixed at ingest; this job already in DB) |
+
+10 total re-applies across today's sessions: **8 ok · 1 failed · 1
+review** (vs. 0/10 success before the 04-19 batch-LLM work). The one
+remaining non-`ok` is Smartsheet's Bulgaria posting, which legitimately
+belongs in review — Aadit cannot legally work in Bulgaria.
+
+### Files touched
+
+- `src/autoapply/answers/classifier.py` — DEGREE regex.
+- `src/autoapply/execute/submitter/dom/resolve.py` — numeric-vs-options
+  defer logic.
+- `src/autoapply/execute/submitter/fillers/dispatch.py` — multi-option
+  checkbox group label/value matching.
+- `src/autoapply/select/location_filter.py` — strict US-whitelist
+  regex, `_US_EXPLICIT_MARKERS` retired.
+- `tests/test_answer_bank.py`, `tests/test_dom_package.py`,
+  `tests/test_fillers_package.py`, `tests/test_location_filter.py`
+  — regression coverage.

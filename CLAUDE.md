@@ -45,6 +45,19 @@ there's already a paragraph explaining why it's the way it is.
   answer_bank covers the vast majority of fields. Only fields the
   classifier can't answer confidently (novel essays, dropdowns with
   non-matching options, SPA-injected fields) go to the batched LLM.
+- **Type-mismatch on select fields defers to the LLM.** When the Stage-2
+  pre-resolve produces a strictly-numeric value (profile GPA `"3.975"`)
+  for a select whose options contain no digits (`["Yes", "No"]`), the
+  field is routed to the batched LLM so the threshold rule in
+  `prompts/batch_rules.md` can fire. Text-vs-text mismatches (school
+  async-typeaheads) keep the type-and-filter path — see
+  `execute/submitter/dom/resolve.py`.
+- **Location filter is a strict US-whitelist.** Non-US country denylists
+  can never be exhaustive (Bulgaria / Greece / Croatia etc. kept slipping
+  through). `is_us_location` accepts only strings matching
+  `_US_ACCEPT_REGEX` — US country variants, 50 state names + DC + PR,
+  or 2-letter state abbrevs — matched word-bounded anywhere. Bare
+  `"Remote"` is rejected.
 - **One LLM call per application**, not per-field. Public entry point
   lives in `src/autoapply/answers/llm_batch.py`; implementation is
   split: `answers/batch_prompt.py` (prompt construction), `answers/batch_parse.py`
@@ -93,9 +106,10 @@ This repo has a full agentic-coding layer under `.claude/`. See
 
 Large-scale structural refactor shipped in 7 commits. Net: every
 previously-monolithic hot-spot module split into cohesive subpackages
-with isolated concerns. 626 → 719 tests (+93). Behavior-preserving —
-no functional changes. See `log.md` sections U–Z' for per-phase
-rationale and the final summary table.
+with isolated concerns. 626 → 753 tests (+127, incl. 2026-04-21
+classifier/filter gaps and the checkbox-group dispatch fix).
+Behavior-preserving — no functional changes. See `log.md` sections
+U–Z' for per-phase rationale and the final summary table.
 
 Key post-refactor landmarks:
 - `state/rules/*.yml` + `prompts/*.md` — all policy rules as data.

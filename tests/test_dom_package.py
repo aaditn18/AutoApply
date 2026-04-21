@@ -180,3 +180,119 @@ def test_batch_resolve_returns_empty_audit_when_no_fields():
     assert audit["per_field"] == []
     assert audit["model_used"] == ""
     assert audit["error"] == ""
+
+
+# ─── Pre-resolve behavior — threshold questions defer to LLM ────────────
+
+
+def _minimal_profile_with_gpa(gpa: str = "3.975"):
+    """Build a Profile with just enough fields set that the bank can
+    answer GPA-like questions. All other fields use schema defaults."""
+    from autoapply.profile.schema import (
+        DateRange, Education, Profile, Skills,
+    )
+
+    return Profile(
+        track="swe",
+        full_name="Test Candidate",
+        email="test@example.com",
+        phone="000-000-0000",
+        linkedin_url="",
+        github_url="",
+        skills=Skills(),
+        education=[Education(
+            school="University of Maryland - College Park",
+            degree="B.S. Computer Science",
+            minor="",
+            gpa=gpa,
+            date_range=DateRange(raw="Aug 2022 -- May 2026"),
+        )],
+        experiences=[],
+        projects=[],
+    )
+
+
+def test_preresolve_gpa_threshold_yes_no_defers_to_llm():
+    """Regression (job 848 mthree, 2026-04-20): a GPA-threshold select
+    with Yes/No options must NOT receive the profile's numeric GPA
+    as its value — fill_combobox would fail to match "3.975" against
+    ["Yes", "No"]. The pre-resolve path must return None so the field
+    reaches the batch LLM, which applies the threshold rule in
+    ``prompts/batch_rules.md``."""
+    from autoapply.execute.submitter.dom.fields import _DomField
+    from autoapply.execute.submitter.dom.resolve import _try_classifier_resolve
+
+    f = _DomField(
+        element_id="question_gpa_threshold",
+        label="Do/will you have a graduating GPA of 2.75 + (or equivalent)?",
+        kind="select",
+        options=["Yes", "No"],
+        locator=None,
+    )
+    result = _try_classifier_resolve(
+        f, profile=_minimal_profile_with_gpa("3.975"), track="swe",
+    )
+    assert result is None, (
+        f"expected None (defer to LLM) for GPA-threshold select, got {result!r}"
+    )
+
+
+def test_preresolve_returns_exact_option_match_when_available():
+    """Sanity check the non-deferred path: when an option IS an exact
+    match for the bank value, pre-resolve returns it (no LLM needed)."""
+    from autoapply.execute.submitter.dom.fields import _DomField
+    from autoapply.execute.submitter.dom.resolve import _try_classifier_resolve
+
+    f = _DomField(
+        element_id="question_school",
+        label="School",
+        kind="select",
+        options=[
+            "University of Maryland - College Park",
+            "University of Maryland - Baltimore County",
+            "Other",
+        ],
+        locator=None,
+    )
+    result = _try_classifier_resolve(
+        f, profile=_minimal_profile_with_gpa(), track="swe",
+    )
+    # School preference regex should pick College Park variant.
+    assert result == "University of Maryland - College Park"
+
+
+def test_preresolve_school_async_typeahead_returns_bank_value_for_typing():
+    """Regression (job 848 mthree, 2026-04-21): async-typeahead School
+    dropdowns ship an incomplete option list at scrape time — the full
+    list only appears after the candidate types. The pre-resolve must
+    return the bank school string (not None) so ``fill_combobox`` can
+    type it and let React-Select's async filter find the real match.
+
+    Only NUMERIC-vs-non-numeric mismatches (GPA threshold) should defer
+    to the LLM; text-vs-text mismatches keep the type-and-filter path.
+    """
+    from autoapply.execute.submitter.dom.fields import _DomField
+    from autoapply.execute.submitter.dom.resolve import _try_classifier_resolve
+
+    # Simulated partial options list — only a handful of unrelated
+    # schools are visible before typing. The profile's school is NOT
+    # in the list.
+    f = _DomField(
+        element_id="question_school",
+        label="School",
+        kind="select",
+        options=[
+            "Harvard University",
+            "Stanford University",
+            "Massachusetts Institute of Technology",
+        ],
+        locator=None,
+    )
+    result = _try_classifier_resolve(
+        f, profile=_minimal_profile_with_gpa(), track="swe",
+    )
+    # Must be a non-empty school string so fill_combobox can type it.
+    assert result is not None
+    assert "maryland" in (result or "").lower(), (
+        f"expected bank School value for async-typeahead typing, got {result!r}"
+    )

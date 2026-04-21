@@ -4,9 +4,16 @@
 
 **Hard filters — applied BEFORE ranking. A hit = job rejected.**
 
-- `location_filter.py::is_us_or_remote` — non-US countries, "Remote -
-  EMEA", "Remote - Canada" all rejected. Ambiguous "Remote" with no
-  country marker → accepted (likely US).
+- `location_filter.py::is_us_location` — **strict US-whitelist** (inverted
+  2026-04-21 after Bulgaria-remote slipped through the old non-US
+  denylist). Accepts only when `_US_ACCEPT_REGEX` matches: US country
+  variant (`US`, `USA`, `United States`, `U.S.`, `U.S.A.`), any of 50
+  state full names + DC + PR (whitespace-flexible multi-word), or any
+  2-letter state abbrev — all word-bounded, matched anywhere in the
+  string. Bare `"Remote"` and `"Remote, <non-US-country>"` both
+  rejected. Non-US country denylists are maintained for attribution
+  (`country_from_location` returns `"GB"` etc.) but `is_us_location`
+  no longer treats ambiguous strings as probably-US.
 - `yoe_filter.py::is_yoe_eligible` — reject when the JD requires ≥3
   years post-grad experience. Regex scans `N+ years` / `minimum N years`
   in the JD.
