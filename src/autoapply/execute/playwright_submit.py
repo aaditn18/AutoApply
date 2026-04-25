@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "CaptchaDetected",
     "SubmitFailed",
+    "submit_ashby",
     "submit_greenhouse",
     "submit_lever",
 ]
@@ -216,4 +217,116 @@ def submit_lever(
         captcha_solver_api_key=captcha_solver_api_key,
         captcha_solver_timeout=captcha_solver_timeout,
         llm_context=llm_context,
+    )
+
+
+def submit_ashby(
+    *,
+    apply_url: str,
+    data: dict[str, Any],
+    files: dict[str, str],
+    headless: bool = True,
+    imap_server: str = "imap.gmail.com",
+    imap_port: int = 993,
+    imap_email: str = "",
+    imap_password: str = "",
+    imap_code_timeout: int = 90,
+    llm_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Fill and submit an Ashby-hosted application form via Playwright.
+
+    Ashby's apply pages are SPA-driven — every tenant-specific question
+    (EEO, essays, custom dropdowns) gets injected into the DOM at
+    render time, not listed in a form-spec API. We rely entirely on
+    Stage-2 DOM batch (``submitter/dom/``) to discover and fill those.
+    The ``data`` dict coming in only carries the base fields (name,
+    email, phone, LinkedIn) + any machine-keyed atoms our resolver
+    knows about.
+
+    Returns an outcome dict: ``{"ok": bool, "url": str, "error":
+    str|None, "field_errors": list[str]}``. Raises
+    :class:`CaptchaDetected` if a CAPTCHA wall is detected.
+    """
+    # Ashby's hosted apply URL is candidate-supplied (it came from the
+    # public feed's ``applyUrl`` field), so we use it directly instead
+    # of constructing one. A stray redirect from /application to the
+    # same URL without path change is handled by success_detect.
+    #
+    # Reuse the same augmented_data / label_values strategy as Greenhouse
+    # — Ashby forms frequently include location atoms (City / State /
+    # Country) as separate required fields with varying DOM names. The
+    # label-driven fallback picks them up even when the resolver didn't
+    # emit a matching ``name`` key.
+    augmented_data = {
+        "country": "United States",
+        "location": "College Park, MD",
+        "city": "College Park",
+        "state": "MD",
+        "zip": "20740",
+        "postal_code": "20740",
+        **data,
+    }
+    # Ashby's hosted apply pages render LinkedIn / Website / "How did
+    # you find out about us?" as plain text inputs with opaque
+    # ``question_<numeric_id>`` attribute names — our machine-key
+    # router can't match them, so they have to be filled via the
+    # label-driven fallback. Add their canonical answers to the
+    # label_values dict so ``label_fallback.fill_by_label`` picks
+    # them up after the classifier identifies the QuestionType.
+    linkedin_url = (
+        str(data.get("linkedin_url") or "")
+        or "https://www.linkedin.com/in/aadit-nilay/"
+    )
+    label_values = {
+        "current_city": "College Park",
+        "current_state": "MD",
+        "current_zip": "20740",
+        "current_location": "College Park, MD",
+        "full_address": "8150 Baltimore Ave, Apt. 308-C, College Park, MD 20740",
+        "street_address": "8150 Baltimore Ave",
+        "address_line_2": "Apt. 308-C",
+        # Ashby-text-field defaults — keyed by QuestionType.value so
+        # ``classify(label).type.value`` lookups land on them.
+        "linkedin_url": linkedin_url,
+        "github_url": str(data.get("github_url") or "")
+            or "https://github.com/aaditn18",
+        "how_heard_about": "LinkedIn",
+    }
+
+    return submit_form(
+        url=apply_url,
+        data=augmented_data,
+        label_values=label_values,
+        llm_context=llm_context,
+        files=files,
+        headless=headless,
+        # Ashby's hosted SPA renders the submit button without a stable
+        # `type="submit"` attribute on many tenants — the default form
+        # submit selectors miss it. Match by visible text "Submit
+        # Application" (the literal Ashby label) with data-testid /
+        # attribute fallbacks first in case a newer tenant uses them.
+        # Playwright's ``:has-text`` locator matches inner text
+        # case-insensitively.
+        submit_selector=(
+            "button[data-testid='submit-application'], "
+            "button[data-ashby='submit'], "
+            "button[type='submit'], "
+            "input[type='submit'], "
+            "button:has-text('Submit Application'), "
+            "button:has-text('Submit application'), "
+            "button:has-text('Submit'):not(:has-text('Submitting'))"
+        ),
+        success_url_fragments=(
+            "confirmation",
+            "thank",
+            "success",
+            "submitted",
+            "application-submitted",
+            "/submitted",
+        ),
+        imap_server=imap_server,
+        imap_port=imap_port,
+        imap_email=imap_email,
+        imap_password=imap_password,
+        imap_code_timeout=imap_code_timeout,
     )

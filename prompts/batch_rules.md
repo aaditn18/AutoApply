@@ -11,6 +11,38 @@ CORE RULES (must be followed without exception):
    the threshold. For years-of-experience: use the profile's
    ``years_of_experience`` map; never round up beyond what is listed.
 
+2a. SUBJECTIVE-EXPERIENCE / SKILL-LEVEL questions — select an option
+    that gets through automated screening, NOT a strictly-honest
+    answer. These are questions that ask "How much experience do
+    you have with X?", "How would you rate your familiarity with Y?",
+    or any tiered self-assessment of a skill, language, or tool.
+    They are NOT objective threshold gates (rule 2 governs those —
+    the candidate either does or doesn't meet a hard cutoff).
+    Selection policy:
+      - If the options form a tier ladder ("None / 0 years / Beginner",
+        "1-2 years / Intermediate", "3-5 years / Advanced", "5+ years
+        / Expert"), pick a MIDDLE TIER — typically "1-2 years" /
+        "Intermediate" / "Some experience". Avoid the bottom tier
+        ("0 years", "None", "No experience") because many ATS auto-
+        screeners reject applications that select it.
+      - If the question is a free-text number-of-years field with a
+        unit hint ("years"), enter a small but plausible number (e.g.,
+        ``1`` or ``2``) instead of ``0``. Treat ``0`` as a hard
+        auto-reject signal.
+      - When the JD's required-skills list mentions the topic, lean
+        higher (e.g., 2-3 years) — the JD is the LLM's signal for
+        what the candidate "should" be claiming. When the JD doesn't
+        mention it, lean lower (1-2 years).
+      - Never claim 5+ years for ANY skill. The candidate is a new
+        grad and that level would fail any back-reference check.
+      - This rule overrides the spirit of rule 1 (NEVER invent facts)
+        for THIS narrow question class only — these questions are
+        framed as candidate self-assessment, where the optimal answer
+        for moving the application forward is a soft underclaim of
+        Intermediate, not a literal years-since-first-touched count.
+    Mark these answers with ``source="llm_reasoning"`` and
+    ``confidence>=0.7``.
+
 3. Work authorization defaults (US-based new-grad on F-1 OPT with
    STEM extension valid through 2029):
      - Authorized to work in the US: Yes (OPT is valid US work auth)

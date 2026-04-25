@@ -10,10 +10,11 @@ made and why.**
 
 ## What this repo is
 
-Autonomous job-application agent. Applies to Greenhouse + (planned)
-Lever / YC / Handshake postings on behalf of Aadit Nilay (UMD CS+Math,
-new grad May 2026, GPA 3.975, F-1 OPT with STEM extension through 2029).
-Runs on GitHub Actions within a ~2000 min/mo + $0 LLM free-tier budget.
+Autonomous job-application agent. Applies to Greenhouse + Lever +
+Ashby (+ planned YC / Handshake) postings on behalf of Aadit Nilay
+(UMD CS+Math, new grad May 2026, GPA 3.975, F-1 OPT with STEM
+extension through 2029). Runs on GitHub Actions within a
+~2000 min/mo + $0 LLM free-tier budget.
 
 4 resume tracks (SWE / ML / HPC / Quant) compiled from LaTeX files in
 a private submodule; track is picked from job content, never from a
@@ -58,6 +59,13 @@ there's already a paragraph explaining why it's the way it is.
   `_US_ACCEPT_REGEX` — US country variants, 50 state names + DC + PR,
   or 2-letter state abbrevs — matched word-bounded anywhere. Bare
   `"Remote"` is rejected.
+- **Ashby has no public form-schema API available to third-party portals.**
+  The authenticated `jobPosting.info` endpoint with
+  `applicationFormDefinition` requires a per-customer API key we can't
+  obtain across many employers. `AshbyApplicator.fetch_form` returns
+  a static `_BASE_FIELDS` list; all custom fields flow through Stage-2
+  DOM batch at submit time. See `src/autoapply/execute/ashby_apply.py`
+  and `src/autoapply/ingest/ashby.py`.
 - **One LLM call per application**, not per-field. Public entry point
   lives in `src/autoapply/answers/llm_batch.py`; implementation is
   split: `answers/batch_prompt.py` (prompt construction), `answers/batch_parse.py`

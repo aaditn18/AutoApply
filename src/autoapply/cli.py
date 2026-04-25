@@ -35,6 +35,7 @@ from autoapply.execute.base import Applicator
 from autoapply.execute.greenhouse_apply import GreenhouseApplicator
 from autoapply.execute.lever_apply import LeverApplicator
 from autoapply.ingest.base import RawJob
+from autoapply.ingest.ashby import AshbySource
 from autoapply.ingest.greenhouse import GreenhouseSource
 from autoapply.ingest.lever import LeverSource
 from autoapply.profile.build import load_profiles, run as run_profile_build
@@ -79,8 +80,8 @@ def _configure_logging(settings: Settings) -> None:
     )
 
 
-def _read_companies_yaml(settings: Settings) -> tuple[list[str], list[str]]:
-    """Return (greenhouse_tokens, lever_tokens).
+def _read_companies_yaml(settings: Settings) -> tuple[list[str], list[str], list[str]]:
+    """Return (greenhouse_tokens, lever_tokens, ashby_tokens).
 
     When TEST_SAFE_ONLY=True (the default), only the `test_safe` sub-list is
     returned. When False, both `test_safe` and `live_only` are merged.
@@ -104,7 +105,8 @@ def _read_companies_yaml(settings: Settings) -> tuple[list[str], list[str]]:
 
     gh = _tokens(data.get("greenhouse"))
     lv = _tokens(data.get("lever"))
-    return gh, lv
+    ab = _tokens(data.get("ashby"))
+    return gh, lv, ab
 
 
 def _raw_to_job_kwargs(raw: RawJob) -> dict:
@@ -168,7 +170,7 @@ def profile_build_cmd() -> None:
 @app.command("ingest")
 def ingest_cmd(
     source: Optional[str] = typer.Option(
-        None, "--source", help="Only ingest this source (greenhouse|lever)."
+        None, "--source", help="Only ingest this source (greenhouse|lever|ashby)."
     ),
     board: Optional[str] = typer.Option(
         None, "--board", help="Only ingest this board token (helpful for smoke tests)."
@@ -183,14 +185,20 @@ def ingest_cmd(
     engine = create_engine_from_settings(settings)
     init_db(engine)
 
-    gh_tokens, lv_tokens = _read_companies_yaml(settings)
+    gh_tokens, lv_tokens, ab_tokens = _read_companies_yaml(settings)
     if board:
         gh_tokens = [board] if source in (None, "greenhouse") else []
         lv_tokens = [board] if source in (None, "lever") else []
+        ab_tokens = [board] if source in (None, "ashby") else []
     elif source == "greenhouse":
         lv_tokens = []
+        ab_tokens = []
     elif source == "lever":
         gh_tokens = []
+        ab_tokens = []
+    elif source == "ashby":
+        gh_tokens = []
+        lv_tokens = []
 
     total = 0
     inserted = 0
@@ -225,6 +233,13 @@ def ingest_cmd(
         with LeverSource() as lv:
             for t in lv_tokens:
                 for raw in lv.fetch_board(t):
+                    if limit and total >= limit:
+                        break
+                    _upsert(raw)
+    if ab_tokens and (not limit or total < limit):
+        with AshbySource() as ab:
+            for t in ab_tokens:
+                for raw in ab.fetch_board(t):
                     if limit and total >= limit:
                         break
                     _upsert(raw)

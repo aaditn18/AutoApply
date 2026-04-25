@@ -49,17 +49,31 @@ US_ACCEPT = [
     "North Carolina",
     "District of Columbia",
     "Puerto Rico",
+    # Bare "Remote" / "remote" exception (added 2026-04-21).
+    # Strict whitelist would reject these for lacking positive US
+    # signal, but "Remote" alone is overwhelmingly a US-remote
+    # convention on English-language ATS feeds and losing those
+    # postings was wiping legit candidates (e.g., 9/11 Unstructured
+    # jobs). Accept ONLY the bare word — anything with extra content
+    # ("Remote Bulgaria", etc.) still goes through the denylist.
+    "Remote",
+    "remote",
+    "REMOTE",
+    "  Remote  ",   # whitespace-padded still counts
 ]
 
 
 # -- Non-US rejects (should all fail is_us_location) -------------------------
 #
 # Strict-whitelist policy: anything lacking a positive US signal is
-# rejected, including bare "Remote" and country names not in the
-# non-US marker list. The regression fixtures at the end of this list
-# (Bulgaria, Greece, etc.) are the reason we inverted the filter —
-# they used to leak through because the non-US marker list can never
-# be exhaustive.
+# rejected, including country names not in the non-US marker list.
+# The regression fixtures at the end of this list (Bulgaria, Greece,
+# etc.) are the reason we inverted the filter — they used to leak
+# through because the non-US marker list can never be exhaustive.
+#
+# Note: BARE "Remote" is NOT in this list; it's a US-accept exception
+# (see US_ACCEPT above). Only "Remote" combined with other content
+# that introduces a non-US signal is rejected.
 
 NON_US_REJECT = [
     "London, UK",
@@ -74,8 +88,6 @@ NON_US_REJECT = [
     "Dublin, Ireland",
     "Tel Aviv, Israel",
     "Sydney, Australia",
-    # Bare "Remote" with no country signal — strict whitelist rejects.
-    "Remote",
     # Regression: Bulgaria was missing from the non-US marker list
     # (2026-04-20, job 990 Smartsheet). With strict whitelist, it's
     # rejected regardless.
@@ -117,9 +129,21 @@ def test_country_from_location_non_us():
     assert country_from_location("Remote - EMEA") == "REGION"
 
 
-def test_country_from_location_ambiguous_remote_is_none():
-    """Bare 'Remote' with no country signal is ambiguous → None (accept)."""
-    assert country_from_location("Remote") is None
+def test_country_from_location_bare_remote_is_us():
+    """Bare 'Remote' / 'remote' — exact match only — routes to US.
+    Exception added 2026-04-21 because the strict whitelist was
+    wiping legit US-remote postings whose location field is just
+    'Remote'. Anything with extra content still goes through the
+    denylist."""
+    assert country_from_location("Remote") == "US"
+    assert country_from_location("remote") == "US"
+    assert country_from_location("REMOTE") == "US"
+    assert country_from_location("  Remote  ") == "US"
+    # Anything else falls through.
+    assert country_from_location("Remote Bulgaria") is None
+    # Non-US denylist still wins first.
+    assert country_from_location("Remote - EMEA") == "REGION"
+    assert country_from_location("Remote - Canada") == "CA"
 
 
 # -- NYC bonus ---------------------------------------------------------------

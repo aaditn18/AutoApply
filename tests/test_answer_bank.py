@@ -205,6 +205,13 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
     # hijacks veteran questions — regression test below.
     ("Are you a veteran or active member of the United States Armed Forces?", QuestionType.DEMO_VETERAN, None),
     ("Do you have a disability?", QuestionType.DEMO_DISABILITY, None),
+    # Ashby radio-group heading heuristic sometimes lands on an
+    # option text instead of the question prompt. The 2026-04-24
+    # broaden ensures option-label phrasings still classify.
+    ("Yes, I have a disability, or have had one in the past",
+     QuestionType.DEMO_DISABILITY, None),
+    ("disability or chronic condition", QuestionType.DEMO_DISABILITY, None),
+    ("Disability self-identification", QuestionType.DEMO_DISABILITY, None),
     ("Pronouns", QuestionType.DEMO_PRONOUNS, None),
 
     # -- Military service vs EEO veteran self-ID -----------------------
@@ -241,6 +248,13 @@ CLASSIFIER_CASES: list[tuple[str, QuestionType, dict[str, str] | None]] = [
 
     # -- Referral ---------------------------------------------------------
     ("How did you hear about us?", QuestionType.HOW_HEARD_ABOUT, None),
+    # Ashby uses "find out about" — Skydio's apply form had this exact
+    # phrasing and the classifier missed it before the 2026-04-24 broaden.
+    ("How did you find out about Skydio?", QuestionType.HOW_HEARD_ABOUT, None),
+    ("How did you find out about us?", QuestionType.HOW_HEARD_ABOUT, None),
+    ("Where did you find out about us?", QuestionType.HOW_HEARD_ABOUT, None),
+    ("How did you discover us?", QuestionType.HOW_HEARD_ABOUT, None),
+    ("How did you come across this role?", QuestionType.HOW_HEARD_ABOUT, None),
     # Yes/No "do you know someone here?" — must route to REFERRAL_KNOW_SOMEONE,
     # NOT to REFERRAL_NAME (which catches "who referred you?" etc.).
     ("Do you know anyone at Acme?", QuestionType.REFERRAL_KNOW_SOMEONE, None),

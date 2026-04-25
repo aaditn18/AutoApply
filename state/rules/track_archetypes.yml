@@ -1,0 +1,92 @@
+# Archetype job titles per resume track — user-specified canonical
+# set (2026-04-21). Used by
+# `select/track_picker.py::_semantic_title_track` as a SECONDARY
+# fallback when stages 1–3 of `pick_track` abstain.
+#
+# Design: bag-of-words cosine similarity between the job title and
+# each archetype phrase per track. Max per-track, then pick the
+# track with the highest max (subject to min_score + min_margin).
+#
+# These archetypes are deliberately a narrow canonical set — one
+# phrase per "<modifier> <role>" combination the user considers a
+# valid resume-track identity. Crude by design: it's the secondary
+# logic for untracked jobs, not the primary router. Richer keyword
+# matching against resume skills is deferred to its own plan cycle
+# (see log.md "Deferred TODO — refine track selection").
+
+swe:
+  - Software Engineer
+  - Software Developer
+
+ml:
+  - Machine Learning Researcher
+  - Machine Learning Engineer
+  - Machine Learning Scientist
+
+quant:
+  - Quantitative Developer
+  - Quantitative Researcher
+  - Quantitative Trader
+
+hpc:
+  - Performance Engineer
+  - HPC Engineer
+  - Systems Engineer
+  - Low-Latency Engineer
+  - C++ Engineer
+  - Developer Technology Engineer
+
+# Tokens stripped before similarity compare — common English function
+# words + seniority/level modifiers that add no signal for track
+# distinction.
+stopwords:
+  - a
+  - an
+  - and
+  - at
+  - by
+  - for
+  - from
+  - in
+  - of
+  - on
+  - or
+  - the
+  - to
+  - with
+  - senior
+  - sr
+  - staff
+  - principal
+  - lead
+  - junior
+  - jr
+  - entry
+  - mid
+  - ii
+  - iii
+  - iv
+  - "1"
+  - "2"
+  - "3"
+
+# Minimum absolute cosine score for the fallback to fire.
+#
+# Tuned 2026-04-21 against a 638-job backlog (greenhouse + lever +
+# ashby). At 0.40, titles like "Revenue Operations Engineer" scored
+# 1/√6 ≈ 0.408 — just above the floor — and got misassigned to HPC
+# because they share only the generic token "engineer" with "Systems
+# Engineer". Raising to 0.45 cuts these 1-generic-token matches
+# (0.408 < 0.45) while preserving real matches:
+#   - exact archetype (e.g. "Software Engineer") → 1.0
+#   - 2-of-2 archetype tokens in a 3-token title (e.g. "Staff
+#     Software Engineer" after stopword strip = 2/√4 = 1.0) → ≥ 0.71
+#   - 2-of-3 archetype tokens in a 3-token title (e.g. "Wireless
+#     Systems Performance Engineer" vs "Systems Engineer" = 2/√8) →
+#     0.707
+#   - 1-of-2 archetype tokens in a 2-token title (e.g. "Backend
+#     Developer" vs "Software Developer") → 0.5 ≥ 0.45
+min_score: 0.45
+
+# Minimum lead the winning track must have over the runner-up.
+min_margin: 0.08

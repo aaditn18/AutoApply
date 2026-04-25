@@ -28,8 +28,12 @@ completes).
   re-export shims. New code imports from `.dom` and `.fillers`
   respectively. External tests monkeypatch `dom_batch._call_with_cascade`
   and friends — those names MUST stay re-exported.
-- **Stage-2 only fires for Greenhouse SPA tenants** (job-boards.greenhouse.io).
-  Check `batch_resolve_dom_fields` returns empty audit on non-SPA
+- **Stage-2 fires for any SPA-backed tenant**: Greenhouse SPA
+  (job-boards.greenhouse.io) and Ashby (jobs.ashbyhq.com). For Lever
+  it runs too but most fields are already handled by
+  `fill_lever_cards`. For Ashby it does most of the work because
+  Ashby exposes no form-schema API to third-party portals.
+  `batch_resolve_dom_fields` returns an empty audit on non-SPA
   forms and moves on.
 - **Late-rescan pass** (`dom/batch.py::_rescan_for_late_fields`)
   catches EEO fields that render only after cascading selects fill —

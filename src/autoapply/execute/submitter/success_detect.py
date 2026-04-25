@@ -58,6 +58,10 @@ STRONG_SUCCESS_URL_PATHS: tuple[str, ...] = (
     "/received",
     "/post-apply",
     "/post_apply",
+    # Ashby hosted apply pages typically land on one of these on success.
+    "/application-submitted",
+    "/application-complete",
+    "/application-received",
 )
 
 # Query-string markers some ATSs append on success (e.g. ?confirmation=true).

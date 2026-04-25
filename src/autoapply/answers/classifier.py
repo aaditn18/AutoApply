@@ -544,7 +544,13 @@ _RULES: list[_Rule] = [
     ),
     (
         QuestionType.DEMO_DISABILITY,
-        re.compile(r"disability\s+status|do\s+you\s+have\s+a\s+disability"),
+        re.compile(
+            r"disability\s+status"
+            r"|do\s+you\s+have\s+a\s+disability"
+            r"|have\s+a\s+disability"
+            r"|disability\s+self.identif"
+            r"|chronic\s+condition"
+        ),
         None,
     ),
     (
@@ -637,8 +643,10 @@ _RULES: list[_Rule] = [
     (
         QuestionType.HOW_HEARD_ABOUT,
         re.compile(
-            r"how\s+(?:did\s+you|do\s+you)\s+hear\s+about|where\s+did\s+you\s+hear"
-            r"|how\s+did\s+you\s+find\s+(?:us|this)"
+            r"how\s+(?:did|do)\s+you\s+(?:hear|learn|find\s+out)\s+about"
+            r"|where\s+did\s+you\s+(?:hear|learn|find\s+out)"
+            r"|how\s+did\s+you\s+find\s+(?:us|this|out)"
+            r"|how\s+did\s+you\s+(?:come\s+across|discover)"
         ),
         None,
     ),

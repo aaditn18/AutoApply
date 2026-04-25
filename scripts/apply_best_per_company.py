@@ -39,6 +39,7 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 from autoapply.config import get_settings
 from autoapply.answers.bank import AnswerBank
 from autoapply.congregate.cover_letter import CoverLetterRejected, CoverLetterResult, draft_cover_letter
+from autoapply.execute.ashby_apply import AshbyApplicator
 from autoapply.execute.greenhouse_apply import GreenhouseApplicator
 from autoapply.execute.lever_apply import LeverApplicator
 from autoapply.profile.schema import Profile
@@ -91,7 +92,7 @@ def _best_per_company(
     """Return the highest-ranked job per company not yet successfully applied to.
 
     Args:
-        source: ``"greenhouse"``, ``"lever"``, or ``"both"``.
+        source: ``"greenhouse"``, ``"lever"``, ``"ashby"``, or ``"both"``.
         retry_non_ok: When True, jobs whose only prior ``Application`` rows
             had outcomes other than ``"ok"`` (i.e. ``failed`` / ``review`` /
             ``captcha`` / ``dry_run``) are eligible to be re-picked. Default
@@ -144,7 +145,7 @@ def _best_per_company(
             ~Job.id.in_(excluded),
         )
         if source == "both":
-            q = q.filter(Job.source.in_(["greenhouse", "lever"]))
+            q = q.filter(Job.source.in_(["greenhouse", "lever", "ashby"]))
         else:
             q = q.filter(Job.source == source)
         jobs = q.order_by(Job.final_rank.desc()).all()
@@ -205,6 +206,7 @@ def _apply_one(
     applicator_cls = {
         "greenhouse": GreenhouseApplicator,
         "lever": LeverApplicator,
+        "ashby": AshbyApplicator,
     }.get(job.source)
     if applicator_cls is None:
         return {"outcome": "skip", "reason": f"unsupported source: {job.source}"}
@@ -295,7 +297,7 @@ def main() -> None:
                         help="Just print the plan, don't apply anything")
     parser.add_argument("--min-rank", type=float, default=0.0,
                         help="Minimum final_rank to include (default 0.0)")
-    parser.add_argument("--source", choices=["greenhouse", "lever", "both"],
+    parser.add_argument("--source", choices=["greenhouse", "lever", "ashby", "both"],
                         default="greenhouse",
                         help="Which ATS to pull candidates from (default: greenhouse)")
     parser.add_argument("--board-token", default="",

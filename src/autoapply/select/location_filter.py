@@ -179,6 +179,19 @@ def country_from_location(raw: str) -> str | None:
     """
     if not raw:
         return None
+
+    # Bare "Remote" / "remote" — treated as US by convention. The
+    # strict US-whitelist (shipped 2026-04-21 as Bug 3's fix) otherwise
+    # rejects bare "Remote" because it lacks any positive US signal,
+    # which discards a meaningful number of real US-remote postings
+    # whose location field is just that one word (observed on
+    # Unstructured, Smartsheet, and others). Accept ONLY the bare
+    # word — anything else with extra content ("Remote Bulgaria",
+    # "Remote - EMEA", "-REMOTE, BULGARIA-") still falls through to
+    # the non-US denylist / US whitelist below.
+    if raw.strip().lower() == "remote":
+        return "US"
+
     norm = _normalize(raw)
 
     # Non-US first — if Berlin and "Remote" both appear, we want Berlin

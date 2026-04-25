@@ -213,3 +213,87 @@ lever:
     - getmatch
     - anchorage
     - chainalysis
+
+ashby:
+
+  # Ashby uses board slugs as the path segment after `/job-board/` on
+  # https://api.ashbyhq.com/posting-api/job-board/{slug}. Most tenants
+  # use their canonical company name lowercased, sometimes hyphenated
+  # (e.g., "mistral-ai" vs "mistral").
+  #
+  # Integration constraints (2026-04-21):
+  #   - No public API for form questions or submission; both happen via
+  #     browser automation against jobs.ashbyhq.com/{company}/.../application.
+  #   - Stage-2 DOM batch (execute/submitter/dom/) handles field
+  #     discovery + fill at submit time.
+  #   - See log.md section "2026-04-21 — Ashby integration" for the
+  #     public-vs-authenticated API analysis.
+
+  test_safe:
+    # Picked 2026-04-21 after probing 50+ Ashby slugs. Mix of
+    # citizenship-gated (natural-review) and low-stakes (not-a-target)
+    # so Phase 2 smoke tests validate the Ashby path without burning
+    # bridges at actual target companies.
+
+    - skydio         # Drones / national-security autonomy. 122 jobs,
+                     # 15 citizenship-gated (Field Support, NatSec
+                     # Sales, DFR PMs, US Army/Navy account mgrs).
+                     # Most gated roles are outside Aadit's SWE/ML
+                     # track → safe reputationally even if perfect.
+
+    - unstructured   # LLM data-tooling. 11 jobs, 4 are Public Sector
+                     # (Ft. Bragg PM, SLED AE, Software/AI Engineer -
+                     # Public Sector) — clearance gate auto-reviews.
+
+    - replit         # Cloud dev platform. 87 jobs, 4 citizenship-gated
+                     # (Field Engineer x3 + GRC Lead). Field-eng roles
+                     # are customer-deployment SE, not core SWE — safe
+                     # for Aadit.
+
+    - speak          # Consumer language-learning app. 46 jobs, zero
+                     # overlap with Aadit's SWE/ML/HPC/quant tracks —
+                     # submission quality is low-stakes regardless of
+                     # outcome.
+
+    # ── Added 2026-04-24 — low-stakes infra/dev-tool tenants for
+    #    cross-tenant verification of Ashby field-coverage fixes
+    #    (resume drop-event, label_fallback, eeo_radios). All small
+    #    companies, none Aadit's target tracks.
+    - mux            # Video infra API — small, 2 jobs at probe time.
+    - airbyte        # Data integration tool — devops, 7 jobs.
+    - prefect        # Workflow orchestration — smaller dev tool, 3 jobs.
+    - resend         # Email API — small dev tool, 5 jobs.
+    - substack       # Publishing platform — not Aadit target (added
+                     # 2026-04-25 to verify auto_consent on a fresh
+                     # form layout).
+    - bland          # Voice AI startup, smaller — added 2026-04-25
+                     # for cross-tenant auto_consent verification.
+    - modal          # Serverless compute — added 2026-04-25, low
+                     # stakes for verification runs.
+
+    # ── Added 2026-04-25 (round 2) — additional low-stakes Ashby
+    #    tenants to keep exercising the auto_consent + experience-rule
+    #    paths until we hit a tenant with a real consent checkbox.
+    - pika           # Consumer video AI — 2 jobs, none in Aadit's
+                     # SWE/ML/HPC/quant tracks.
+    - tldraw         # Whiteboard / drawing canvas tool — 2 jobs,
+                     # definitely not a target track.
+    - lovable        # Vibe-coding AI app builder — 78 jobs, consumer
+                     # / app-builder space, not Aadit's track.
+    - mintlify       # Docs SaaS / API doc tooling — 18 jobs, not a
+                     # target sector for Aadit.
+
+  live_only:
+
+    # ── Top AI labs on Ashby ────────────────────────────────────────────────
+    - openai
+    - mistral
+    - ramp
+
+    # ── Dev-tools / infra unicorns on Ashby ─────────────────────────────────
+    - linear
+    - shopify
+    - vercel
+
+    # (More can be added incrementally; Ashby's public feed is cheap to
+    # poll since rate limits are generous — ~100 req/min unofficial.)

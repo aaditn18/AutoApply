@@ -19,6 +19,7 @@ import pytest
 from autoapply.answers.bank import AnswerBank
 from autoapply.answers.types import QuestionType
 from autoapply.execute.base import Applicator, ApplyResult
+from autoapply.execute.ashby_apply import AshbyApplicator, _BASE_FIELDS as _ASHBY_BASE_FIELDS
 from autoapply.execute.greenhouse_apply import GreenhouseApplicator
 from autoapply.execute.lever_apply import LeverApplicator
 from autoapply.execute.standard_fields import (
@@ -611,6 +612,120 @@ class _StaticApplicator(Applicator):
 
     def submit(self, job, payload):
         return ApplyResult(outcome="ok")
+
+
+# ---------------------------------------------------------------------------
+# AshbyApplicator
+# ---------------------------------------------------------------------------
+
+
+def _ashby_job() -> Job:
+    """Sample Ashby-sourced Job pointing at the hosted apply URL."""
+    j = Job(
+        canonical_key="ashbyacme-swe1",
+        source="ashby",
+        source_id="11111111-1111-1111-1111-111111111111",
+        board_token="acme",
+        url="https://jobs.ashbyhq.com/acme/11111111-1111-1111-1111-111111111111/application",
+        title="Senior Software Engineer",
+        company="Acme",
+    )
+    j.id = 1
+    return j
+
+
+def test_ashby_fetch_form_returns_base_fields_only_no_http(profile, bank, tmp_path):
+    """Ashby doesn't expose a form-schema endpoint to us. ``fetch_form``
+    must return the static base set without hitting the network — any
+    HTTP call here would mean we accidentally routed through an API
+    that needs an Ashby customer key we don't have."""
+    app = AshbyApplicator(
+        profile=profile, bank=bank, track="swe",
+        resume_path=str(tmp_path / "resume.pdf"),
+        dry_runs_dir=tmp_path / "dry",
+    )
+    specs = app.fetch_form(_ashby_job())
+    assert len(specs) == len(_ASHBY_BASE_FIELDS)
+    by_name = {s.name: s for s in specs}
+    # Spot-check the must-haves. Plain names (Lever-style) so the
+    # machine-key resolver fires from the Profile without LLM help.
+    assert "name" in by_name
+    assert "email" in by_name
+    assert "resume" in by_name
+    assert by_name["resume"].kind == "file"
+    assert by_name["name"].required is True
+    assert by_name["phone"].required is False
+
+
+def test_ashby_build_payload_partitions_files_and_data(profile, bank, tmp_path):
+    """Resume / cover_letter go into ``files``; everything else into
+    ``data``; ``apply_url`` is preserved from the job record so
+    submit_ashby can navigate directly (no URL reconstruction)."""
+    app = AshbyApplicator(
+        profile=profile, bank=bank, track="swe",
+        resume_path=str(tmp_path / "resume.pdf"),
+        dry_runs_dir=tmp_path / "dry",
+    )
+    job = _ashby_job()
+    resolved = [
+        ResolvedField(
+            name="resume", label="Resume", value="/tmp/r.pdf",
+            source="machine_key",
+        ),
+        ResolvedField(
+            name="email", label="Email", value="a@b.com",
+            source="machine_key",
+        ),
+        ResolvedField(
+            name="question_pronouns", label="Pronouns", value="He/Him",
+            source="classifier+bank",
+        ),
+    ]
+    payload = app.build_payload(job, resolved)
+    assert payload["data"]["email"] == "a@b.com"
+    assert payload["data"]["question_pronouns"] == "He/Him"
+    assert payload["files"]["resume"] == "/tmp/r.pdf"
+    assert payload["apply_url"] == job.url
+
+
+def test_ashby_apply_dry_run_dumps_payload(profile, bank, tmp_path):
+    """End-to-end dry-run: resolve base fields, build payload, dump to
+    ``dry_runs_dir`` as JSON. No HTTP, no Playwright."""
+    resume = tmp_path / "resume.pdf"
+    resume.write_bytes(b"%PDF-1.4\n")
+    app = AshbyApplicator(
+        profile=profile, bank=bank, track="swe",
+        resume_path=str(resume),
+        dry_runs_dir=tmp_path / "dry",
+    )
+    result = app.apply(_ashby_job(), dry_run=True)
+    assert result.outcome == "dry_run", result
+    dump_files = list((tmp_path / "dry").glob("*.json"))
+    assert len(dump_files) == 1
+    body = json.loads(dump_files[0].read_text())
+    assert body["applicator"] == "ashby"
+    names = {r["name"] for r in body["resolved"]}
+    # Base fields get resolved from machine-keys + profile.
+    assert "first_name" in names or "_systemfield_name" in names or "name" in names
+    assert "email" in names
+
+
+def test_ashby_submit_ashby_wrapper_importable():
+    """Contract: ``submit_ashby`` must be importable from the public
+    ``playwright_submit`` module alongside the existing entry points."""
+    from autoapply.execute.playwright_submit import (
+        CaptchaDetected,
+        SubmitFailed,
+        submit_ashby,
+        submit_greenhouse,
+        submit_lever,
+    )
+    assert callable(submit_ashby)
+    # Sanity: the other entries still resolve.
+    assert callable(submit_greenhouse)
+    assert callable(submit_lever)
+    assert isinstance(CaptchaDetected("x"), Exception)
+    assert isinstance(SubmitFailed("x"), Exception)
 
 
 def test_applicator_dry_run_dump_is_json_serializable(profile, bank, tmp_path):

@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from autoapply.profile.schema import Profile, Skills
-from autoapply.select.track_picker import pick_track
+from autoapply.select.track_picker import pick_track, _semantic_title_track
 
 
 def _mk_profile(track: str, skills: list[str]) -> Profile:
@@ -194,3 +194,109 @@ def test_llm_review_passthrough(profiles_by_track):
     )
     assert d.track is None
     assert d.stage == "tie"
+
+
+# ---- Semantic title-archetype fallback (step 3.5) ------------------------
+
+
+# Direct-helper tests lock down the cosine math independently of the
+# strong-keyword lists in step 1 of pick_track. Archetype set per
+# `state/rules/track_archetypes.yml` (user-canonical, narrow on
+# purpose — see log.md deferred-TODO for the richer embedding plan).
+
+@pytest.mark.parametrize("title, expected", [
+    # Each canonical archetype phrase matches itself with score 1.0 —
+    # regression guards on the archetype YAML.
+    ("Software Engineer", "swe"),
+    ("Software Developer", "swe"),
+    ("Machine Learning Engineer", "ml"),
+    ("Machine Learning Researcher", "ml"),
+    ("Machine Learning Scientist", "ml"),
+    ("Quantitative Developer", "quant"),
+    ("Quantitative Researcher", "quant"),
+    ("Quantitative Trader", "quant"),
+    ("Performance Engineer", "hpc"),
+    ("HPC Engineer", "hpc"),
+    ("Systems Engineer", "hpc"),
+    ("Low-Latency Engineer", "hpc"),
+    ("C++ Engineer", "hpc"),
+    ("Developer Technology Engineer", "hpc"),
+    # Stopword-only modifiers must not affect the match.
+    ("Staff Software Engineer", "swe"),
+    ("Senior Machine Learning Engineer", "ml"),
+    ("Principal Quantitative Researcher", "quant"),
+    ("Lead Performance Engineer", "hpc"),
+])
+def test_semantic_direct_hits_expected_track(title, expected):
+    """Canonical archetype phrases (and stopword-prefixed variants of
+    them) must resolve via the semantic fallback."""
+    track, scores = _semantic_title_track(title)
+    assert track == expected, f"{title!r} → {track} (scores={scores})"
+
+
+@pytest.mark.parametrize("title", [
+    # Genuinely non-engineering. Abstain, don't force-fit.
+    "Public Sector Program Manager",
+    "Enterprise Account Manager",
+    "Chief of Staff",
+    "People Operations Manager",
+    "Field Support Representative",
+    "Head of Marketing",
+    "Director of Customer Success",
+])
+def test_semantic_direct_abstains_for_non_engineering(title):
+    """Non-engineering roles have no archetype overlap above the
+    threshold. Must return None rather than pick a random track."""
+    track, _scores = _semantic_title_track(title)
+    assert track is None, f"{title!r} unexpectedly resolved to {track}"
+
+
+@pytest.mark.parametrize("title", [
+    # Genuinely ambiguous — multiple track archetypes match equally.
+    "Engineer",              # every archetype ends in 'engineer' except quant
+    "Senior Engineer",       # same, 'senior' is stopword
+    "Autonomy Engineer",     # ties SWE(Software Eng) / HPC(Performance Eng / Systems Eng / etc.)
+    "Developer",             # ties SWE(Software Developer) / QUANT(Quantitative Developer)
+])
+def test_semantic_direct_abstains_on_ambiguous(title):
+    """Titles whose tokens match multiple tracks' archetypes equally
+    must fail the margin check and return None. Caller then falls
+    through to the LLM tiebreaker."""
+    track, scores = _semantic_title_track(title)
+    assert track is None, (
+        f"{title!r} resolved to {track} with scores={scores} — "
+        f"margin check should have forced None."
+    )
+
+
+# Integration tests — verify the semantic stage is wired correctly
+# into pick_track without overriding earlier strong-signal stages.
+
+def test_semantic_does_not_override_strong_title_match(profiles_by_track):
+    """Strong-keyword matches must ALWAYS win over the semantic stage.
+    If ordering in pick_track ever gets shuffled, this test fires."""
+    d = pick_track(
+        "Machine Learning Engineer",
+        "Neutral description.",
+        profiles_by_track,
+    )
+    assert d.track == "ml"
+    assert d.stage == "title"   # NOT semantic_title
+
+
+def test_semantic_fires_when_strong_and_skills_abstain(profiles_by_track):
+    """A title that (a) doesn't hit any strong-keyword list AND
+    (b) has a neutral description (no skill-overlap signal) must
+    land at the semantic stage if its tokens match an archetype."""
+    d = pick_track(
+        # "Developer Technology Engineer" is an NVIDIA-style title
+        # NOT in the strong-keyword list. Semantic matches it verbatim
+        # against the HPC archetype.
+        "Developer Technology Engineer",
+        "Join our team.",       # neutral, no skill-overlap signal
+        profiles_by_track,
+    )
+    assert d.track == "hpc"
+    assert d.stage == "semantic_title", (
+        f"expected stage=semantic_title, got {d.stage} (reason={d.reason})"
+    )

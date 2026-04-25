@@ -36,19 +36,44 @@ def detect_captcha(page: Any) -> bool:
     except Exception:
         return False
 
-    # Cloudflare interstitial
+    # Cloudflare FULL-PAGE interstitial (the "Checking your browser …"
+    # page that replaces the form). Turnstile widget embed alone is
+    # NOT this — that's a score-only signal the form includes
+    # automatically, no user interaction required.
     if "cf-challenge-running" in content:
+        log.info("captcha: matched cf-challenge-running")
         return True
     if "window._cf_chl" in content:
+        log.info("captcha: matched window._cf_chl")
         return True
     if "just a moment" in content and "cloudflare" in content:
+        log.info("captcha: matched 'just a moment' + cloudflare")
         return True
 
-    # reCAPTCHA v2 interactive challenge iframes (NOT the api.js script tag)
-    if "recaptcha/api2/anchor" in content:
-        return True
+    # reCAPTCHA BLOCKING challenge = the ``bframe`` iframe (the popup
+    # grid "select all crosswalks"). The ``anchor`` iframe (checkbox
+    # widget) is ALWAYS present on any page using reCAPTCHA v2 or the
+    # invisible v3 session-scoring variant — treating its presence
+    # alone as blocking mass-rejects any ATS that uses reCAPTCHA for
+    # bot-scoring (Ashby, several Greenhouse tenants). Require the
+    # bframe to be VISIBLE too — source-only match fires even when
+    # the challenge isn't actually rendered.
     if "recaptcha/api2/bframe" in content:
-        return True
+        try:
+            bframe_iframes = page.locator(
+                'iframe[src*="recaptcha/api2/bframe"]'
+            )
+            for f in bframe_iframes.all()[:4]:
+                try:
+                    if f.is_visible():
+                        log.info(
+                            "captcha: matched visible recaptcha bframe"
+                        )
+                        return True
+                except Exception:
+                    continue
+        except Exception:
+            pass
 
     # hCaptcha blocking challenge detection.
     # Lever embeds hCaptcha as a background "enclave" iframe on every apply

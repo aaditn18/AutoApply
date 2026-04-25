@@ -4,7 +4,7 @@ Chronological record of work. For architecture, setup, and usage docs, see
 [`README.md`](./README.md). The corresponding target is
 [`.claude/plans/drifting-snuggling-harbor.md`](./.claude/plans/drifting-snuggling-harbor.md).
 
-**Current test tally: 753 passing.**
+**Current test tally: 776 passing.**
 
 ---
 
@@ -1733,3 +1733,340 @@ belongs in review — Aadit cannot legally work in Bulgaria.
 - `tests/test_answer_bank.py`, `tests/test_dom_package.py`,
   `tests/test_fillers_package.py`, `tests/test_location_filter.py`
   — regression coverage.
+
+### Deferred — `state/jobs.sqlite` tracking in git
+
+Flagged during today's rebase/push dance: the binary `state/jobs.sqlite`
+is committed to git via three workflows (`pipeline.yml`, `nightly.yml`,
+`review-listener.yml`) that auto-commit after each run. The schema is
+already properly versioned via Alembic migrations under
+`src/autoapply/tracker/migrations/versions/`, so the sqlite snapshots
+in git are pure anti-pattern — a giant binary file that churns on
+every cron run and collides with local working-tree state.
+
+The proper fix: `.gitignore` the sqlite, `git rm --cached`, and
+replace the three workflows' auto-commits with a different state
+persistence mechanism (GH Actions Cache keyed on a stable key, or
+artifacts, or an external DB). Migrations stay the schema source of
+truth; each environment applies `alembic upgrade head` on startup and
+generates its own sqlite from scratch (or restores from cache).
+
+**Deferred** to its own session after Ashby integration + scoring
+enhancements ship. Rationale: refactoring CI persistence is a
+meaningful blast radius that deserves its own planning pass, and
+today's bug fixes + upcoming Ashby work don't depend on it. Today's
+rebase handled the immediate divergence by: back up local sqlite →
+reset working tree → rebase onto origin (3 pipeline-state commits) →
+push → restore local sqlite from backup.
+
+---
+
+## 2026-04-21 — Ashby integration (Phase 1: ingestion + applicator skeleton)
+
+### Why
+
+Ashby is the 3rd biggest non-Workday ATS behind Greenhouse and Lever
+and growing fast — OpenAI, Shopify, Linear, Ramp, Mistral, Vercel,
+and 40+ other target companies host their apply flow there. Adding
+support captures ~5–10% more of Aadit's target mix. After the
+2026-04-19 structural refactor, most of the submission machinery is
+ATS-agnostic, so integration cost is mostly boilerplate matching the
+existing Greenhouse / Lever shape plus one new Playwright wrapper.
+
+### What Ashby exposes (research summary)
+
+Ashby has TWO API tiers:
+
+1. **Public unauthenticated feed** (what we use):
+   - `GET https://api.ashbyhq.com/posting-api/job-board/{board_token}
+     ?includeCompensation=true`
+   - Returns `{apiVersion, jobs: [...]}` — no auth, no filtering, no
+     pagination. Rate limit ~100 req/min unofficial.
+2. **Authenticated RPC-style Developer API** (NOT usable for us):
+   - `POST jobPosting.info` returns `applicationFormDefinition` with
+     the form schema, `applicationForm.submit` submits, plus
+     `file.createFileUploadHandle` for files.
+   - Requires per-customer API key with `jobsRead` + `candidatesWrite`
+     scopes. Provisioned by each company's Ashby admin — no OAuth /
+     partner token model. Unusable for a cross-company portal.
+
+Since we can't touch the authenticated API, everything beyond the
+base fields (resume, name, email, phone) must be discovered at
+submit time via the existing Stage-2 DOM batch against the hosted
+apply SPA at `jobs.ashbyhq.com/{company}/{uuid}/application`.
+
+### New code (~400 LOC + tests)
+
+| Module | Role |
+|---|---|
+| `src/autoapply/ingest/ashby.py` | `AshbySource(JobSource)` — plain httpx client, maps public feed JSON to `RawJob`, filters `isListed=False`, prefers `descriptionPlain`, falls back to `_strip_html(descriptionHtml)`. Reuses Greenhouse's `_strip_html`. |
+| `src/autoapply/execute/ashby_apply.py` | `AshbyApplicator(Applicator)` — thin `fetch_form` returns 6-field base list (no HTTP), `build_payload` partitions files + data, `submit` delegates to `submit_ashby`. Plain Lever-style field names (`resume`, `name`, `email`) so machine-key resolver fires from Profile. |
+| `src/autoapply/execute/playwright_submit.py` | New `submit_ashby(apply_url, data, files, ...)` wrapper composing the existing driver `submit_form` with Ashby-appropriate success URL fragments + submit-button selectors. Same `augmented_data` / `label_values` strategy as Greenhouse for location atoms. |
+| `src/autoapply/execute/submitter/success_detect.py` | Added `/application-submitted`, `/application-complete`, `/application-received` to `STRONG_SUCCESS_URL_PATHS`. `/submitted` was already there and catches the common case. |
+
+### Config
+
+- `state/../companies.yml` gains a new top-level `ashby:` section
+  with the same `test_safe` / `live_only` structure as Greenhouse /
+  Lever. Seeded `live_only` with `openai`, `mistral`, `ramp`,
+  `linear`, `shopify`, `vercel`; `test_safe` intentionally empty
+  (Phase 2 picks throwaway tenants).
+- CLI `autoapply ingest` now accepts `--source ashby`; the existing
+  `--board <token>` and `--limit N` flags compose the same way.
+  `_read_companies_yaml` returns a 3-tuple instead of 2.
+
+### What's reused (no changes)
+
+- Every phase in `submitter/phases/` fires for Ashby unchanged —
+  browser launch, navigate, upload, resume-analysis wait, API fill
+  (just base fields), Stage-2 DOM batch (the workhorse), label
+  fallback, diagnostics, submit click, IMAP verification,
+  success/failure detect.
+- `resolution/` — Phase-1 + batch-LLM pipeline is ATS-agnostic.
+- `fill_lever_cards` does NOT fire for Ashby (correct — it's Lever-
+  specific).
+- `audit.py`, `review_flags.py`, `base.apply` — no touches.
+
+### Tests (+23, 753 → 776)
+
+**`tests/test_ashby_source.py` (new, 16 tests):**
+- Pure-helper tests: `_description` prefers plain over stripped HTML;
+  `_location` preserves raw; `_department` joins; `_metadata`
+  stringifies booleans, joins secondary-locations list, preserves
+  `applyUrl` + `compensationSummary`, skips missing fields.
+- Integration via `httpx.MockTransport`: happy path maps all fields;
+  `isListed=false` filtered out; missing `id` falls back to sha256
+  prefix of `jobUrl`; HTTP error → empty; non-dict payload → empty;
+  board_token canonicalization for hyphenated slugs (`mistral-ai` →
+  `Mistral Ai`); endpoint string frozen.
+
+**`tests/test_execute.py` (+5):**
+- `test_ashby_fetch_form_returns_base_fields_only_no_http` — no
+  HTTP, returns the 6-entry `_BASE_FIELDS` list verbatim.
+- `test_ashby_build_payload_partitions_files_and_data` — resume /
+  cover_letter go to `files`, others to `data`, `apply_url`
+  preserved from `job.url`.
+- `test_ashby_apply_dry_run_dumps_payload` — end-to-end dry run
+  writes JSON artifact with `applicator == "ashby"`.
+- `test_ashby_submit_ashby_wrapper_importable` — contract check
+  that `submit_ashby` resolves from `playwright_submit`.
+
+Expected test tally: 776 (+23 from 753).
+
+### Known unknowns (to verify in Phase 2)
+
+- **Real DOM attribute names** — the `_systemfield_*` prefix guesses
+  in our plan got dropped for simpler `resume` / `name` / `email`
+  tokens that match machine-key rules. The pre-submit diagnostic
+  dump from the first live run will show the actual DOM `name`/`id`
+  attributes. If the attribute lookup misses, the DOM Stage-2 batch
+  picks up the slack because it scrapes empty required fields by
+  their label, not their DOM name.
+- **Email OTP flow on Ashby** — the IMAP verification phase fires
+  defensively on OTP DOM markers that match Greenhouse's patterns.
+  Ashby may use a different OTP UI or none at all. Soft failure
+  mode — if no OTP markers appear, the phase no-ops.
+- **Iframe-embedded Ashby forms** — if a target company proxies the
+  Ashby form into an iframe on their own careers page, `page.locator`
+  won't reach inside without a `frame_locator` wrap. First impl
+  assumes direct navigation to `jobs.ashbyhq.com`; if Phase 2 hits
+  an iframed tenant, add the wrap as a follow-up.
+- **Success URL path** — seeded with common candidates
+  (`/application-submitted`, `/submitted`, `/thank-you`, etc.).
+  First live success will confirm which one Ashby actually uses;
+  tighten the list then.
+
+### Files touched
+
+- `src/autoapply/ingest/ashby.py` — NEW
+- `src/autoapply/execute/ashby_apply.py` — NEW
+- `src/autoapply/ingest/companies.yml` — `ashby:` section
+- `src/autoapply/cli.py` — `_read_companies_yaml` 3-tuple, `--source
+  ashby`, Ashby branch in `ingest_cmd`
+- `src/autoapply/execute/playwright_submit.py` — `submit_ashby`
+  wrapper, `__all__` updated
+- `src/autoapply/execute/submitter/success_detect.py` — Ashby URL
+  paths added
+- `tests/test_ashby_source.py` — NEW
+- `tests/test_execute.py` — 5 Ashby tests added
+
+Phase 2 (real submissions on throwaway tenants) is next; user picks
+the `test_safe` tokens.
+
+### Phase 2 attempt + outcomes (2026-04-21)
+
+Ran 5 real-submission attempts across 4 Ashby test_safe tenants
+(skydio, unstructured, replit, speak) with progressively better
+pipeline patches. Summary of what each attempt taught us:
+
+| Attempt | Target | Outcome | Lesson |
+|---------|--------|---------|--------|
+| 1 | Skydio 1872 + Speak 2029 + Unstructured 1897 | **all 3 captcha** | Our captcha detector was flagging the mere presence of `recaptcha/api2/anchor` (the widget iframe, not the challenge). **Fix:** require the `bframe` iframe to be VISIBLE (`captcha_detect.py`). |
+| 2 | Skydio 1873 SWE + Unstructured 1903 AI Eng | **both failed** — "Submit button not clickable" | Ashby's submit button doesn't have `type="submit"` on all tenants; selectors missed it. **Fix:** broaden the selector to include `button:has-text('Submit Application')` + data-testid variants (`playwright_submit.py`). |
+| 3 | Skydio 1792 (fresh) | **failed — ImportError** | Pre-submit phase imported a non-existent `detect_blocking_captcha`. **Fix:** rename to `detect_captcha` (pre_submit.py). |
+| 4 | Skydio 1794 Wireless Perf Eng | **failed — "flagged as possible spam"** | Submit click succeeded, form posted, Ashby's backend rejected. `g-recaptcha-response` was empty; `detect_captcha` returned `None` (Ashby's captcha didn't match any of turnstile / recaptcha-v2 / hcaptcha iframe hosts). Resume upload silently failed (`no_input:resume`) because Ashby uses `id="_systemfield_resume"` and our selector only tried exact-match. **Fix:** added substring selectors + label/aria fallback to `file_upload.py`. |
+| 5 | Skydio 1803 Senior SWE Dev Productivity | **failed — "flagged as possible spam"** (same) | Substring selector hit, no more `no_input:resume`, but Ashby STILL flagged as spam. The post-submit page still showed the resume drop-zone empty ("upload your resume here to autofill"), implying the `set_input_files` call attached at the Playwright level but Ashby's React drag-drop listener didn't fire the attach handler. |
+
+**Final diagnosis:** Ashby's backend rejects our submissions as
+"possible spam" based on a combination of:
+
+1. **Invisible reCAPTCHA / risk-engine token missing.** Our
+   `detect_captcha` logs *"captcha detected but type could not be
+   identified"* — the iframe host check doesn't match Ashby's
+   captcha provider (likely reCAPTCHA Enterprise or Ashby's own
+   risk-engine endpoint). No `g-recaptcha-response` / `cf-turnstile-response`
+   token populates. Even if we classified it, 2Captcha's free-tier
+   API doesn't support reCAPTCHA Enterprise without a proxy.
+2. **React-driven resume drop-zone not receiving the attach event.**
+   Ashby's upload widget listens for native `drop` events, not the
+   `change` event that Playwright's `set_input_files` fires. The
+   form posts with `resume=null` even when our phase logged no error.
+3. **Headless-browser fingerprinting.** The final signal is
+   probably TLS fingerprint + canvas-entropy + navigator quirks.
+   Bright Data's Scraping Browser is purpose-built for this.
+
+Phase 1 infrastructure shipped this session does work cleanly for
+the ingest + scoring + dry-run + best-per-company plan paths. What
+broke was the ACTUAL submission. That's the right split — the
+ingestion, scoring, and resolver all passed; only the browser-vs-
+Ashby-anti-bot layer failed.
+
+### Deferred TODO — Ashby Bright Data integration (post-scoring work)
+
+Ashby's apply-page risk engine consistently flags our submissions
+as spam regardless of field completeness or reCAPTCHA token. The
+fix is architectural: route Ashby's Playwright traffic through a
+residential IP + fingerprint-preserving browser. The same tool
+already deferred for Lever — **Bright Data Scraping Browser** —
+solves both.
+
+Concrete work (for its own plan cycle):
+
+1. **Sign up + provision.** Create a Scraping Browser zone at
+   `brightdata.com`; grab the `wss://brd-customer-hl_...-zone-scraping_browser:…@brd.superproxy.io:9222`
+   endpoint.
+2. **Config.** Add `BRIGHTDATA_SB_ENDPOINT` to `src/autoapply/config.py`
+   + `.env.example` (same pattern as `CAPTCHA_SOLVER_API_KEY`).
+3. **Driver branch.** In `execute/submitter/phases/browser.py`'s
+   `launch_browser_context`, when the env var is set AND the URL is
+   `jobs.ashbyhq.com/*` or `jobs.lever.co/*`, use
+   `p.chromium.connect_over_cdp(BRIGHTDATA_SB_ENDPOINT)` instead of
+   `p.chromium.launch(headless=...)`. Scraping Browser handles
+   captchas + IP rotation + TLS fingerprinting internally, so we can
+   skip the 2Captcha solver path for those URLs.
+4. **File upload fix.** Even with clean IP, Ashby's React drop-zone
+   probably still won't attach via `set_input_files`. Two approaches:
+   (a) click the visible "Upload File" button to open the native
+   chooser (requires locating it by text), or (b) dispatch a
+   synthetic `drop` event with a `DataTransfer` populated from the
+   file. Option (a) is less brittle.
+5. **Captcha detector for Ashby.** Add a detection branch that
+   treats the presence of `textarea[name="g-recaptcha-response"]`
+   OR Ashby's own risk-engine iframe as a captcha signal and routes
+   through Bright Data's solver (if SB active) or 2Captcha's
+   reCAPTCHA v3 / Enterprise endpoint.
+6. **Re-run Phase 2** after the above: Skydio + Speak + new Ashby
+   test_safe tenants (replit is still blocked on the zero-width-
+   unicode injection-guard false positive — fix that separately).
+
+Cost estimate: ~$0.02–0.04 per app via Scraping Browser. At Aadit's
+~20-apps-per-run cadence, that's $0.40–$0.80/run — acceptable.
+
+**Position in the deferred queue (in order):**
+1. `state/jobs.sqlite` in-git refactor (from 2026-04-21 morning)
+2. Keyword / match scoring enhancements (from
+   `.claude/plans/lets-plan-how-to-lazy-rainbow.md` Phase 3)
+3. Track-picker semantic-similarity → proper weighted-phrase or
+   embedding-based approach (from earlier today's TODO)
+4. **Ashby anti-spam / risk-engine bypass.** The Ashby submit
+   pipeline now fills 70-80% of every form correctly across
+   every tested tenant (mux, airbyte, skydio, resend) — drop-event
+   resume upload, label_fallback for LinkedIn/Github/HowHeard,
+   eeo_radios for Gender / Race-rollup / Veteran / Disability,
+   auto_consent for the unlabeled agreement checkboxes. Every
+   submit still gets rejected as *"flagged as possible spam"* by
+   Ashby's backend even with all those fields populated.
+   Diagnosis: Ashby's risk engine combines (a) headless-browser
+   fingerprint detection (canvas / WebGL / TLS JA3), (b) IP
+   reputation (we're submitting from a Comcast residential block
+   that's been hammered enough times to look botty), and (c) an
+   invisible reCAPTCHA-style challenge whose iframe host doesn't
+   match our `detect_captcha` patterns so we never get a token.
+   **Fix:** Bright Data Scraping Browser (the same connector
+   we deferred for Lever). Residential IP + clean fingerprint +
+   built-in captcha pass. Plumb in `phases/browser.py`'s
+   `launch_browser_context` with a CDP `connect_over_cdp(...)`
+   branch when env var `BRIGHTDATA_SB_ENDPOINT` is set AND the
+   URL host is `jobs.ashbyhq.com` or `jobs.lever.co`. Cost
+   ~$0.02–0.04 per submission. See the original Lever Bright Data
+   plan in section L of 2026-04-18 — same mechanism applies.
+5. **Bright Data integration for Ashby + Lever** (consolidated
+   into item #4 above — both ATSes use the same fix).
+6. Replit injection-guard override (zero-width-unicode is their
+   rich-text-editor artifact, not a honeypot — need to allow it
+   through for that tenant only)
+7. Stage-2 scrape currently hard-gates on `required` — broaden to
+   include non-required fields with classifier-recognizable
+   labels so the LLM batch can reason about EEO / consent /
+   experience-level questions on tenants that don't mark them
+   required (matches today's user feedback on
+   "fields the LLM should also see"). Today's session shipped
+   deterministic helpers (label_fallback, eeo_radios,
+   auto_consent) as the immediate fix; the proper architectural
+   fix is broadening the scrape gate.
+
+### Deferred TODO — refine track selection
+
+Surfaced while preparing Ashby Phase 2 submits: `track_picker.pick_track`
+returned `None` for Unstructured's 2 scored jobs, which dropped them
+out of the `apply_best_per_company` plan (the script filters on
+`Job.track IN ("swe","ml","hpc","quant")`). Current picker uses:
+
+1. Strong title-keyword regexes.
+2. Quant-in-description promotion (`quant_weight ≥ 4`).
+3. Track-specific skill-overlap (substring match, no weighting).
+4. LLM tiebreaker within 0.15 margin.
+
+Weakness: for titles that don't hit the strong keyword list — e.g.
+Unstructured's "Software Engineer - Public Sector", Skydio's "Senior
+Wireless Systems Performance Engineer" (currently HPC, likely would
+be SWE or low-latency HPC depending on context), "Forward Deployed
+Engineer" roles on Cohere — the picker bails out. Substring skill
+overlap doesn't help when the JD emphasizes deployment / customer
+work over specific languages.
+
+**Proposed direction (to be implemented in its own plan cycle):**
+semantic-similarity fallback that embeds the job title against
+per-track archetype phrases and picks the max-similarity track when
+the strong-signal path abstains. Candidate archetype phrases per
+track (to tune against real ingested data):
+
+- **SWE**: Software Engineer, Software Developer, Backend Engineer,
+  Full-Stack Engineer, Platform Engineer, Infrastructure Engineer.
+- **ML**: Machine Learning Engineer, Machine Learning Researcher,
+  Machine Learning Scientist, Applied Scientist, Research Engineer,
+  Deep Learning Engineer, AI Engineer.
+- **Quant**: Quantitative Developer, Quantitative Researcher,
+  Quantitative Trader, Quant Engineer, Algorithmic Trading Engineer,
+  Low-Latency Trading Engineer.
+- **HPC**: Performance Engineer, HPC Engineer, Systems Engineer,
+  Low-Latency Engineer, C++ Performance Engineer, Developer
+  Technology Engineer, GPU Engineer, CUDA Engineer.
+
+Implementation options (deterministic-first policy applies):
+(a) Weighted phrase-token overlap with per-track vocabularies stored
+in `state/rules/track_archetypes.yml` — no new dependencies, fits
+the rules-as-data pattern.
+(b) Embedding similarity via Gemini `text-embedding-004` against a
+precomputed archetype embedding table — richer signal, adds one
+cached LLM call at ingest time.
+(c) Single-shot LLM classifier as a primary signal (not just
+tiebreaker) with an audit trail.
+
+Decision: defer to after Phase 2 Ashby submits land. Phase 2's
+limited-target smoke test validates the submission path; running it
+before the track fix means a couple of scored-but-untracked Ashby
+jobs sit out, which is acceptable for a validation pass. The track
+refactor then gets its own plan cycle alongside the
+keyword / match-scoring enhancements already sketched in `.claude/
+plans/lets-plan-how-to-lazy-rainbow.md`.

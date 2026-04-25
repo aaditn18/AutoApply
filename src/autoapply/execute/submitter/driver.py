@@ -90,7 +90,13 @@ def submit_form(
             # ── Phase 1: navigate ────────────────────────────────────────
             log.info("playwright: navigating to %s", url)
             page.goto(url, wait_until="domcontentloaded", timeout=60_000)
-            jitter(1.0, 2.5)
+            # Post-navigate settle — lets the SPA's captcha / analytics
+            # scripts initialize before we start poking the form.
+            # Ashby especially: its invisible reCAPTCHA widget only
+            # starts generating tokens after this initialization
+            # completes.
+            _is_ashby = "ashbyhq.com" in url
+            jitter(2.0, 3.5) if _is_ashby else jitter(1.0, 2.5)
 
             # Abort if CAPTCHA is immediately visible on the form page.
             if detect_captcha(page):
@@ -101,9 +107,18 @@ def submit_form(
             upload_files(page, files, field_errors)
             if files:
                 wait_for_resume_analysis(page)
+                # Post-upload settle — Ashby's "Autofill from resume"
+                # parses the PDF server-side and populates name/email/
+                # phone/LinkedIn automatically. Give it room to finish.
+                if _is_ashby:
+                    jitter(2.5, 4.0)
 
             # ── Phase 3: fill API-sourced fields ────────────────────────
             fill_api_fields(page, data, field_errors)
+            if _is_ashby:
+                # Let Ashby's change-event handlers settle and any
+                # reCAPTCHA interaction-based scoring update.
+                jitter(1.0, 2.0)
 
             # ── Phase 4: Lever-only qualifying-card questions ───────────
             # Lever qualifying questions appear in the DOM as
@@ -130,12 +145,59 @@ def submit_form(
             if label_values:
                 fill_by_label(page, label_values, set(data.keys()), field_errors)
 
+            # ── Phase 6.5: EEO radio groups (Ashby DOM-only path) ───────
+            # Greenhouse + Lever expose EEO via their form-spec APIs —
+            # those go through fill_api_fields. Ashby's hosted SPA does
+            # NOT, so we walk radio groups, classify each group's
+            # heading, and pick the option matching the profile EEO
+            # value (or a decline-style option per
+            # state/rules/eeo_semantics.yml).
+            if "ashbyhq.com" in url:
+                from .phases.eeo_radios import fill_eeo_radios
+                profile_obj = (llm_context or {}).get("profile")
+                fill_eeo_radios(page, profile_obj, field_errors)
+
+            # ── Phase 6.7: auto-check consent / agreement checkboxes ────
+            # Almost every ATS form has 1-2 unlabeled consent boxes
+            # ("I agree to the privacy policy", "By submitting...")
+            # that are de-facto compulsory but not marked ``required``.
+            # The scrape pipeline misses them; this phase walks them
+            # and clicks any whose nearby text matches a consent
+            # keyword. Marketing opt-ins ("Subscribe to alerts...")
+            # are explicitly skipped via a negative keyword list.
+            from .phases.auto_consent import auto_check_consent_boxes
+            auto_check_consent_boxes(page, field_errors)
+
             # ── Phase 7: pre-submit diagnostic dump ─────────────────────
-            # Lever + Greenhouse only (the two with silent or injected
-            # failure modes). DOM dump + full-page screenshot.
-            if "jobs.lever.co" in url or "greenhouse.io" in url:
+            # Lever + Greenhouse + Ashby. DOM dump + full-page screenshot.
+            # Need this on Ashby especially because the hosted SPA
+            # obscures which DOM attributes get used for each field,
+            # and without the dump there's no visibility into why
+            # the submit button wasn't clickable.
+            if (
+                "jobs.lever.co" in url
+                or "greenhouse.io" in url
+                or "ashbyhq.com" in url
+            ):
                 dump_pre_submit_state(page)
                 _save_presubmit_screenshot(page, url)
+
+            # ── Phase 7.5: pre-submit captcha token check/solve ──────────
+            # Ashby runs invisible reCAPTCHA v3 / Turnstile — the
+            # response token is supposed to populate automatically
+            # after user interactions, but headless browsers often
+            # get a missing token that the backend flags as spam.
+            # Wait briefly for auto-population, and if still empty +
+            # a solver is configured, solve + inject the token before
+            # clicking submit. No-op when no captcha detected.
+            from .phases.pre_submit import ensure_captcha_token
+            ensure_captcha_token(
+                page,
+                solver=captcha_solver,
+                api_key=captcha_solver_api_key,
+                timeout=captcha_solver_timeout,
+                settle_seconds=3.0 if "ashbyhq.com" in url else 1.0,
+            )
 
             # ── Phase 8: click submit + post-submit CAPTCHA handling ────
             click_submit_and_handle_captcha(

@@ -8,16 +8,20 @@ Decision ladder:
   1. Strong title keywords (unambiguous signal).
   2. Quant-in-description promotion (generic title + trading-heavy desc).
   3. Skill-overlap with each resume_track's skills.
+  3.5 Semantic title-vs-archetype similarity (interim; see log.md
+      "Deferred TODO — refine track selection" for the proper plan).
   4. LLM tiebreaker (optional, injection-guarded).
 """
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Literal
 
 from autoapply.profile.schema import Profile
+from autoapply.rules import load_rules
 
 Track = Literal["swe", "ml", "hpc", "quant"]
 
@@ -166,6 +170,81 @@ def _skill_overlap_scores(
     return scores
 
 
+# -- Semantic title-vs-archetype fallback (step 3.5) -----------------------
+
+
+# Token-split on whitespace + non-alphanumerics except "+" and "#"
+# (keep "C++" / "C#" as single tokens-ish; "c++" collapses to "c").
+_TOKEN_SPLIT = re.compile(r"[^a-z0-9+#]+")
+
+
+def _tokenize_title(s: str, stopwords: frozenset[str]) -> frozenset[str]:
+    """Lowercase, split on non-word, drop stopwords + single-char noise."""
+    if not s:
+        return frozenset()
+    lowered = s.lower()
+    tokens = {t for t in _TOKEN_SPLIT.split(lowered) if t}
+    # Drop 1-char tokens (initials, noise) and configured stopwords.
+    return frozenset(
+        t for t in tokens
+        if len(t) > 1 and t not in stopwords
+    )
+
+
+def _cosine(a: frozenset[str], b: frozenset[str]) -> float:
+    """Binary bag-of-words cosine. |A ∩ B| / sqrt(|A| * |B|)."""
+    if not a or not b:
+        return 0.0
+    return len(a & b) / math.sqrt(len(a) * len(b))
+
+
+def _semantic_title_track(title: str) -> tuple[Track | None, dict[str, float]]:
+    """Match title tokens against per-track archetype phrases.
+
+    Returns (track, per_track_scores). Returns None for the track when
+    neither (a) the top score exceeds ``min_score`` nor (b) the winning
+    track's lead over the runner-up exceeds ``min_margin`` — in which
+    case the caller falls through to the LLM tiebreaker / tie path.
+
+    This is a bag-of-words cosine on tokenized noun phrases. The
+    similarity measure is deliberately crude — good enough for the
+    interim case where the strong-keyword lists haven't caught
+    unusual titles like "Autonomy Engineer - Deep Learning" or
+    "Wireless Systems Performance Engineer". See the deferred TODO
+    in log.md for the proper embedding-based replacement.
+    """
+    rules = load_rules("track_archetypes")
+    stopwords = frozenset(str(s).lower() for s in rules.get("stopwords", []))
+    min_score = float(rules.get("min_score", 0.4))
+    min_margin = float(rules.get("min_margin", 0.08))
+
+    title_tokens = _tokenize_title(title, stopwords)
+    if not title_tokens:
+        return None, {}
+
+    scores: dict[str, float] = {}
+    for track in ("swe", "ml", "hpc", "quant"):
+        archetypes = rules.get(track) or []
+        best = 0.0
+        for phrase in archetypes:
+            phrase_tokens = _tokenize_title(str(phrase), stopwords)
+            sim = _cosine(title_tokens, phrase_tokens)
+            if sim > best:
+                best = sim
+        scores[track] = best
+
+    if not scores:
+        return None, scores
+    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    top_track, top_score = ranked[0]
+    runner_score = ranked[1][1] if len(ranked) > 1 else 0.0
+    if top_score < min_score:
+        return None, scores
+    if (top_score - runner_score) < min_margin:
+        return None, scores
+    return top_track, scores  # type: ignore[return-value]
+
+
 # -- Public entry point -----------------------------------------------------
 
 
@@ -221,6 +300,23 @@ def pick_track(
                 stage="skills",
                 scores=scores,
             )
+
+    # 3.5 Semantic title-vs-archetype fallback (interim — see log.md
+    # "Deferred TODO — refine track selection"). Fires ONLY when the
+    # strong-title-keyword and skill-overlap stages abstained, so it
+    # never overrides their decisions.
+    semantic_track, semantic_scores = _semantic_title_track(title)
+    if semantic_track is not None:
+        return TrackDecision(
+            track=semantic_track,
+            reason=(
+                f"semantic title-archetype cosine "
+                f"(top={semantic_scores[semantic_track]:.2f}, "
+                f"scores={ {k: round(v, 2) for k, v in semantic_scores.items()} })"
+            ),
+            stage="semantic_title",
+            scores=semantic_scores,
+        )
 
     # 4. LLM tiebreaker (optional)
     if llm_tiebreaker is not None:
