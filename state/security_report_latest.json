@@ -1,5 +1,36 @@
 {
   "window_days": 1,
-  "count": 0,
-  "events": []
+  "count": 3,
+  "events": [
+    {
+      "id": 519,
+      "ts": "2026-04-25T16:42:12.913704",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 2108,
+      "source_url": "https://jobs.ashbyhq.com/modal/407cd498-eed3-46f0-b0f6-ef689c86696b/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 518,
+      "ts": "2026-04-25T16:42:12.859159",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 2085,
+      "source_url": "https://jobs.ashbyhq.com/bland/681dfcda-f016-4bda-826e-7e813fae0083/application",
+      "snippet": "to LLM"
+    },
+    {
+      "id": 517,
+      "ts": "2026-04-25T16:42:12.857627",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 2084,
+      "source_url": "https://jobs.ashbyhq.com/bland/2e815d0d-8e7a-43cc-8853-c1b029aeb499/application",
+      "snippet": "to LLM"
+    }
+  ]
 }
