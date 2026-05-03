@@ -9,6 +9,7 @@ import {
   truncate,
 } from '@/components/ui';
 import { ArchiveSpamButton, ResolveFlagInline } from '@/components/ReviewActions';
+import { PrefillButton } from '@/components/PrefillButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +97,7 @@ export default async function ReviewPage({
                     </td>
                     <td className="px-4 py-2 text-right">
                       <div className="flex items-center justify-end gap-3">
+                        <PrefillButton appId={s.application_id} />
                         <a
                           className="text-xs text-accent hover:underline"
                           href={s.job_url}
@@ -157,12 +159,15 @@ export default async function ReviewPage({
                     </td>
                     <td className="px-4 py-2 text-right space-y-1">
                       {f.application_id ? (
-                        <Link
-                          href={`/applications/${f.application_id}`}
-                          className="block text-xs text-accent hover:underline"
-                        >
-                          #{f.application_id}
-                        </Link>
+                        <>
+                          <Link
+                            href={`/applications/${f.application_id}`}
+                            className="block text-xs text-accent hover:underline"
+                          >
+                            #{f.application_id}
+                          </Link>
+                          <PrefillButton appId={f.application_id} />
+                        </>
                       ) : null}
                       <ResolveFlagInline
                         flagId={f.id}

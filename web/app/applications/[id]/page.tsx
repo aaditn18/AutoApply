@@ -9,6 +9,7 @@ import {
   truncate,
 } from '@/components/ui';
 import { RetryButton } from '@/components/RetryButton';
+import { PrefillButton } from '@/components/PrefillButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,8 +57,13 @@ export default async function ApplicationDetailPage({
         subtitle={`app #${app.id} · submitted ${fmtDate(app.submitted_at)}`}
         right={
           <div className="flex items-center gap-2">
-            {app.outcome === 'failed' || app.outcome === 'captcha' ? (
-              <RetryButton appId={app.id} />
+            {app.outcome === 'failed' ||
+            app.outcome === 'captcha' ||
+            app.outcome === 'review' ? (
+              <>
+                <PrefillButton appId={app.id} />
+                <RetryButton appId={app.id} />
+              </>
             ) : null}
             <a
               className="btn"

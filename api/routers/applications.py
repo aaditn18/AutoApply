@@ -89,6 +89,34 @@ async def retry_application(
     )
 
 
+@router.post("/{app_id}/prefill", response_model=dict)
+def prefill_application(
+    app_id: int,
+    s: Session = Depends(get_db),
+) -> dict:
+    """Open a non-headless browser pre-filled with the answers from
+    a previously-failed Application.
+
+    The user reviews the browser window (which will be every field
+    already filled — name, email, EEO, consent boxes, etc.) and
+    clicks Submit themselves once captcha / OTP / spam-flag is
+    handled. We never click Submit on their behalf in this flow.
+
+    Returns immediately with metadata; the browser session runs in
+    a daemon thread on the API host. Requires the API to be running
+    on the user's local machine (Playwright spawns a real Chromium
+    window — won't work over SSH / Tailscale forwards).
+    """
+    from api.services.prefill_service import start_prefill_for_application
+
+    try:
+        return start_prefill_for_application(s, app_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/batch", response_model=BatchApplyOut)
 async def batch_apply(body: BatchApplyIn) -> BatchApplyOut:
     """Apply to a list of Job ids in one subprocess.

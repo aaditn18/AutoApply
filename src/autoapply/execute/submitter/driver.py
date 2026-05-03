@@ -68,6 +68,8 @@ def submit_form(
     captcha_solver_timeout: int = 180,
     label_values: dict[str, str] | None = None,
     llm_context: dict[str, Any] | None = None,
+    stop_before_submit: bool = False,
+    keep_open_seconds: int = 1800,
 ) -> dict[str, Any]:
     """Drive a single Playwright-backed form submit.
 
@@ -77,6 +79,17 @@ def submit_form(
     solved (or no solver is configured) — caller routes the app to review.
     Raises :class:`SubmitFailed` on unrecoverable browser / navigation /
     OTP-retrieval errors.
+
+    :param stop_before_submit: When ``True``, run every fill phase
+        (1-7) and then BLOCK on the page being closed instead of
+        clicking submit. This is the "open prefilled in a real
+        browser" path used by the local web UI's retry-on-failure
+        button — captcha walls / spam-flag blocks / review-required
+        applications can be re-opened with every field already
+        filled and the user just clicks Submit themselves.
+        Implies ``headless=False`` (callers should set both).
+    :param keep_open_seconds: Maximum time to leave the window open
+        when ``stop_before_submit=True``. Default 30 minutes.
     """
     from playwright.sync_api import sync_playwright
 
@@ -181,6 +194,39 @@ def submit_form(
             ):
                 dump_pre_submit_state(page)
                 _save_presubmit_screenshot(page, url)
+
+            # ── Optional: prefill-only mode ─────────────────────────────
+            # Used by the local web UI's "Open prefilled" button on
+            # failed applications. Every field has been filled by the
+            # phases above; we now hand the browser back to the user
+            # so they can solve the captcha / OTP / unfilled-field
+            # themselves and click Submit. We keep the browser open by
+            # blocking on `page.wait_for_event("close", ...)` until
+            # the user closes the window or the timeout expires.
+            if stop_before_submit:
+                log.info(
+                    "submit_form: stop_before_submit=True — leaving "
+                    "browser open for up to %ds; close the window to "
+                    "release.",
+                    keep_open_seconds,
+                )
+                try:
+                    page.wait_for_event(
+                        "close", timeout=keep_open_seconds * 1000,
+                    )
+                except Exception as exc:
+                    log.info(
+                        "prefill window timed out / errored: %s "
+                        "(this is expected if the user took too long)",
+                        exc,
+                    )
+                return {
+                    "ok": True,
+                    "url": page.url if not page.is_closed() else url,
+                    "error": None,
+                    "field_errors": field_errors,
+                    "prefilled": True,
+                }
 
             # ── Phase 7.5: pre-submit captcha token check/solve ──────────
             # Ashby runs invisible reCAPTCHA v3 / Turnstile — the
