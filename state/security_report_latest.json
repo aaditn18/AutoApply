@@ -1,7 +1,297 @@
 {
   "window_days": 1,
-  "count": 203,
+  "count": 232,
   "events": [
+    {
+      "id": 751,
+      "ts": "2026-05-03T18:39:59.013419",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 5176,
+      "source_url": "https://job-boards.greenhouse.io/reddit/jobs/6960831",
+      "snippet": "to LLM"
+    },
+    {
+      "id": 750,
+      "ts": "2026-05-03T18:39:59.008955",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 5175,
+      "source_url": "https://job-boards.greenhouse.io/reddit/jobs/6960833",
+      "snippet": "to LLM"
+    },
+    {
+      "id": 749,
+      "ts": "2026-05-03T18:39:58.349636",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 5045,
+      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7494708",
+      "snippet": "to AI"
+    },
+    {
+      "id": 748,
+      "ts": "2026-05-03T18:39:57.822569",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4939,
+      "source_url": "https://app.careerpuck.com/job-board/lyft/job/8525065002?gh_jid=8525065002",
+      "snippet": "to AI"
+    },
+    {
+      "id": 747,
+      "ts": "2026-05-03T18:39:57.154351",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4783,
+      "source_url": "https://instacart.careers/job/?gh_jid=7870937",
+      "snippet": "to AI"
+    },
+    {
+      "id": 746,
+      "ts": "2026-05-03T18:39:57.150400",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4782,
+      "source_url": "https://instacart.careers/job/?gh_jid=7271639",
+      "snippet": "to AI"
+    },
+    {
+      "id": 745,
+      "ts": "2026-05-03T18:39:57.104228",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4771,
+      "source_url": "https://instacart.careers/job/?gh_jid=7769924",
+      "snippet": "to AI"
+    },
+    {
+      "id": 744,
+      "ts": "2026-05-03T18:39:57.095653",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4770,
+      "source_url": "https://instacart.careers/job/?gh_jid=7769926",
+      "snippet": "to AI"
+    },
+    {
+      "id": 743,
+      "ts": "2026-05-03T18:39:57.068411",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4763,
+      "source_url": "https://instacart.careers/job/?gh_jid=7565508",
+      "snippet": "to AI"
+    },
+    {
+      "id": 742,
+      "ts": "2026-05-03T18:39:56.726021",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4693,
+      "source_url": "https://instacart.careers/job/?gh_jid=7697668",
+      "snippet": "to AI"
+    },
+    {
+      "id": 741,
+      "ts": "2026-05-03T18:39:56.602981",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4671,
+      "source_url": "https://job-boards.greenhouse.io/gitlab/jobs/8514960002",
+      "snippet": "to AI"
+    },
+    {
+      "id": 740,
+      "ts": "2026-05-03T18:39:54.704141",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 739,
+      "ts": "2026-05-03T18:39:54.704140",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 738,
+      "ts": "2026-05-03T18:39:54.704140",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 737,
+      "ts": "2026-05-03T18:39:54.704139",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 736,
+      "ts": "2026-05-03T18:39:54.704139",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 735,
+      "ts": "2026-05-03T18:39:54.704138",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 734,
+      "ts": "2026-05-03T18:39:54.704137",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 733,
+      "ts": "2026-05-03T18:39:54.704135",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4342,
+      "source_url": "https://jobs.dropbox.com/listing/7775447?gh_jid=7775447",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 732,
+      "ts": "2026-05-03T18:39:54.699116",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 731,
+      "ts": "2026-05-03T18:39:54.699116",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 730,
+      "ts": "2026-05-03T18:39:54.699115",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 729,
+      "ts": "2026-05-03T18:39:54.699115",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 728,
+      "ts": "2026-05-03T18:39:54.699114",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 727,
+      "ts": "2026-05-03T18:39:54.699113",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 726,
+      "ts": "2026-05-03T18:39:54.699113",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 725,
+      "ts": "2026-05-03T18:39:54.699110",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4341,
+      "source_url": "https://jobs.dropbox.com/listing/7775446?gh_jid=7775446",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 724,
+      "ts": "2026-05-03T18:39:54.178044",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4226,
+      "source_url": "https://www.asana.com/jobs/apply/7678308?gh_jid=7678308",
+      "snippet": "to LLM"
+    },
+    {
+      "id": 723,
+      "ts": "2026-05-03T18:39:54.146695",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4218,
+      "source_url": "https://www.asana.com/jobs/apply/7160487?gh_jid=7160487",
+      "snippet": "to AI"
+    },
     {
       "id": 722,
       "ts": "2026-05-03T17:02:51.715668",
