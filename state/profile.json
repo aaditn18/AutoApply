@@ -1,5 +1,20 @@
 {
   "hpc": {
+    "citizenship_country": "India",
+    "current_city": "College Park",
+    "current_country": "United States",
+    "current_location": "College Park, MD",
+    "current_state": "MD",
+    "current_state_full": "Maryland",
+    "current_zip": "20740",
+    "demo_disability": "I do not wish to answer",
+    "demo_gender": "Decline to self-identify",
+    "demo_hispanic_latino": "No",
+    "demo_pronouns": "He/Him",
+    "demo_race": "Decline to self-identify",
+    "demo_sexual_orientation": "Decline to self-identify",
+    "demo_transgender": "Decline to self-identify",
+    "demo_veteran": "I am not a protected veteran",
     "education": [
       {
         "coursework": [
@@ -18,7 +33,7 @@
         "date_range": {
           "end": "2026-05-31",
           "is_present": false,
-          "raw": "Aug 2022 – May 2026",
+          "raw": "Aug 2022 \u2013 May 2026",
           "start": "2022-08-01"
         },
         "degree": "B.S. Computer Science, Mathematics (Double Major)",
@@ -28,13 +43,13 @@
         "school": "University of Maryland"
       }
     ],
-    "email": "aaditnilay18@gmail.com",
+    "email": "aadit@terpmail.umd.edu",
     "experiences": [
       {
         "bullets": [
           "Worked on KEET (submitted to SC 26) for LLM-based performance explanations from Nsight Compute GPU profiles.",
           "Built a multi-agent pipeline: Source Code Inspection, Profile Analysis, Aggregation, and Explanation Review stages.",
-          "Collaborated with NVIDIA, achieving 83% MCQ score vs.\\ 78% baseline and upto 14× speedup on 11 CUDA apps.",
+          "Collaborated with NVIDIA, achieving 83% MCQ score vs.\\ 78% baseline and upto 14\u00d7 speedup on 11 CUDA apps.",
           "Led ablation studies across agent roles, profile count, & LLM choice; Metric Selector boosted speedup in 7/10 kernels.",
           "Profiled Rodinia CUDA kernels via NCU; extracted memory coalescing, SM occupancy, and warp divergence as input.",
           "Studied shared memory tiling, synchronization removal, thread/block restructuring, and loop unrolling optimizations."
@@ -43,7 +58,7 @@
         "date_range": {
           "end": null,
           "is_present": true,
-          "raw": "Feb 2026 – Present",
+          "raw": "Feb 2026 \u2013 Present",
           "start": "2026-02-01"
         },
         "location": "College Park, MD",
@@ -71,7 +86,7 @@
         "date_range": {
           "end": "2025-08-31",
           "is_present": false,
-          "raw": "May 2025 – Aug 2025",
+          "raw": "May 2025 \u2013 Aug 2025",
           "start": "2025-05-01"
         },
         "location": "Austin, TX",
@@ -97,7 +112,7 @@
         "date_range": {
           "end": "2024-11-30",
           "is_present": false,
-          "raw": "Aug 2024 – Nov 2024",
+          "raw": "Aug 2024 \u2013 Nov 2024",
           "start": "2024-08-01"
         },
         "location": "New Delhi, India",
@@ -121,7 +136,7 @@
         "date_range": {
           "end": "2024-12-31",
           "is_present": false,
-          "raw": "Jan 2024 – Dec 2024",
+          "raw": "Jan 2024 \u2013 Dec 2024",
           "start": "2024-01-01"
         },
         "location": "College Park, MD",
@@ -138,8 +153,12 @@
     "full_name": "Aadit Nilay",
     "github_url": "https://github.com/aaditn18",
     "linkedin_url": "https://www.linkedin.com/in/aadit-nilay/",
+    "military_service": "No",
+    "permanent_work_authorization": "No",
     "phone": "510-610-2180",
     "projects": [],
+    "require_sponsorship_future": "Yes",
+    "require_sponsorship_now": "No",
     "skills": {
       "by_category": {},
       "languages": [
@@ -190,53 +209,8 @@
       "tools": []
     },
     "track": "hpc",
-    "years_of_experience": {
-      "AWS": 0.2,
-      "Assembly": 0.9,
-      "C": 0.9,
-      "C++": 0.9,
-      "CI/CD": 0.2,
-      "CUDA": 0.4,
-      "Computer Systems": 0.9,
-      "FlashAttention": 0.2,
-      "GPABenchmark": 0.2,
-      "HPC": 0.2,
-      "Kubernetes": 0.2,
-      "Linux/Unix": 0.9,
-      "MPI": 0.2,
-      "NCU": 0.2,
-      "NumPy": 0.2,
-      "Numba": 0.2,
-      "OpenMP": 0.2,
-      "Pandas": 0.2,
-      "Redis": 0.2,
-      "SIMD": 0.2,
-      "SQL": 0.2,
-      "Shell": 0.4,
-      "vLLM": 0.2
-    },
-    "demo_gender": "Decline to self-identify",
-    "demo_race": "Decline to self-identify",
-    "demo_hispanic_latino": "No",
-    "demo_veteran": "I am not a protected veteran",
-    "demo_disability": "I do not wish to answer",
-    "demo_pronouns": "He/Him",
-    "demo_sexual_orientation": "Decline to self-identify",
-    "demo_transgender": "Decline to self-identify",
-    "military_service": "No",
-    "citizenship_country": "India",
     "us_citizen": "No",
-    "work_authorized_us": "Yes",
-    "permanent_work_authorization": "No",
-    "require_sponsorship_now": "No",
-    "require_sponsorship_future": "Yes",
     "visa_status": "F-1 visa OPT (STEM extension till 2029)",
-    "current_city": "College Park",
-    "current_state": "MD",
-    "current_state_full": "Maryland",
-    "current_zip": "20740",
-    "current_country": "United States",
-    "current_location": "College Park, MD",
     "willing_to_work_states": [
       "Alabama",
       "Alaska",
@@ -289,9 +263,50 @@
       "West Virginia",
       "Wisconsin",
       "Wyoming"
-    ]
+    ],
+    "work_authorized_us": "Yes",
+    "years_of_experience": {
+      "AWS": 0.2,
+      "Assembly": 0.9,
+      "C": 0.9,
+      "C++": 0.9,
+      "CI/CD": 0.2,
+      "CUDA": 0.5,
+      "Computer Systems": 0.9,
+      "FlashAttention": 0.2,
+      "GPABenchmark": 0.2,
+      "HPC": 0.2,
+      "Kubernetes": 0.2,
+      "Linux/Unix": 0.9,
+      "MPI": 0.2,
+      "NCU": 0.2,
+      "NumPy": 0.2,
+      "Numba": 0.2,
+      "OpenMP": 0.2,
+      "Pandas": 0.2,
+      "Redis": 0.2,
+      "SIMD": 0.2,
+      "SQL": 0.2,
+      "Shell": 0.5,
+      "vLLM": 0.2
+    }
   },
   "ml": {
+    "citizenship_country": "India",
+    "current_city": "College Park",
+    "current_country": "United States",
+    "current_location": "College Park, MD",
+    "current_state": "MD",
+    "current_state_full": "Maryland",
+    "current_zip": "20740",
+    "demo_disability": "I do not wish to answer",
+    "demo_gender": "Decline to self-identify",
+    "demo_hispanic_latino": "No",
+    "demo_pronouns": "He/Him",
+    "demo_race": "Decline to self-identify",
+    "demo_sexual_orientation": "Decline to self-identify",
+    "demo_transgender": "Decline to self-identify",
+    "demo_veteran": "I am not a protected veteran",
     "education": [
       {
         "coursework": [
@@ -309,7 +324,7 @@
         "date_range": {
           "end": "2026-05-31",
           "is_present": false,
-          "raw": "Aug 2022 – May 2026",
+          "raw": "Aug 2022 \u2013 May 2026",
           "start": "2022-08-01"
         },
         "degree": "B.S. Computer Science, Mathematics (Double Major)",
@@ -319,20 +334,20 @@
         "school": "University of Maryland"
       }
     ],
-    "email": "aaditnilay18@gmail.com",
+    "email": "aadit@terpmail.umd.edu",
     "experiences": [
       {
         "bullets": [
           "Worked on KEET (submitted to SC 26) for LLM-based performance explanations from Nsight Compute GPU profiles.",
           "Built a multi-agent pipeline: Source Code Inspection, Profile Analysis, Aggregation, and Explanation Review stages.",
-          "Collaborated with NVIDIA, achieving 83% MCQ score vs.\\ 78% baseline and upto 14× speedup on 11 CUDA apps.",
+          "Collaborated with NVIDIA, achieving 83% MCQ score vs.\\ 78% baseline and upto 14\u00d7 speedup on 11 CUDA apps.",
           "Led ablation studies across agent roles, profile count, & LLM choice; Metric Selector boosted speedup in 7/10 kernels."
         ],
         "company": "Parallel Software and Systems Group (PSSG)",
         "date_range": {
           "end": null,
           "is_present": true,
-          "raw": "Feb 2026 – Present",
+          "raw": "Feb 2026 \u2013 Present",
           "start": "2026-02-01"
         },
         "location": "College Park, MD",
@@ -360,7 +375,7 @@
         "date_range": {
           "end": "2025-08-31",
           "is_present": false,
-          "raw": "May 2025 – Aug 2025",
+          "raw": "May 2025 \u2013 Aug 2025",
           "start": "2025-05-01"
         },
         "location": "Austin, TX",
@@ -383,7 +398,7 @@
         "date_range": {
           "end": "2025-05-31",
           "is_present": false,
-          "raw": "Nov 2024 – May 2025",
+          "raw": "Nov 2024 \u2013 May 2025",
           "start": "2024-11-01"
         },
         "location": "College Park, MD",
@@ -404,7 +419,7 @@
         "date_range": {
           "end": "2024-12-31",
           "is_present": false,
-          "raw": "Jan 2024 – Dec 2024",
+          "raw": "Jan 2024 \u2013 Dec 2024",
           "start": "2024-01-01"
         },
         "location": "College Park, MD",
@@ -421,8 +436,12 @@
     "full_name": "Aadit Nilay",
     "github_url": "https://github.com/aaditn18",
     "linkedin_url": "https://www.linkedin.com/in/aadit-nilay/",
+    "military_service": "No",
+    "permanent_work_authorization": "No",
     "phone": "510-610-2180",
     "projects": [],
+    "require_sponsorship_future": "Yes",
+    "require_sponsorship_now": "No",
     "skills": {
       "by_category": {},
       "languages": [
@@ -472,51 +491,8 @@
       "tools": []
     },
     "track": "ml",
-    "years_of_experience": {
-      "AWS": 0.2,
-      "Assembly": 0.9,
-      "C": 0.9,
-      "C++": 0.9,
-      "CUDA": 0.2,
-      "Computer Systems": 0.9,
-      "CrewAI": 0.5,
-      "FlashAttention": 0.2,
-      "GPABenchmark": 0.2,
-      "Google ADK": 0.5,
-      "HPC": 0.2,
-      "LangChain": 0.2,
-      "LangGraph": 0.5,
-      "Linux/Unix": 0.9,
-      "MCP": 0.2,
-      "NCU": 0.2,
-      "OpenAI": 0.5,
-      "Redis": 0.2,
-      "Shell": 0.2,
-      "Typescript": 0.5,
-      "vLLM": 0.2
-    },
-    "demo_gender": "Decline to self-identify",
-    "demo_race": "Decline to self-identify",
-    "demo_hispanic_latino": "No",
-    "demo_veteran": "I am not a protected veteran",
-    "demo_disability": "I do not wish to answer",
-    "demo_pronouns": "He/Him",
-    "demo_sexual_orientation": "Decline to self-identify",
-    "demo_transgender": "Decline to self-identify",
-    "military_service": "No",
-    "citizenship_country": "India",
     "us_citizen": "No",
-    "work_authorized_us": "Yes",
-    "permanent_work_authorization": "No",
-    "require_sponsorship_now": "No",
-    "require_sponsorship_future": "Yes",
     "visa_status": "F-1 visa OPT (STEM extension till 2029)",
-    "current_city": "College Park",
-    "current_state": "MD",
-    "current_state_full": "Maryland",
-    "current_zip": "20740",
-    "current_country": "United States",
-    "current_location": "College Park, MD",
     "willing_to_work_states": [
       "Alabama",
       "Alaska",
@@ -569,9 +545,48 @@
       "West Virginia",
       "Wisconsin",
       "Wyoming"
-    ]
+    ],
+    "work_authorized_us": "Yes",
+    "years_of_experience": {
+      "AWS": 0.2,
+      "Assembly": 0.9,
+      "C": 0.9,
+      "C++": 0.9,
+      "CUDA": 0.2,
+      "Computer Systems": 0.9,
+      "CrewAI": 0.5,
+      "FlashAttention": 0.2,
+      "GPABenchmark": 0.2,
+      "Google ADK": 0.5,
+      "HPC": 0.2,
+      "LangChain": 0.2,
+      "LangGraph": 0.5,
+      "Linux/Unix": 0.9,
+      "MCP": 0.2,
+      "NCU": 0.2,
+      "OpenAI": 0.5,
+      "Redis": 0.2,
+      "Shell": 0.2,
+      "Typescript": 0.5,
+      "vLLM": 0.2
+    }
   },
   "quant": {
+    "citizenship_country": "India",
+    "current_city": "College Park",
+    "current_country": "United States",
+    "current_location": "College Park, MD",
+    "current_state": "MD",
+    "current_state_full": "Maryland",
+    "current_zip": "20740",
+    "demo_disability": "I do not wish to answer",
+    "demo_gender": "Decline to self-identify",
+    "demo_hispanic_latino": "No",
+    "demo_pronouns": "He/Him",
+    "demo_race": "Decline to self-identify",
+    "demo_sexual_orientation": "Decline to self-identify",
+    "demo_transgender": "Decline to self-identify",
+    "demo_veteran": "I am not a protected veteran",
     "education": [
       {
         "coursework": [
@@ -590,7 +605,7 @@
         "date_range": {
           "end": "2026-05-31",
           "is_present": false,
-          "raw": "Aug 2022 – May 2026",
+          "raw": "Aug 2022 \u2013 May 2026",
           "start": "2022-08-01"
         },
         "degree": "B.S. Computer Science, Mathematics (Double Major)",
@@ -600,7 +615,7 @@
         "school": "University of Maryland"
       }
     ],
-    "email": "aaditnilay18@gmail.com",
+    "email": "aadit@terpmail.umd.edu",
     "experiences": [
       {
         "bullets": [
@@ -615,7 +630,7 @@
         "date_range": {
           "end": "2025-08-31",
           "is_present": false,
-          "raw": "May 2025 – Aug 2025",
+          "raw": "May 2025 \u2013 Aug 2025",
           "start": "2025-05-01"
         },
         "location": "Austin, TX",
@@ -634,14 +649,14 @@
           "Parallelized large scale Monte Carlo simulations across multiple nodes using a hybrid MPI + OpenMP architecture.",
           "Developed CUDA kernels for rolling window signal processing and optimized memory access patterns.",
           "Built a high-performance C++ backtesting engine using lock-free queues and SIMD for tick-level data.",
-          "Implemented vectorized mean–variance optimization in NumPy/Pandas for Sharpe ratio and tail-risk calculations.",
+          "Implemented vectorized mean\u2013variance optimization in NumPy/Pandas for Sharpe ratio and tail-risk calculations.",
           "Implemented Ridge, LASSO, and ARIMA models to generate predictive factor weights and enhance signal prediction."
         ],
         "company": "Stealth Mode Proprietary Trading Firm",
         "date_range": {
           "end": "2024-11-30",
           "is_present": false,
-          "raw": "Aug 2024 – Nov 2024",
+          "raw": "Aug 2024 \u2013 Nov 2024",
           "start": "2024-08-01"
         },
         "location": "New Delhi, India",
@@ -661,14 +676,14 @@
         "bullets": [
           "Worked on KEET (submitted to SC 26) for LLM-based performance explanations from Nsight Compute GPU profiles.",
           "Built a multi-agent pipeline: Source Code Inspection, Profile Analysis, Aggregation, and Explanation Review stages.",
-          "In collaboration with NVIDIA, achieved 83% MCQ score@1 vs.\\ 78% baseline and up to 14× speedup on 11 CUDA benchmarks.",
+          "In collaboration with NVIDIA, achieved 83% MCQ score@1 vs.\\ 78% baseline and up to 14\u00d7 speedup on 11 CUDA benchmarks.",
           "Led 4 ablation studies across agent roles, profile count, and LLM choice; Metric Selector improved speedup in 7/10 kernels."
         ],
         "company": "Parallel Software and Systems Group (PSSG)",
         "date_range": {
           "end": null,
           "is_present": true,
-          "raw": "Feb 2026 – Present",
+          "raw": "Feb 2026 \u2013 Present",
           "start": "2026-02-01"
         },
         "location": "College Park, MD",
@@ -693,7 +708,7 @@
         "date_range": {
           "end": "2025-05-31",
           "is_present": false,
-          "raw": "Nov 2024 – May 2025",
+          "raw": "Nov 2024 \u2013 May 2025",
           "start": "2024-11-01"
         },
         "location": "College Park, MD",
@@ -714,7 +729,7 @@
         "date_range": {
           "end": "2024-12-31",
           "is_present": false,
-          "raw": "Jan 2024 – Dec 2024",
+          "raw": "Jan 2024 \u2013 Dec 2024",
           "start": "2024-01-01"
         },
         "location": "College Park, MD",
@@ -731,6 +746,8 @@
     "full_name": "Aadit Nilay",
     "github_url": "https://github.com/aaditn18",
     "linkedin_url": "https://www.linkedin.com/in/aadit-nilay/",
+    "military_service": "No",
+    "permanent_work_authorization": "No",
     "phone": "510-610-2180",
     "projects": [
       {
@@ -760,7 +777,7 @@
         "bullets": [
           "Co-first author, accepted at CVPRW 2026; achieved 0.928 macro F1 across 4 hospital CT sources via 9-model ensemble.",
           "Combined DINOv2 (self-supervised), RadImageNet DenseNet-121, and Gated Attention MIL across 3 CNN backbone families.",
-          "Reduced val/train loss ratio from 35× to 3× via Focal Loss, embedding-level Mixup, SWA, and domain-aware augmentation."
+          "Reduced val/train loss ratio from 35\u00d7 to 3\u00d7 via Focal Loss, embedding-level Mixup, SWA, and domain-aware augmentation."
         ],
         "date_range": {
           "end": "2026-01-01",
@@ -801,6 +818,8 @@
         ]
       }
     ],
+    "require_sponsorship_future": "Yes",
+    "require_sponsorship_now": "No",
     "skills": {
       "by_category": {},
       "languages": [
@@ -857,55 +876,8 @@
       "tools": []
     },
     "track": "quant",
-    "years_of_experience": {
-      "Assembly": 0.9,
-      "C": 0.9,
-      "C++": 0.9,
-      "CUDA": 0.4,
-      "Computer Systems": 0.9,
-      "HPC": 0.2,
-      "Kubernetes": 0.2,
-      "LLMs": 0.2,
-      "LangGraph": 0.5,
-      "Linux/Unix": 0.9,
-      "MPI": 0.2,
-      "Monte Carlo": 0.2,
-      "Nsight Compute": 0.2,
-      "NumPy": 0.2,
-      "Numba": 0.2,
-      "OpenMP": 0.2,
-      "Pandas": 0.2,
-      "PostgreSQL": 0.5,
-      "Python": 0.9,
-      "REST APIs": 0.5,
-      "Redis": 0.2,
-      "SQL": 0.8,
-      "Shell": 0.2,
-      "Sklearn": 0.2,
-      "Time-Series": 0.2
-    },
-    "demo_gender": "Decline to self-identify",
-    "demo_race": "Decline to self-identify",
-    "demo_hispanic_latino": "No",
-    "demo_veteran": "I am not a protected veteran",
-    "demo_disability": "I do not wish to answer",
-    "demo_pronouns": "He/Him",
-    "demo_sexual_orientation": "Decline to self-identify",
-    "demo_transgender": "Decline to self-identify",
-    "military_service": "No",
-    "citizenship_country": "India",
     "us_citizen": "No",
-    "work_authorized_us": "Yes",
-    "permanent_work_authorization": "No",
-    "require_sponsorship_now": "No",
-    "require_sponsorship_future": "Yes",
     "visa_status": "F-1 visa OPT (STEM extension till 2029)",
-    "current_city": "College Park",
-    "current_state": "MD",
-    "current_state_full": "Maryland",
-    "current_zip": "20740",
-    "current_country": "United States",
-    "current_location": "College Park, MD",
     "willing_to_work_states": [
       "Alabama",
       "Alaska",
@@ -958,9 +930,52 @@
       "West Virginia",
       "Wisconsin",
       "Wyoming"
-    ]
+    ],
+    "work_authorized_us": "Yes",
+    "years_of_experience": {
+      "Assembly": 0.9,
+      "C": 0.9,
+      "C++": 0.9,
+      "CUDA": 0.5,
+      "Computer Systems": 0.9,
+      "HPC": 0.2,
+      "Kubernetes": 0.2,
+      "LLMs": 0.2,
+      "LangGraph": 0.5,
+      "Linux/Unix": 0.9,
+      "MPI": 0.2,
+      "Monte Carlo": 0.2,
+      "Nsight Compute": 0.2,
+      "NumPy": 0.2,
+      "Numba": 0.2,
+      "OpenMP": 0.2,
+      "Pandas": 0.2,
+      "PostgreSQL": 0.5,
+      "Python": 1.0,
+      "REST APIs": 0.5,
+      "Redis": 0.2,
+      "SQL": 0.8,
+      "Shell": 0.2,
+      "Sklearn": 0.2,
+      "Time-Series": 0.2
+    }
   },
   "swe": {
+    "citizenship_country": "India",
+    "current_city": "College Park",
+    "current_country": "United States",
+    "current_location": "College Park, MD",
+    "current_state": "MD",
+    "current_state_full": "Maryland",
+    "current_zip": "20740",
+    "demo_disability": "I do not wish to answer",
+    "demo_gender": "Decline to self-identify",
+    "demo_hispanic_latino": "No",
+    "demo_pronouns": "He/Him",
+    "demo_race": "Decline to self-identify",
+    "demo_sexual_orientation": "Decline to self-identify",
+    "demo_transgender": "Decline to self-identify",
+    "demo_veteran": "I am not a protected veteran",
     "education": [
       {
         "coursework": [
@@ -978,7 +993,7 @@
         "date_range": {
           "end": "2026-05-31",
           "is_present": false,
-          "raw": "Aug 2022 – May 2026",
+          "raw": "Aug 2022 \u2013 May 2026",
           "start": "2022-08-01"
         },
         "degree": "B.S. Computer Science, Mathematics",
@@ -988,7 +1003,7 @@
         "school": "University of Maryland"
       }
     ],
-    "email": "aaditnilay18@gmail.com",
+    "email": "aadit@terpmail.umd.edu",
     "experiences": [
       {
         "bullets": [
@@ -1003,7 +1018,7 @@
         "date_range": {
           "end": "2025-08-31",
           "is_present": false,
-          "raw": "May 2025 – Aug 2025",
+          "raw": "May 2025 \u2013 Aug 2025",
           "start": "2025-05-01"
         },
         "location": "Austin, TX",
@@ -1028,7 +1043,7 @@
         "date_range": {
           "end": "2025-05-31",
           "is_present": false,
-          "raw": "Nov 2024 – May 2025",
+          "raw": "Nov 2024 \u2013 May 2025",
           "start": "2024-11-01"
         },
         "location": "College Park, MD",
@@ -1051,7 +1066,7 @@
         "date_range": {
           "end": "2024-08-31",
           "is_present": false,
-          "raw": "Jun 2024 – Aug 2024",
+          "raw": "Jun 2024 \u2013 Aug 2024",
           "start": "2024-06-01"
         },
         "location": "Irvine, CA",
@@ -1073,7 +1088,7 @@
         "date_range": {
           "end": "2024-12-31",
           "is_present": false,
-          "raw": "Jan 2024 – Dec 2024",
+          "raw": "Jan 2024 \u2013 Dec 2024",
           "start": "2024-01-01"
         },
         "location": "College Park, MD",
@@ -1090,6 +1105,8 @@
     "full_name": "Aadit Nilay",
     "github_url": "https://github.com/aaditn18",
     "linkedin_url": "https://www.linkedin.com/in/aadit-nilay/",
+    "military_service": "No",
+    "permanent_work_authorization": "No",
     "phone": "510-610-2180",
     "projects": [
       {
@@ -1157,6 +1174,8 @@
         ]
       }
     ],
+    "require_sponsorship_future": "Yes",
+    "require_sponsorship_now": "No",
     "skills": {
       "by_category": {},
       "languages": [
@@ -1224,49 +1243,8 @@
       ]
     },
     "track": "swe",
-    "years_of_experience": {
-      "AWS": 0.9,
-      "Assembly": 0.9,
-      "C": 0.9,
-      "C++": 0.9,
-      "Computer Systems": 0.9,
-      "Docker": 0.2,
-      "Flask": 0.2,
-      "Jenkins": 0.5,
-      "Kubernetes": 0.2,
-      "LangChain": 0.2,
-      "Linux/Unix": 0.9,
-      "MCP": 0.2,
-      "MongoDB": 0.2,
-      "NLP": 0.2,
-      "React": 0.5,
-      "Redis": 0.2,
-      "SQL": 0.5,
-      "TensorFlow": 0.2,
-      "TypeScript": 0.5
-    },
-    "demo_gender": "Decline to self-identify",
-    "demo_race": "Decline to self-identify",
-    "demo_hispanic_latino": "No",
-    "demo_veteran": "I am not a protected veteran",
-    "demo_disability": "I do not wish to answer",
-    "demo_pronouns": "He/Him",
-    "demo_sexual_orientation": "Decline to self-identify",
-    "demo_transgender": "Decline to self-identify",
-    "military_service": "No",
-    "citizenship_country": "India",
     "us_citizen": "No",
-    "work_authorized_us": "Yes",
-    "permanent_work_authorization": "No",
-    "require_sponsorship_now": "No",
-    "require_sponsorship_future": "Yes",
     "visa_status": "F-1 visa OPT (STEM extension till 2029)",
-    "current_city": "College Park",
-    "current_state": "MD",
-    "current_state_full": "Maryland",
-    "current_zip": "20740",
-    "current_country": "United States",
-    "current_location": "College Park, MD",
     "willing_to_work_states": [
       "Alabama",
       "Alaska",
@@ -1319,6 +1297,28 @@
       "West Virginia",
       "Wisconsin",
       "Wyoming"
-    ]
+    ],
+    "work_authorized_us": "Yes",
+    "years_of_experience": {
+      "AWS": 0.9,
+      "Assembly": 0.9,
+      "C": 0.9,
+      "C++": 0.9,
+      "Computer Systems": 0.9,
+      "Docker": 0.2,
+      "Flask": 0.2,
+      "Jenkins": 0.5,
+      "Kubernetes": 0.2,
+      "LangChain": 0.2,
+      "Linux/Unix": 0.9,
+      "MCP": 0.2,
+      "MongoDB": 0.2,
+      "NLP": 0.2,
+      "React": 0.5,
+      "Redis": 0.2,
+      "SQL": 0.5,
+      "TensorFlow": 0.2,
+      "TypeScript": 0.5
+    }
   }
 }
