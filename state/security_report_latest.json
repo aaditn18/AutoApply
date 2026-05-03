@@ -1,7 +1,357 @@
 {
   "window_days": 1,
-  "count": 168,
+  "count": 203,
   "events": [
+    {
+      "id": 722,
+      "ts": "2026-05-03T17:02:51.715668",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4082,
+      "source_url": "https://careers.airbnb.com/positions/7579462?gh_jid=7579462",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 721,
+      "ts": "2026-05-03T17:02:51.712078",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 4081,
+      "source_url": "https://careers.airbnb.com/positions/7773838?gh_jid=7773838",
+      "snippet": "to AI"
+    },
+    {
+      "id": 720,
+      "ts": "2026-05-03T17:02:51.660728",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4069,
+      "source_url": "https://careers.airbnb.com/positions/6757302?gh_jid=6757302",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 719,
+      "ts": "2026-05-03T17:02:51.660726",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 4069,
+      "source_url": "https://careers.airbnb.com/positions/6757302?gh_jid=6757302",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 718,
+      "ts": "2026-05-03T17:02:51.155954",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 3947,
+      "source_url": "https://careers.airbnb.com/positions/7586592?gh_jid=7586592",
+      "snippet": "to AI"
+    },
+    {
+      "id": 717,
+      "ts": "2026-05-03T17:02:51.140035",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 3943,
+      "source_url": "https://careers.airbnb.com/positions/7859317?gh_jid=7859317",
+      "snippet": "to AI"
+    },
+    {
+      "id": 716,
+      "ts": "2026-05-03T17:02:51.094364",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 3930,
+      "source_url": "https://careers.airbnb.com/positions/7778757?gh_jid=7778757",
+      "snippet": "to AI"
+    },
+    {
+      "id": 715,
+      "ts": "2026-05-03T17:02:50.948395",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 3893,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8477547002",
+      "snippet": "to AI"
+    },
+    {
+      "id": 714,
+      "ts": "2026-05-03T17:02:50.176304",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 3719,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8493724002",
+      "snippet": "to AI"
+    },
+    {
+      "id": 713,
+      "ts": "2026-05-03T17:02:48.831277",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 3418,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8487145002",
+      "snippet": "to AI"
+    },
+    {
+      "id": 712,
+      "ts": "2026-05-03T17:02:48.671767",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3380,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8462013002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 711,
+      "ts": "2026-05-03T17:02:48.624985",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 3369,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8446027002",
+      "snippet": "to AI"
+    },
+    {
+      "id": 710,
+      "ts": "2026-05-03T17:02:48.558245",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3348,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=7803166002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 709,
+      "ts": "2026-05-03T17:02:48.374553",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 708,
+      "ts": "2026-05-03T17:02:48.374553",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 707,
+      "ts": "2026-05-03T17:02:48.374552",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 706,
+      "ts": "2026-05-03T17:02:48.374552",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 705,
+      "ts": "2026-05-03T17:02:48.374551",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 704,
+      "ts": "2026-05-03T17:02:48.374551",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 703,
+      "ts": "2026-05-03T17:02:48.374550",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 702,
+      "ts": "2026-05-03T17:02:48.374550",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 701,
+      "ts": "2026-05-03T17:02:48.374549",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 700,
+      "ts": "2026-05-03T17:02:48.374549",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 699,
+      "ts": "2026-05-03T17:02:48.374548",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 698,
+      "ts": "2026-05-03T17:02:48.374548",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 697,
+      "ts": "2026-05-03T17:02:48.374547",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 696,
+      "ts": "2026-05-03T17:02:48.374546",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 695,
+      "ts": "2026-05-03T17:02:48.374545",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 694,
+      "ts": "2026-05-03T17:02:48.374545",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 693,
+      "ts": "2026-05-03T17:02:48.374544",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 692,
+      "ts": "2026-05-03T17:02:48.374543",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 691,
+      "ts": "2026-05-03T17:02:48.374543",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 690,
+      "ts": "2026-05-03T17:02:48.374540",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3308,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8306218002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 689,
+      "ts": "2026-05-03T17:02:48.110688",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3240,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8397558002",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 688,
+      "ts": "2026-05-03T17:02:48.110685",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 3240,
+      "source_url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8397558002",
+      "snippet": "\u200b"
+    },
     {
       "id": 687,
       "ts": "2026-05-03T16:31:23.277351",
