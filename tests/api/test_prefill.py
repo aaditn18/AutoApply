@@ -17,13 +17,34 @@ from api.services import prefill_service
 
 
 def test_resume_path_falls_back_when_track_missing():
+    """When ``track`` is None, the path uses 'swe' regardless of which
+    PDFs exist on disk — the function builds the path string by
+    interpolating the track name and only branches to the fallback
+    when the chosen PDF is missing AND swe.pdf exists."""
     p = prefill_service._resume_path_for_track(None)
     assert p.endswith("aadit_nilay_resume_swe.pdf")
 
 
-def test_resume_path_uses_track():
+def test_resume_path_uses_track_when_pdf_exists(tmp_path, monkeypatch):
+    """The CI runner doesn't have the resumes submodule checked out,
+    so we point RESUMES_DIR at a tmp dir + create the expected PDFs
+    before asserting the lookup honors the track."""
+    monkeypatch.setattr(prefill_service, "RESUMES_DIR", tmp_path)
+    (tmp_path / "aadit_nilay_resume_ml.pdf").write_bytes(b"%PDF-1.4")
+    (tmp_path / "aadit_nilay_resume_swe.pdf").write_bytes(b"%PDF-1.4")
+
     p = prefill_service._resume_path_for_track("ml")
     assert p.endswith("aadit_nilay_resume_ml.pdf")
+
+
+def test_resume_path_falls_back_to_swe_when_track_pdf_missing(tmp_path, monkeypatch):
+    """Track-specific PDF missing → fall back to swe.pdf."""
+    monkeypatch.setattr(prefill_service, "RESUMES_DIR", tmp_path)
+    # Only swe.pdf exists; asking for 'quant' should fall back.
+    (tmp_path / "aadit_nilay_resume_swe.pdf").write_bytes(b"%PDF-1.4")
+
+    p = prefill_service._resume_path_for_track("quant")
+    assert p.endswith("aadit_nilay_resume_swe.pdf")
 
 
 def test_build_payload_strips_path_keys_and_injects_cover_letter():
@@ -59,7 +80,14 @@ def test_build_payload_strips_path_keys_and_injects_cover_letter():
     assert files["resume"].endswith("aadit_nilay_resume_swe.pdf")
 
 
-def test_build_payload_handles_missing_cover_letter():
+def test_build_payload_handles_missing_cover_letter(tmp_path, monkeypatch):
+    """No cover letter text → no `cover_letter` key in data. Resume
+    path always set; we point RESUMES_DIR at tmp + create the ml.pdf
+    so the assertion holds on the CI runner too (where the resumes
+    submodule isn't checked out)."""
+    monkeypatch.setattr(prefill_service, "RESUMES_DIR", tmp_path)
+    (tmp_path / "aadit_nilay_resume_ml.pdf").write_bytes(b"%PDF-1.4")
+
     a = Application(
         id=1,
         job_id=1,
