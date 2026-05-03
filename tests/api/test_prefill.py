@@ -137,7 +137,9 @@ def test_prefill_endpoint_starts_thread_and_returns_metadata(client, seeded_engi
     assert inner["source"] == "greenhouse"
     assert "resume" in inner["files"]
     # _DetachedJob snapshot was built — has the URL we'd navigate to
-    assert inner["job"].url.endswith("/jobs/1")
+    assert inner["job_snapshot"].url.endswith("/jobs/1")
+    # Track propagated for llm_context loading
+    assert inner["track"] in ("swe", "ml", "hpc", "quant")
 
 
 def test_prefill_endpoint_includes_review_outcome(client, seeded_engine):

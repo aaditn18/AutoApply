@@ -5,27 +5,49 @@ Submit themselves.
 
 This is the "open prefilled in a real browser" path used by the local
 web UI when an application failed to a captcha wall, an Ashby
-spam-flag block, or a review_flags row that the user wants to handle
-manually instead of re-running the full apply pipeline.
+spam-flag block, or a review_flags field that the user wants to
+handle manually instead of re-running the full apply pipeline.
 
-Why reuse the stored ``Application.answers`` instead of re-running the
-resolver:
-  - The user already paid the LLM cost on the first attempt.
-  - The original answers are what the user "approved" implicitly by
-    not editing them; running the resolver again risks getting
-    different answers (LLM nondeterminism).
-  - Faster — skips the entire fetch_form + resolve_all_batched stack.
+Implementation
+--------------
 
-Lifecycle:
+We delegate to the *exact same* per-source wrappers that the
+applicators use (``submit_greenhouse`` / ``submit_lever`` /
+``submit_ashby``), with one new pass-through kwarg
+``stop_before_submit=True`` that the wrappers forward to
+``submitter.driver.submit_form``. This guarantees the prefill path
+gets every per-tenant quirk the wrappers already encode:
+
+  - Greenhouse SPA's ``augmented_data`` overlay (country / location /
+    city / state / zip / postal_code) so atomic-location inputs that
+    aren't on the resolved-keys list still fill.
+  - Greenhouse + Ashby's ``label_values`` for the label-driven
+    fallback in ``submitter.label_fallback`` (LinkedIn / GitHub /
+    "How did you hear about us?" / address atoms).
+  - Ashby's submit-button selector list and success URL fragments.
+  - Lever's hCaptcha-accessibility cookie pre-injection.
+  - Captcha solver credentials when configured.
+
+Crucially, ``llm_context`` carries the **full** Profile object plus
+the answer-bank YAML and track, so Stage-2 DOM batch can pull
+education / EEO / current-location fields the original failed
+attempt didn't capture in ``Application.answers``.
+
+Lifecycle
+---------
+
   1. POST /api/applications/{id}/prefill → start_prefill_for_application
-  2. We look up the Application + Job, build the same payload that
-     the original submitter saw (data dict + files dict).
-  3. Spawn a daemon thread that calls the source-specific submit_X()
+  2. Look up the Application + Job, build (data, files) from the
+     stored answers + cover letter + per-track resume PDF.
+  3. Snapshot the Job and the resolved Profile (the request session
+     will close before the worker thread runs Playwright; ORM
+     attributes would 404 mid-thread).
+  4. Spawn a daemon thread that calls the source-specific submit_X()
      with ``stop_before_submit=True, headless=False``.
-  4. Return immediately with ``{"ok": True, "job_id": ...}``.
-  5. Submitter runs phases 1-7 (navigate, upload, fill, EEO,
+  5. Return immediately with metadata.
+  6. Submitter runs phases 1-7 (navigate, upload, fill, EEO,
      auto-consent), then blocks on ``page.wait_for_event("close")``.
-  6. User closes the window when they're done — the thread exits.
+  7. User closes the window when they're done; the thread exits.
 """
 
 from __future__ import annotations
@@ -33,6 +55,7 @@ from __future__ import annotations
 import logging
 import threading
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -75,9 +98,7 @@ def _build_payload(a: Application) -> tuple[dict, dict]:
     """
     data: dict = {}
     for k, v in (a.answers or {}).items():
-        # Skip file paths — files dict is built separately. The
-        # answer dict from older runs sometimes contains a "resume"
-        # key holding a path; ignore it (we re-resolve from track).
+        # Skip file paths — files dict is built separately.
         if k in ("resume", "cover_letter") and isinstance(v, str) and (
             v.startswith("/") or v.endswith(".pdf")
         ):
@@ -91,10 +112,50 @@ def _build_payload(a: Application) -> tuple[dict, dict]:
     return data, files
 
 
+def _load_llm_context(track: str, company: str, job_title: str) -> dict[str, Any]:
+    """Build the full llm_context that Stage-2 DOM batch expects.
+
+    Includes:
+      - ``profile``: the Profile object for the track (NEEDED for
+        Stage-2 to resolve education / EEO / current-location atoms
+        that weren't in the original Application.answers dict).
+      - ``answer_bank_yaml``: raw YAML so the prompt can show the
+        bank to the LLM verbatim.
+      - ``track`` / ``company`` / ``job_title``: prompt context.
+    """
+    from autoapply.profile.build import load_profiles
+
+    settings = get_settings()
+    try:
+        bank_yaml_text = settings.answer_bank_path.read_text(encoding="utf-8")
+    except Exception:
+        bank_yaml_text = ""
+
+    profile = None
+    try:
+        profiles = load_profiles(settings.profile_json_path)
+        profile = profiles.get(track) or profiles.get("swe")
+    except Exception as exc:
+        log.warning(
+            "prefill: profile.json not loadable (%s) — Stage-2 DOM "
+            "batch will run without the full profile context",
+            exc,
+        )
+
+    return {
+        "profile": profile,
+        "answer_bank_yaml": bank_yaml_text,
+        "track": track,
+        "company": company,
+        "job_title": job_title,
+    }
+
+
 def _run_prefill_in_thread(
     *,
     source: str,
-    job: Job,
+    job_snapshot: "_DetachedJob",
+    track: str,
     data: dict,
     files: dict,
 ) -> None:
@@ -103,74 +164,76 @@ def _run_prefill_in_thread(
     Errors are logged but don't propagate (this thread is detached).
     """
     settings = get_settings()
-    common = {
-        "data": data,
-        "files": files,
-        "headless": False,            # user must SEE the window
-        "imap_server": settings.IMAP_SERVER,
-        "imap_port": settings.IMAP_PORT,
-        "imap_email": settings.IMAP_EMAIL,
-        "imap_password": settings.IMAP_PASSWORD,
-        "imap_code_timeout": settings.IMAP_CODE_TIMEOUT,
-    }
-
-    # Build llm_context the same way the applicators do — Stage-2 DOM
-    # batch may still need to fill late-bound fields the original
-    # apply attempt didn't capture in answers.
-    try:
-        bank_yaml_text = settings.answer_bank_path.read_text(encoding="utf-8")
-    except Exception:
-        bank_yaml_text = ""
-    llm_context = {
-        "answer_bank_yaml": bank_yaml_text,
-        "track": job.track or "swe",
-        "company": job.company or "",
-        "job_title": job.title or "",
-    }
+    llm_context = _load_llm_context(
+        track=track,
+        company=job_snapshot.company,
+        job_title=job_snapshot.title,
+    )
 
     try:
-        from autoapply.execute.submitter.driver import submit_form
-    except Exception as exc:
-        log.exception("prefill: failed to import submitter: %s", exc)
-        return
-
-    # Per-source URL + selector + success-fragment overrides — same
-    # values the existing submit_greenhouse/lever/ashby wrappers use.
-    if source == "greenhouse":
-        url = (
-            f"https://boards.greenhouse.io/{job.board_token}/jobs/{job.source_id}"
-        )
-        submit_selector = "button[type='submit'], input[type='submit']"
-    elif source == "lever":
-        url = job.url if "/apply" in job.url else f"{job.url.rstrip('/')}/apply"
-        submit_selector = "button[type='submit'], input[type='submit']"
-    elif source == "ashby":
-        url = job.url
-        submit_selector = (
-            "button[data-testid='submit-application'], "
-            "button[data-ashby='submit'], "
-            "button[type='submit'], "
-            "input[type='submit'], "
-            "button:has-text('Submit Application')"
-        )
-    else:
-        log.error("prefill: unknown source %r for job %s", source, job.id)
-        return
-
-    try:
-        submit_form(
-            url=url,
-            submit_selector=submit_selector,
-            # The fill phases never read these in prefill mode — we
-            # block on page-close before phase 8 (submit). Pass a
-            # generic set so the call signature is satisfied.
-            success_url_fragments=("confirmation", "thank", "success", "submitted"),
-            llm_context=llm_context,
-            stop_before_submit=True,
-            **common,
+        from autoapply.execute.playwright_submit import (
+            submit_ashby,
+            submit_greenhouse,
+            submit_lever,
         )
     except Exception as exc:
-        log.exception("prefill: submitter failed for job %s: %s", job.id, exc)
+        log.exception("prefill: failed to import submitters: %s", exc)
+        return
+
+    common = dict(
+        data=data,
+        files=files,
+        headless=False,
+        imap_server=settings.IMAP_SERVER,
+        imap_port=settings.IMAP_PORT,
+        imap_email=settings.IMAP_EMAIL,
+        imap_password=settings.IMAP_PASSWORD,
+        imap_code_timeout=settings.IMAP_CODE_TIMEOUT,
+        llm_context=llm_context,
+        stop_before_submit=True,
+    )
+
+    try:
+        if source == "greenhouse":
+            submit_greenhouse(
+                board_token=job_snapshot.board_token,
+                job_id=str(job_snapshot.source_id),
+                **common,
+            )
+        elif source == "lever":
+            # Lever's wrapper rebuilds the URL from token + posting_id.
+            # Job.source_id holds the posting id; Job.board_token holds
+            # the company token.
+            submit_lever(
+                token=job_snapshot.board_token,
+                posting_id=str(job_snapshot.source_id),
+                hcaptcha_accessibility_token=getattr(
+                    settings, "HCAPTCHA_ACCESSIBILITY_TOKEN", ""
+                ) or "",
+                captcha_solver=getattr(settings, "CAPTCHA_SOLVER", "") or "",
+                captcha_solver_api_key=getattr(
+                    settings, "CAPTCHA_SOLVER_API_KEY", ""
+                ) or "",
+                captcha_solver_timeout=int(
+                    getattr(settings, "CAPTCHA_SOLVER_TIMEOUT", 180) or 180
+                ),
+                **common,
+            )
+        elif source == "ashby":
+            submit_ashby(
+                apply_url=job_snapshot.url,
+                **common,
+            )
+        else:
+            log.error(
+                "prefill: unknown source %r for job %s",
+                source, job_snapshot.id,
+            )
+    except Exception as exc:
+        log.exception(
+            "prefill: submitter failed for job %s: %s",
+            job_snapshot.id, exc,
+        )
 
 
 def start_prefill_for_application(s: Session, app_id: int) -> dict:
@@ -204,7 +267,8 @@ def start_prefill_for_application(s: Session, app_id: int) -> dict:
         target=_run_prefill_in_thread,
         kwargs={
             "source": job.source,
-            "job": _DetachedJob(job),
+            "job_snapshot": _DetachedJob(job),
+            "track": a.track_submitted or job.track or "swe",
             "data": data,
             "files": files,
         },

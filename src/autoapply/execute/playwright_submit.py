@@ -57,6 +57,7 @@ def submit_greenhouse(
     imap_password: str = "",
     imap_code_timeout: int = 90,
     llm_context: dict[str, Any] | None = None,
+    stop_before_submit: bool = False,
 ) -> dict[str, Any]:
     """Fill and submit a Greenhouse application form via Playwright.
 
@@ -136,6 +137,7 @@ def submit_greenhouse(
         imap_email=imap_email,
         imap_password=imap_password,
         imap_code_timeout=imap_code_timeout,
+        stop_before_submit=stop_before_submit,
     )
 
 
@@ -156,6 +158,7 @@ def submit_lever(
     captcha_solver_api_key: str = "",
     captcha_solver_timeout: int = 180,
     llm_context: dict[str, Any] | None = None,
+    stop_before_submit: bool = False,
 ) -> dict[str, Any]:
     """Fill and submit a Lever application form via Playwright.
 
@@ -217,6 +220,7 @@ def submit_lever(
         captcha_solver_api_key=captcha_solver_api_key,
         captcha_solver_timeout=captcha_solver_timeout,
         llm_context=llm_context,
+        stop_before_submit=stop_before_submit,
     )
 
 
@@ -232,6 +236,7 @@ def submit_ashby(
     imap_password: str = "",
     imap_code_timeout: int = 90,
     llm_context: dict[str, Any] | None = None,
+    stop_before_submit: bool = False,
 ) -> dict[str, Any]:
     """Fill and submit an Ashby-hosted application form via Playwright.
 
@@ -329,4 +334,5 @@ def submit_ashby(
         imap_email=imap_email,
         imap_password=imap_password,
         imap_code_timeout=imap_code_timeout,
+        stop_before_submit=stop_before_submit,
     )
