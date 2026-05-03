@@ -59,12 +59,16 @@ jobs:
       # IMAP — required for Greenhouse OTP email-verification flow.
       # Without these, every Greenhouse form that triggers OTP fails with
       # "email verification required but IMAP credentials not configured".
+      # If the secret isn't configured in repo settings, the env var falls
+      # through as empty string (acceptable to Pydantic Settings).
       IMAP_EMAIL: ${{ secrets.IMAP_EMAIL }}
       IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
       # Captcha solver — used by the submitter when a captcha wall fires.
+      # CAPTCHA_SOLVER_TIMEOUT is typed `int` in config.py, so we MUST
+      # provide a numeric fallback — an empty string fails validation.
       CAPTCHA_SOLVER: ${{ secrets.CAPTCHA_SOLVER }}
       CAPTCHA_SOLVER_API_KEY: ${{ secrets.CAPTCHA_SOLVER_API_KEY }}
-      CAPTCHA_SOLVER_TIMEOUT: ${{ secrets.CAPTCHA_SOLVER_TIMEOUT }}
+      CAPTCHA_SOLVER_TIMEOUT: ${{ secrets.CAPTCHA_SOLVER_TIMEOUT || '180' }}
 
     steps:
       # Step 1: checkout AutoApply with the default GITHUB_TOKEN (which has
