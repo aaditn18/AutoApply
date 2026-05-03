@@ -47,13 +47,24 @@ jobs:
           echo "::warning::Ignoring slash command from non-owner '${{ github.event.comment.user.login }}'."
           exit 0
 
-      - name: Checkout AutoApply + resumes submodule
+      # Two-step checkout — same pattern as pipeline.yml.
+      # SUBMODULE_PAT is scoped to the private resumes submodule only,
+      # so we MUST NOT pass it as the AutoApply checkout token (it 403s).
+      # Use the default GITHUB_TOKEN for AutoApply, then init the
+      # submodule manually with SUBMODULE_PAT via `insteadOf`.
+      - name: Checkout AutoApply
         if: ${{ github.event.comment.user.login == github.repository_owner }}
         uses: actions/checkout@v4
         with:
-          submodules: true
-          token: ${{ secrets.SUBMODULE_PAT }}
           fetch-depth: 1
+
+      - name: Init resumes submodule
+        if: ${{ github.event.comment.user.login == github.repository_owner }}
+        run: |
+          git config --global \
+            url."https://x-access-token:${{ secrets.SUBMODULE_PAT }}@github.com/".insteadOf \
+            "https://github.com/"
+          git submodule update --init --depth 1 resumes
 
       - name: Set up Python 3.11
         if: ${{ github.event.comment.user.login == github.repository_owner }}
