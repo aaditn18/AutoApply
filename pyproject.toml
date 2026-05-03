@@ -22,6 +22,13 @@ dependencies = [
     "anthropic>=0.34",
     "cryptography>=43.0",
     "python-dateutil>=2.9",
+    # Local web app (api/ + web/) — see .claude/plans/lets-plan-how-to-lazy-rainbow.md
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sse-starlette>=2.1",
+    "ruamel.yaml>=0.18",          # round-trip YAML write w/ comments preserved
+    "python-multipart>=0.0.9",    # form uploads (file PUT for resumes, etc.)
+    "python-dotenv>=1.0",         # .env editor in /settings
 ]
 
 [project.scripts]

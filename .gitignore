@@ -62,3 +62,13 @@ state/failed_submits/
 
 # Session states (encrypted; never commit raw)
 state/session_*.json
+
+# Local web app (api/ + web/) — see .claude/plans/lets-plan-how-to-lazy-rainbow.md
+web/node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+api/runs/
+state/backups/
+
