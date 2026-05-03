@@ -58,6 +58,7 @@ def submit_greenhouse(
     imap_code_timeout: int = 90,
     llm_context: dict[str, Any] | None = None,
     stop_before_submit: bool = False,
+    apply_url: str | None = None,
 ) -> dict[str, Any]:
     """Fill and submit a Greenhouse application form via Playwright.
 
@@ -68,8 +69,15 @@ def submit_greenhouse(
     If the Greenhouse board requires email verification (an OTP sent to the
     applicant's address), the code is fetched automatically via IMAP when
     ``imap_email`` + ``imap_password`` are provided.
+
+    ``apply_url`` overrides the default board URL when set — used for
+    Greenhouse customers on a custom apply domain (e.g. Lyft on
+    ``app.careerpuck.com/job-board/lyft/job/...``) where the canonical
+    ``boards.greenhouse.io/<token>/jobs/<id>`` path either 404s or
+    serves a different form. The prefill flow always sets this to
+    ``Job.url`` from the public feed.
     """
-    url = f"https://boards.greenhouse.io/{board_token}/jobs/{job_id}"
+    url = apply_url or f"https://boards.greenhouse.io/{board_token}/jobs/{job_id}"
 
     # The new job-boards.greenhouse.io SPA renders several applicant-info
     # inputs that are NOT part of the API ``questions`` list — we detected
@@ -159,6 +167,7 @@ def submit_lever(
     captcha_solver_timeout: int = 180,
     llm_context: dict[str, Any] | None = None,
     stop_before_submit: bool = False,
+    apply_url: str | None = None,
 ) -> dict[str, Any]:
     """Fill and submit a Lever application form via Playwright.
 
@@ -175,8 +184,13 @@ def submit_lever(
     ``captcha_solver`` / ``captcha_solver_api_key`` — when set, any detected
     hCaptcha is forwarded to the configured solver (see
     :mod:`autoapply.execute.captcha_solver` + :mod:`.captcha_coords`).
+
+    ``apply_url`` overrides the default ``jobs.lever.co/...`` URL —
+    used for Lever customers on a custom subdomain (e.g.
+    ``boards.eu.lever.co/...``). The prefill flow always sets this to
+    ``Job.url`` from the public feed.
     """
-    url = f"https://jobs.lever.co/{token}/{posting_id}/apply"
+    url = apply_url or f"https://jobs.lever.co/{token}/{posting_id}/apply"
 
     # Build the pre-navigation cookie list for hCaptcha bypass.
     pre_cookies: list[dict[str, Any]] = []

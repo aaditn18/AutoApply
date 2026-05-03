@@ -195,18 +195,25 @@ def _run_prefill_in_thread(
 
     try:
         if source == "greenhouse":
+            # CRITICAL: pass apply_url=Job.url so we navigate to the
+            # actual posting URL from the public feed, not the
+            # constructed boards.greenhouse.io path. Many Greenhouse
+            # customers proxy through a custom domain (Lyft on
+            # app.careerpuck.com, others on greenhouse.io subdomains
+            # or company-owned career sites). Constructing the URL
+            # would land on a 404 or a stripped-down form whose
+            # selectors don't match the production ATS.
             submit_greenhouse(
                 board_token=job_snapshot.board_token,
                 job_id=str(job_snapshot.source_id),
+                apply_url=job_snapshot.url,
                 **common,
             )
         elif source == "lever":
-            # Lever's wrapper rebuilds the URL from token + posting_id.
-            # Job.source_id holds the posting id; Job.board_token holds
-            # the company token.
             submit_lever(
                 token=job_snapshot.board_token,
                 posting_id=str(job_snapshot.source_id),
+                apply_url=job_snapshot.url,
                 hcaptcha_accessibility_token=getattr(
                     settings, "HCAPTCHA_ACCESSIBILITY_TOKEN", ""
                 ) or "",

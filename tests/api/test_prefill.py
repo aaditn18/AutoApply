@@ -194,6 +194,92 @@ def test_prefill_endpoint_includes_review_outcome(client, seeded_engine):
     assert r.json()["ok"] is True
 
 
+def test_run_prefill_passes_apply_url_for_greenhouse(tmp_path, monkeypatch):
+    """Regression: Lyft (and other Greenhouse customers on custom apply
+    domains like careerpuck.com) must navigate to ``Job.url`` from the
+    public feed, NOT the constructed ``boards.greenhouse.io/<token>/jobs/<id>``
+    path. The constructed path 404s or serves a stripped form whose
+    selectors don't match production."""
+    monkeypatch.setattr(prefill_service, "RESUMES_DIR", tmp_path)
+    (tmp_path / "aadit_nilay_resume_swe.pdf").write_bytes(b"%PDF-1.4")
+
+    custom_url = (
+        "https://app.careerpuck.com/job-board/lyft/job/8477773002"
+        "?gh_jid=8477773002"
+    )
+    snap = prefill_service._DetachedJob.__new__(prefill_service._DetachedJob)
+    snap.id = 4897
+    snap.source = "greenhouse"
+    snap.board_token = "lyft"
+    snap.source_id = "8477773002"
+    snap.url = custom_url
+    snap.title = "Senior Data Scientist, Decisions - Risk"
+    snap.company = "Lyft"
+    snap.track = "ml"
+
+    captured: dict[str, object] = {}
+
+    def fake_submit_greenhouse(**kwargs):
+        captured.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "autoapply.execute.playwright_submit.submit_greenhouse",
+        fake_submit_greenhouse,
+    )
+
+    prefill_service._run_prefill_in_thread(
+        source="greenhouse",
+        job_snapshot=snap,
+        track="ml",
+        data={"first_name": "Aadit"},
+        files={"resume": str(tmp_path / "aadit_nilay_resume_swe.pdf")},
+    )
+
+    assert captured["apply_url"] == custom_url
+    assert captured["board_token"] == "lyft"
+    assert captured["stop_before_submit"] is True
+    assert captured["headless"] is False
+
+
+def test_run_prefill_passes_apply_url_for_lever(tmp_path, monkeypatch):
+    """Same idea for Lever customers on custom subdomains."""
+    monkeypatch.setattr(prefill_service, "RESUMES_DIR", tmp_path)
+    (tmp_path / "aadit_nilay_resume_swe.pdf").write_bytes(b"%PDF-1.4")
+
+    custom_url = "https://boards.eu.lever.co/example/abc-123/apply"
+    snap = prefill_service._DetachedJob.__new__(prefill_service._DetachedJob)
+    snap.id = 1
+    snap.source = "lever"
+    snap.board_token = "example"
+    snap.source_id = "abc-123"
+    snap.url = custom_url
+    snap.title = "t"
+    snap.company = "Example"
+    snap.track = "swe"
+
+    captured: dict[str, object] = {}
+
+    def fake_submit_lever(**kwargs):
+        captured.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "autoapply.execute.playwright_submit.submit_lever",
+        fake_submit_lever,
+    )
+
+    prefill_service._run_prefill_in_thread(
+        source="lever",
+        job_snapshot=snap,
+        track="swe",
+        data={},
+        files={"resume": str(tmp_path / "aadit_nilay_resume_swe.pdf")},
+    )
+
+    assert captured["apply_url"] == custom_url
+
+
 def test_detached_job_snapshots_required_fields():
     """_DetachedJob must capture every column the worker thread reads,
     so the worker doesn't blow up after the request session closes."""
