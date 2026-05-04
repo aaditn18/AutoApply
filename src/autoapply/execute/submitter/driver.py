@@ -115,6 +115,30 @@ def submit_form(
             if detect_captcha(page):
                 raise CaptchaDetected(f"CAPTCHA on form page: {url}")
 
+            # ── Phase 1.5: iframe-wrapper detection ─────────────────────
+            # Many Greenhouse customers route applications through a
+            # custom domain (e.g. Lyft on app.careerpuck.com) that
+            # iframes the standard Greenhouse `/embed/job_app` form.
+            # Our submitter's locators operate on the top-level
+            # document only and would find nothing. Detect the embed
+            # frame and re-navigate the top-level browser to its URL
+            # — Greenhouse's embed pages work standalone.
+            from .phases.iframe_resolve import resolve_form_iframe
+            embed_url = resolve_form_iframe(page)
+            if embed_url and embed_url != url:
+                log.info(
+                    "submit_form: detected iframe-wrapped form, "
+                    "redirecting from %s to %s",
+                    url, embed_url,
+                )
+                page.goto(embed_url, wait_until="domcontentloaded", timeout=60_000)
+                jitter(2.0, 3.0)
+                url = embed_url
+                if detect_captcha(page):
+                    raise CaptchaDetected(
+                        f"CAPTCHA on embedded form page: {url}"
+                    )
+
             # ── Phase 2: upload files + wait for Lever resume analysis ──
             # Must precede fill; Lever's re-render clears text on analysis.
             upload_files(page, files, field_errors)
