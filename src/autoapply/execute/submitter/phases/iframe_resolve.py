@@ -51,19 +51,60 @@ def _looks_like_form_frame(frame_url: str) -> bool:
     return any(pat in frame_url for pat in _EMBED_PATTERNS)
 
 
+def _is_known_wrapper_host(page_url: str) -> bool:
+    """Heuristic: only spend time looking for an embed iframe when
+    the top-level URL looks like a known wrapper host.
+
+    Without this gate, every standard Greenhouse / Lever / Ashby
+    apply page would burn 12 seconds waiting for an iframe that's
+    never going to appear.
+    """
+    if not page_url:
+        return False
+    direct_hosts = (
+        "boards.greenhouse.io",
+        "job-boards.greenhouse.io",
+        "jobs.lever.co",
+        "ashbyhq.com",
+    )
+    if any(h in page_url for h in direct_hosts):
+        return False
+    # Anything else is a candidate — careerpuck.com, company-owned
+    # career sites that embed Greenhouse, etc.
+    return True
+
+
 def resolve_form_iframe(page: Any, *, settle_seconds: float = 12.0) -> str | None:
     """Return the URL of an embedded ATS form iframe, or None.
 
-    Polls ``page.frames`` for up to ``settle_seconds``. The SPA shell
-    on hosts like ``app.careerpuck.com`` takes 5-8 seconds before
-    its embed iframe appears — empirically careerpuck takes ~6s — so
-    we need a generous budget. We also call ``page.wait_for_selector
-    ("iframe")`` upfront to short-circuit the wait when an iframe
-    element shows up early.
+    Short-circuits if the top-level page is a direct ATS host
+    (boards.greenhouse.io, jobs.lever.co, ashbyhq.com) — those forms
+    are flat by definition and waiting 12s for an iframe that will
+    never appear is wasted time.
+
+    Otherwise polls ``page.frames`` for up to ``settle_seconds``.
+    Hosts like ``app.careerpuck.com`` take 5-8 seconds before their
+    embed iframe appears.
     """
-    # Cheap nudge — block until ANY iframe is in the DOM, then poll
-    # frames for the matching URL. If wait_for_selector errors (no
-    # such method on a stub) just continue with the polling loop.
+    try:
+        page_url = page.url or ""
+    except Exception:
+        page_url = ""
+    if not _is_known_wrapper_host(page_url):
+        # Direct ATS host — no iframe expected. One quick check of
+        # already-loaded frames in case we're wrong, then bail.
+        try:
+            for f in page.frames:
+                furl = getattr(f, "url", "") or ""
+                if _looks_like_form_frame(furl) and furl != page_url:
+                    return furl
+        except Exception:
+            pass
+        return None
+
+    # Wrapper host — block on the top-level <iframe> element first
+    # so we short-circuit when one shows up early, then poll
+    # ``page.frames`` for the URL.
     try:
         page.wait_for_selector(
             "iframe", timeout=int(settle_seconds * 1000),
@@ -84,7 +125,7 @@ def resolve_form_iframe(page: Any, *, settle_seconds: float = 12.0) -> str | Non
                 furl = f.url or ""
             except Exception:
                 continue
-            if _looks_like_form_frame(furl):
+            if _looks_like_form_frame(furl) and furl != page_url:
                 log.info(
                     "iframe_resolve: found embedded form frame at %s", furl
                 )
