@@ -164,6 +164,40 @@ def submit_form(
             if "jobs.lever.co" in url:
                 fill_lever_cards(page, set(data.keys()), field_errors)
 
+            # ── Phase 4.5: expand repeating-group sections ───────────────
+            # Greenhouse embed forms (Lyft via careerpuck, etc.) render
+            # Employment + Education with only ONE row visible — the
+            # candidate has to click "Add another" to expose
+            # company-name-1, title-1, school--1, etc. Stage-2 only
+            # scrapes fields currently in the DOM, so without expanding
+            # upfront we'd only fill the first experience and the first
+            # education entry. Click "Add another" enough times to
+            # match the candidate's resume (capped at 5).
+            try:
+                from .phases.expand_groups import expand_repeating_groups
+                profile_obj = (llm_context or {}).get("profile")
+                expand_repeating_groups(page, profile_obj)
+            except Exception as exc:
+                log.debug("expand_groups phase raised: %s", exc)
+
+            # ── Phase 4.6: deterministic Employment / Education fill ────
+            # Fill repeating-group rows directly from profile.experiences
+            # / profile.education. These fields have a 100% deterministic
+            # mapping (company-name-0 IS experiences[0].company), so
+            # sending them to Stage-2 LLM is wasted tokens AND risks
+            # tipping the batch over a response-size limit (Lyft regression:
+            # 4 employment rows × 6 fields = 24 extra fields → batch
+            # failed wholesale → row 0 went from "Sociable AI" to empty).
+            # Pre-filling here means Stage-2 only sees what's left.
+            try:
+                from .phases.repeating_groups_fill import (
+                    fill_repeating_groups,
+                )
+                profile_obj = (llm_context or {}).get("profile")
+                fill_repeating_groups(page, profile_obj)
+            except Exception as exc:
+                log.debug("repeating_groups_fill phase raised: %s", exc)
+
             # ── Phase 5: Stage-2 DOM batch LLM ──────────────────────────
             # Scrapes SPA-injected required fields (new
             # job-boards.greenhouse.io), resolves via ONE Gemini call,
