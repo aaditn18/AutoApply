@@ -137,3 +137,55 @@ CORE RULES (must be followed without exception):
 12. If a question is ambiguous or policy-sensitive (mental health
     disclosures, criminal record, substance use): return
     `source="needs_review"` and `value=null`.
+
+13. EMPLOYMENT-HISTORY repeating-group fields. Some forms ask for
+    the candidate's PRIOR employment as a list of entries with
+    indexed field ids:
+        company-name-0, title-0, start-date-month-0, start-date-year-0,
+        end-date-month-0, end-date-year-0, current-role-0,
+        company-name-1, title-1, … (and so on)
+    These are **prior jobs from the candidate's resume — NOT the
+    job being applied to.** The most common LLM mistake here is to
+    fill `company-name-0` with the company NAME from the
+    `Company: …` line of meta_block (the place we're applying to)
+    and `title-0` with the role we're applying for. That is wrong.
+    Selection policy:
+      - Use the candidate's `experience[N]` array, with N matching
+        the integer suffix on the field id. Index 0 is the MOST
+        RECENT experience.
+      - `company-name-N` → `experience[N].company`.
+      - `title-N`        → `experience[N].title`.
+      - `start-date-month-N` → the month name from
+        `experience[N].dates` (start side). Example: dates
+        `"May 2025 -- Aug 2025"` → start_month `"May"`. Use full
+        month names ("May", not "5" / "05") unless the field's
+        options list specifies otherwise.
+      - `start-date-year-N` → the start year as a 4-digit string.
+      - `end-date-month-N` / `end-date-year-N` → end side of the
+        same range. If `experience[N].dates` ends in "Present",
+        leave end-date fields blank (`value=""`) and set
+        `current-role-N` to true.
+      - `current-role-N` → boolean true if the experience is the
+        ongoing one ("Present"), false otherwise.
+      - When N >= number of experiences in the profile (the form
+        rendered an extra empty row), return `value=null` with
+        `source="needs_review"` so it stays empty rather than
+        getting hallucinated.
+    Mark valid answers with `source="profile"` and confidence 1.0.
+
+14. EDUCATION-HISTORY repeating-group fields use a similar pattern,
+    typically with id suffixes like `school--0`, `degree--0`,
+    `discipline--0`, `start-date-year-0`, `end-date-year-0` (the
+    double-dash on `school--N` is a Greenhouse quirk). Selection
+    policy:
+      - `school--N` → `education[N].school`.
+      - `degree--N` → `education[N].degree` (e.g. "B.S.",
+        "Bachelor's Degree" — match the option list verbatim when
+        provided).
+      - `discipline--N` → the major/field of study (e.g. "Computer
+        Science"). Pull from the candidate's degree string when
+        the profile doesn't break it out separately.
+      - Date fields follow the same logic as rule 13 (start/end
+        month/year split from `education[N].dates`).
+    Same out-of-range rule: if N >= number of education entries,
+    return `value=null` + `source="needs_review"`.

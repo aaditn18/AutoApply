@@ -187,7 +187,7 @@ def test_batch_rules_prompt_has_all_numbered_rules():
     # test catches that.
     for heading in ("1. ", "2. ", "3. ", "4. ", "5. ", "6. ",
                     "7. ", "7a. ", "8. ", "8a. ", "9. ", "10. ",
-                    "11. ", "12. "):
+                    "11. ", "12. ", "13. ", "14. "):
         assert heading in text, f"batch_rules missing heading {heading!r}"
     assert "{track}" in text, "batch_rules must expose {track} placeholder"
 
