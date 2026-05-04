@@ -1,7 +1,17 @@
 {
   "window_days": 1,
-  "count": 508,
+  "count": 509,
   "events": [
+    {
+      "id": 1028,
+      "ts": "2026-05-04T13:17:08.458373",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6902,
+      "source_url": "https://jobs.lever.co/mistral/18be2b70-c05d-48e4-82ac-e5cb462c96c0",
+      "snippet": "\u200d"
+    },
     {
       "id": 1027,
       "ts": "2026-05-04T08:11:59.612004",
