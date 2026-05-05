@@ -1,7 +1,37 @@
 {
   "window_days": 1,
-  "count": 58,
+  "count": 61,
   "events": [
+    {
+      "id": 1052,
+      "ts": "2026-05-05T07:51:53.582348",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7055,
+      "source_url": "https://jobs.lever.co/mistral/a1854159-922e-4de7-adb6-7c1b608c147f",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1051,
+      "ts": "2026-05-05T07:51:53.546118",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7050,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5128622007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1050,
+      "ts": "2026-05-05T07:51:53.546115",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7050,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5128622007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1049,
       "ts": "2026-05-05T01:24:56.707305",
