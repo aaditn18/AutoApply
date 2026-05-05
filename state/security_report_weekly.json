@@ -1,7 +1,587 @@
 {
   "window_days": 7,
-  "count": 472,
+  "count": 530,
   "events": [
+    {
+      "id": 1049,
+      "ts": "2026-05-05T01:24:56.707305",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7033,
+      "source_url": "https://jobs.lever.co/wyetechllc/117282bc-d52b-4c79-bdc2-197c96e932e5",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1048,
+      "ts": "2026-05-05T01:24:56.652004",
+      "kind": "injection_attempt",
+      "pattern": "jailbreak_marker",
+      "severity": "medium",
+      "job_id": 7024,
+      "source_url": "https://job-boards.greenhouse.io/reddit/jobs/7891887",
+      "snippet": "jailbreak"
+    },
+    {
+      "id": 1047,
+      "ts": "2026-05-05T01:24:56.533407",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7004,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5209865008",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1046,
+      "ts": "2026-05-05T01:24:56.488533",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6998,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5207760008",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1045,
+      "ts": "2026-05-04T19:10:15.437106",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6974,
+      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1044,
+      "ts": "2026-05-04T19:10:15.437105",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6974,
+      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1043,
+      "ts": "2026-05-04T19:10:15.437104",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6974,
+      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1042,
+      "ts": "2026-05-04T19:10:15.437104",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6974,
+      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1041,
+      "ts": "2026-05-04T19:10:15.437103",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6974,
+      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1040,
+      "ts": "2026-05-04T19:10:15.437100",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6974,
+      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1039,
+      "ts": "2026-05-04T19:10:15.433256",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6973,
+      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1038,
+      "ts": "2026-05-04T19:10:15.433255",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6973,
+      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1037,
+      "ts": "2026-05-04T19:10:15.433255",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6973,
+      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1036,
+      "ts": "2026-05-04T19:10:15.433254",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6973,
+      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1035,
+      "ts": "2026-05-04T19:10:15.433253",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6973,
+      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1034,
+      "ts": "2026-05-04T19:10:15.433250",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6973,
+      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1033,
+      "ts": "2026-05-04T19:10:15.420481",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6968,
+      "source_url": "https://stripe.com/jobs/search?gh_jid=7875540",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1032,
+      "ts": "2026-05-04T19:10:15.200139",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6925,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5181852008",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1031,
+      "ts": "2026-05-04T19:10:15.153591",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6914,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5127530007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1030,
+      "ts": "2026-05-04T19:10:15.153589",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6914,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5127530007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1029,
+      "ts": "2026-05-04T19:10:15.145903",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6912,
+      "source_url": "https://job-boards.greenhouse.io/smartsheet/jobs/7764396",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1028,
+      "ts": "2026-05-04T13:17:08.458373",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6902,
+      "source_url": "https://jobs.lever.co/mistral/18be2b70-c05d-48e4-82ac-e5cb462c96c0",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1027,
+      "ts": "2026-05-04T08:11:59.612004",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6880,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5117089007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1026,
+      "ts": "2026-05-04T08:11:59.612001",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6880,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5117089007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1025,
+      "ts": "2026-05-04T08:11:59.366123",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6803,
+      "source_url": "https://jobs.ashbyhq.com/ramp/b42cce4b-8fa9-4e8d-892d-3a29a7afb909/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1024,
+      "ts": "2026-05-04T08:11:59.363843",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6802,
+      "source_url": "https://jobs.ashbyhq.com/ramp/2a4968ae-220c-471b-b890-a011de570bbb/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1023,
+      "ts": "2026-05-04T08:11:59.318259",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6787,
+      "source_url": "https://jobs.ashbyhq.com/ramp/5fe4c64e-9336-4384-9e6f-ff32eeb3fdae/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1022,
+      "ts": "2026-05-04T08:11:59.295099",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6780,
+      "source_url": "https://jobs.ashbyhq.com/ramp/9320454f-f2ca-4c19-82d2-b51b8d75fd3a/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1021,
+      "ts": "2026-05-04T08:11:59.150691",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6740,
+      "source_url": "https://jobs.ashbyhq.com/mistral/1b70740f-d139-478d-b17a-7c3a9da1599e/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1020,
+      "ts": "2026-05-04T08:11:59.146204",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6738,
+      "source_url": "https://jobs.ashbyhq.com/mistral/7281ff55-d1a6-4d1d-bc01-6de046879b2a/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1019,
+      "ts": "2026-05-04T08:11:59.143805",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6736,
+      "source_url": "https://jobs.ashbyhq.com/mistral/520f3b83-3db3-4176-ad1f-e71ca6e249f6/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1018,
+      "ts": "2026-05-04T08:11:59.141496",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6735,
+      "source_url": "https://jobs.ashbyhq.com/mistral/28e604cd-9d7d-42d0-8780-c9f8f967597d/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1017,
+      "ts": "2026-05-04T08:11:59.137285",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6733,
+      "source_url": "https://jobs.ashbyhq.com/mistral/2ab2bd05-c796-4d4c-be96-920504c9980c/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1016,
+      "ts": "2026-05-04T08:11:59.134665",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6732,
+      "source_url": "https://jobs.ashbyhq.com/mistral/2da43b44-d46e-4385-a373-2a299f9931bf/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1015,
+      "ts": "2026-05-04T08:11:59.134662",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6732,
+      "source_url": "https://jobs.ashbyhq.com/mistral/2da43b44-d46e-4385-a373-2a299f9931bf/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1014,
+      "ts": "2026-05-04T08:11:59.129217",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6730,
+      "source_url": "https://jobs.ashbyhq.com/mistral/f18524f8-c047-42b5-8c38-b5f903b2e299/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1013,
+      "ts": "2026-05-04T08:11:59.108833",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6724,
+      "source_url": "https://jobs.ashbyhq.com/openai/8a9d680c-5122-4ffe-ab4b-e1de7e806500/application",
+      "snippet": "to LLM"
+    },
+    {
+      "id": 1012,
+      "ts": "2026-05-04T08:11:59.051857",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6711,
+      "source_url": "https://jobs.ashbyhq.com/openai/a9229465-4048-444c-9c03-1f281bcf2373/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1011,
+      "ts": "2026-05-04T08:11:58.856613",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6666,
+      "source_url": "https://jobs.ashbyhq.com/openai/fca0f787-f3c5-4528-bb20-803dba07501a/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1010,
+      "ts": "2026-05-04T08:11:58.777225",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6647,
+      "source_url": "https://jobs.ashbyhq.com/openai/4f6be73e-9a1d-4ec6-8b0e-b2af0b4becfb/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1009,
+      "ts": "2026-05-04T08:11:58.735286",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6635,
+      "source_url": "https://jobs.ashbyhq.com/openai/72e206a6-9769-470d-8f9c-be7522d809e1/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1008,
+      "ts": "2026-05-04T08:11:58.703157",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6628,
+      "source_url": "https://jobs.ashbyhq.com/openai/e2afdede-a222-4825-b2fc-fec439a7c893/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1007,
+      "ts": "2026-05-04T08:11:58.700451",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6627,
+      "source_url": "https://jobs.ashbyhq.com/openai/19fc3e36-3bf3-4a7c-b65f-498d89220436/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1006,
+      "ts": "2026-05-04T08:11:58.599433",
+      "kind": "injection_attempt",
+      "pattern": "jailbreak_marker",
+      "severity": "medium",
+      "job_id": 6605,
+      "source_url": "https://jobs.ashbyhq.com/openai/a0feb59d-e66b-4cc7-a685-7f9393d80fb6/application",
+      "snippet": "jailbreak"
+    },
+    {
+      "id": 1005,
+      "ts": "2026-05-04T08:11:58.516988",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6584,
+      "source_url": "https://jobs.ashbyhq.com/openai/3874db80-f3ec-4dd1-8d56-6441e8f7299d/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1004,
+      "ts": "2026-05-04T08:11:58.227616",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6512,
+      "source_url": "https://jobs.ashbyhq.com/openai/82a30978-e4d9-4f64-aae2-b20877e052c0/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1003,
+      "ts": "2026-05-04T08:11:58.076278",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6484,
+      "source_url": "https://jobs.ashbyhq.com/openai/ce7d1708-2790-4da5-89df-74024af7cf46/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1002,
+      "ts": "2026-05-04T08:11:57.978125",
+      "kind": "injection_attempt",
+      "pattern": "jailbreak_marker",
+      "severity": "medium",
+      "job_id": 6463,
+      "source_url": "https://jobs.ashbyhq.com/openai/bf7d2623-7846-410c-87f8-c628915ec16c/application",
+      "snippet": "jailbreak"
+    },
+    {
+      "id": 1001,
+      "ts": "2026-05-04T08:11:57.765544",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6418,
+      "source_url": "https://jobs.ashbyhq.com/openai/6df6a3d8-c72b-4e65-acf8-a5d91559533c/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1000,
+      "ts": "2026-05-04T08:11:57.743292",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6413,
+      "source_url": "https://jobs.ashbyhq.com/openai/c1d499bd-c1e3-47fc-b5dc-110b0ae365cd/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 999,
+      "ts": "2026-05-04T08:11:57.560621",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 6372,
+      "source_url": "https://jobs.ashbyhq.com/openai/4f1870f0-b0a8-44fb-b6fe-28638b45ae47/application",
+      "snippet": "\u202c"
+    },
+    {
+      "id": 998,
+      "ts": "2026-05-04T08:11:57.457084",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6346,
+      "source_url": "https://jobs.ashbyhq.com/openai/3fc46cbc-7e5a-4edc-96dc-ca433e76d181/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 997,
+      "ts": "2026-05-04T08:11:57.374920",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6326,
+      "source_url": "https://jobs.ashbyhq.com/openai/a6501870-774b-447f-8620-2b78854f9655/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 996,
+      "ts": "2026-05-04T08:11:57.341011",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6319,
+      "source_url": "https://jobs.ashbyhq.com/openai/e4ef18a1-f2f7-4920-a53c-aeadd184d124/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 995,
+      "ts": "2026-05-04T08:11:57.113910",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6263,
+      "source_url": "https://jobs.ashbyhq.com/openai/932c9cc1-c542-4f67-8d0d-443de87b8213/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 994,
+      "ts": "2026-05-04T08:11:57.026257",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6243,
+      "source_url": "https://jobs.ashbyhq.com/openai/d829b701-5ee2-414f-8596-ef94911a168a/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 993,
+      "ts": "2026-05-04T08:11:56.959356",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6228,
+      "source_url": "https://jobs.ashbyhq.com/openai/273b4c99-273e-4a70-aff9-19c0d959dcef/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 992,
+      "ts": "2026-05-04T08:11:56.794600",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 6190,
+      "source_url": "https://jobs.ashbyhq.com/openai/793964ae-d40b-45e3-9798-84f4b6da48c5/application",
+      "snippet": "to LLM"
+    },
     {
       "id": 991,
       "ts": "2026-05-04T01:24:34.273554",
