@@ -1,7 +1,137 @@
 {
   "window_days": 1,
-  "count": 32,
+  "count": 36,
   "events": [
+    {
+      "id": 1103,
+      "ts": "2026-05-06T19:17:13.599121",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7266,
+      "source_url": "https://jobs.ashbyhq.com/replit/b2418f7c-4262-471b-b131-72a4a8c1c685/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1102,
+      "ts": "2026-05-06T19:17:13.596655",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7265,
+      "source_url": "https://jobs.ashbyhq.com/replit/1c40b253-c33c-49d0-a1e0-d3e49aedf54c/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1101,
+      "ts": "2026-05-06T19:17:13.593589",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7264,
+      "source_url": "https://jobs.lever.co/mistral/eb6a8a44-19f6-4b84-bce8-8a818542d2c4",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1100,
+      "ts": "2026-05-06T19:17:13.593587",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7264,
+      "source_url": "https://jobs.lever.co/mistral/eb6a8a44-19f6-4b84-bce8-8a818542d2c4",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1099,
+      "ts": "2026-05-06T19:17:13.416164",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7228,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5199976008",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1098,
+      "ts": "2026-05-06T19:17:13.402603",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7225,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5003632007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1097,
+      "ts": "2026-05-06T19:17:13.402601",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7225,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5003632007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1096,
+      "ts": "2026-05-06T19:17:13.398235",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7224,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5103753007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1095,
+      "ts": "2026-05-06T19:17:13.398233",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7224,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5103753007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1094,
+      "ts": "2026-05-06T19:17:13.393649",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7223,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5130085007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1093,
+      "ts": "2026-05-06T19:17:13.393646",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7223,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5130085007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1092,
+      "ts": "2026-05-06T19:17:13.373588",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7218,
+      "source_url": "https://job-boards.greenhouse.io/axon/jobs/7624080003",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1091,
+      "ts": "2026-05-06T19:17:13.373585",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7218,
+      "source_url": "https://job-boards.greenhouse.io/axon/jobs/7624080003",
+      "snippet": "to AI"
+    },
     {
       "id": 1090,
       "ts": "2026-05-06T13:23:10.999712",
@@ -230,96 +360,6 @@
       "severity": "medium",
       "job_id": 7160,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5120676007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1067,
-      "ts": "2026-05-05T19:01:27.405999",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7157,
-      "source_url": "https://jobs.ashbyhq.com/mistral/0b342cda-4a57-4604-9d5b-48373e8e85ea/application",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1066,
-      "ts": "2026-05-05T19:01:27.343456",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7149,
-      "source_url": "https://jobs.lever.co/mistral/b2849d9e-c6aa-426d-8ca7-d668e3d44d78",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1065,
-      "ts": "2026-05-05T19:01:27.343455",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7149,
-      "source_url": "https://jobs.lever.co/mistral/b2849d9e-c6aa-426d-8ca7-d668e3d44d78",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1064,
-      "ts": "2026-05-05T19:01:27.343454",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 7149,
-      "source_url": "https://jobs.lever.co/mistral/b2849d9e-c6aa-426d-8ca7-d668e3d44d78",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1063,
-      "ts": "2026-05-05T19:01:27.343452",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 7149,
-      "source_url": "https://jobs.lever.co/mistral/b2849d9e-c6aa-426d-8ca7-d668e3d44d78",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1062,
-      "ts": "2026-05-05T19:01:27.339528",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7148,
-      "source_url": "https://jobs.lever.co/mistral/e97be5bf-6ee6-41d6-8a48-6626e9718ca6",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1061,
-      "ts": "2026-05-05T19:01:27.339526",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7148,
-      "source_url": "https://jobs.lever.co/mistral/e97be5bf-6ee6-41d6-8a48-6626e9718ca6",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1060,
-      "ts": "2026-05-05T19:01:27.084690",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7086,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5129396007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1059,
-      "ts": "2026-05-05T19:01:27.084685",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7086,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5129396007",
       "snippet": "\u200b"
     }
   ]
