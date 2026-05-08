@@ -1,7 +1,17 @@
 {
   "window_days": 1,
-  "count": 13,
+  "count": 14,
   "events": [
+    {
+      "id": 1129,
+      "ts": "2026-05-08T13:04:18.309737",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7496,
+      "source_url": "https://careers.airbnb.com/positions/7902817?gh_jid=7902817",
+      "snippet": "to AI"
+    },
     {
       "id": 1128,
       "ts": "2026-05-08T01:30:53.437595",
