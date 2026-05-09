@@ -1,6 +1,6 @@
 {
   "window_days": 1,
-  "count": 10,
+  "count": 9,
   "events": [
     {
       "id": 1137,
@@ -90,16 +90,6 @@
       "severity": "medium",
       "job_id": 7496,
       "source_url": "https://careers.airbnb.com/positions/7902817?gh_jid=7902817",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1128,
-      "ts": "2026-05-08T01:30:53.437595",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 7461,
-      "source_url": "https://jobs.ashbyhq.com/openai/f9c94950-44a0-49e8-99a0-f73d76f73977/application",
       "snippet": "to AI"
     }
   ]
