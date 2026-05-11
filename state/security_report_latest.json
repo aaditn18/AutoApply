@@ -1,7 +1,77 @@
 {
   "window_days": 1,
-  "count": 2,
+  "count": 9,
   "events": [
+    {
+      "id": 1146,
+      "ts": "2026-05-11T19:23:19.602785",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7676,
+      "source_url": "https://jobs.ashbyhq.com/replit/241c6573-854b-4999-9847-8cb311ab2cd5/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1145,
+      "ts": "2026-05-11T19:23:19.588664",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7671,
+      "source_url": "https://jobs.lever.co/wyetechllc/0b8ded66-f16a-425b-b388-78a6a85c86ee",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1144,
+      "ts": "2026-05-11T19:23:19.585882",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7670,
+      "source_url": "https://jobs.lever.co/wyetechllc/45695c73-72e6-46a9-afff-18c10c1e7a16",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1143,
+      "ts": "2026-05-11T19:23:19.369522",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7629,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1142,
+      "ts": "2026-05-11T19:23:19.369519",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7629,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1141,
+      "ts": "2026-05-11T19:23:19.363834",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7628,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133838007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1140,
+      "ts": "2026-05-11T19:23:19.363830",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7628,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133838007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1139,
       "ts": "2026-05-11T14:14:25.078496",
