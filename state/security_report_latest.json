@@ -1,5 +1,26 @@
 {
   "window_days": 1,
-  "count": 0,
-  "events": []
+  "count": 2,
+  "events": [
+    {
+      "id": 1139,
+      "ts": "2026-05-11T14:14:25.078496",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7616,
+      "source_url": "https://jobs.lever.co/mistral/281f4a57-dbe2-40b5-a35f-e180e15a4f12",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1138,
+      "ts": "2026-05-11T14:14:25.078493",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7616,
+      "source_url": "https://jobs.lever.co/mistral/281f4a57-dbe2-40b5-a35f-e180e15a4f12",
+      "snippet": "\u200d"
+    }
+  ]
 }
