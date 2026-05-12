@@ -1,7 +1,37 @@
 {
   "window_days": 1,
-  "count": 19,
+  "count": 13,
   "events": [
+    {
+      "id": 1159,
+      "ts": "2026-05-12T19:26:33.691111",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7824,
+      "source_url": "https://jobs.ashbyhq.com/openai/5664d2d6-639d-4696-9dab-0d703f1d9c5d/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1158,
+      "ts": "2026-05-12T19:26:33.639801",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7819,
+      "source_url": "https://stripe.com/jobs/search?gh_jid=7144975",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1157,
+      "ts": "2026-05-12T19:26:33.639798",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7819,
+      "source_url": "https://stripe.com/jobs/search?gh_jid=7144975",
+      "snippet": "\u200b"
+    },
     {
       "id": 1156,
       "ts": "2026-05-12T08:17:17.433829",
@@ -101,96 +131,6 @@
       "job_id": 7683,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5121510007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1146,
-      "ts": "2026-05-11T19:23:19.602785",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7676,
-      "source_url": "https://jobs.ashbyhq.com/replit/241c6573-854b-4999-9847-8cb311ab2cd5/application",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1145,
-      "ts": "2026-05-11T19:23:19.588664",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7671,
-      "source_url": "https://jobs.lever.co/wyetechllc/0b8ded66-f16a-425b-b388-78a6a85c86ee",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1144,
-      "ts": "2026-05-11T19:23:19.585882",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7670,
-      "source_url": "https://jobs.lever.co/wyetechllc/45695c73-72e6-46a9-afff-18c10c1e7a16",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1143,
-      "ts": "2026-05-11T19:23:19.369522",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7629,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1142,
-      "ts": "2026-05-11T19:23:19.369519",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7629,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1141,
-      "ts": "2026-05-11T19:23:19.363834",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7628,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133838007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1140,
-      "ts": "2026-05-11T19:23:19.363830",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7628,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133838007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1139,
-      "ts": "2026-05-11T14:14:25.078496",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7616,
-      "source_url": "https://jobs.lever.co/mistral/281f4a57-dbe2-40b5-a35f-e180e15a4f12",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1138,
-      "ts": "2026-05-11T14:14:25.078493",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7616,
-      "source_url": "https://jobs.lever.co/mistral/281f4a57-dbe2-40b5-a35f-e180e15a4f12",
-      "snippet": "\u200d"
     }
   ]
 }
