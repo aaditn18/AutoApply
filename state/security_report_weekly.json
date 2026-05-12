@@ -1,7 +1,177 @@
 {
   "window_days": 7,
-  "count": 110,
+  "count": 105,
   "events": [
+    {
+      "id": 1154,
+      "ts": "2026-05-12T01:29:23.317351",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7722,
+      "source_url": "https://jobs.ashbyhq.com/openai/b4d488e6-4633-411c-9bd8-27b9f1004330/application",
+      "snippet": "to artificial intelligence"
+    },
+    {
+      "id": 1153,
+      "ts": "2026-05-12T01:29:23.254954",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7718,
+      "source_url": "https://jobs.ashbyhq.com/replit/b2418f7c-4262-471b-b131-72a4a8c1c685/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1152,
+      "ts": "2026-05-12T01:29:23.252195",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7717,
+      "source_url": "https://jobs.lever.co/wyetechllc/0829b20b-e835-4188-8147-4c233a7911c9",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1151,
+      "ts": "2026-05-12T01:29:23.252195",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7717,
+      "source_url": "https://jobs.lever.co/wyetechllc/0829b20b-e835-4188-8147-4c233a7911c9",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1150,
+      "ts": "2026-05-12T01:29:23.252193",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7717,
+      "source_url": "https://jobs.lever.co/wyetechllc/0829b20b-e835-4188-8147-4c233a7911c9",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1149,
+      "ts": "2026-05-12T01:29:23.204038",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 7707,
+      "source_url": "https://careers.airbnb.com/positions/7306160?gh_jid=7306160",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1148,
+      "ts": "2026-05-12T01:29:23.072545",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7683,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5121510007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1147,
+      "ts": "2026-05-12T01:29:23.072542",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7683,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5121510007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1146,
+      "ts": "2026-05-11T19:23:19.602785",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7676,
+      "source_url": "https://jobs.ashbyhq.com/replit/241c6573-854b-4999-9847-8cb311ab2cd5/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1145,
+      "ts": "2026-05-11T19:23:19.588664",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7671,
+      "source_url": "https://jobs.lever.co/wyetechllc/0b8ded66-f16a-425b-b388-78a6a85c86ee",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1144,
+      "ts": "2026-05-11T19:23:19.585882",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7670,
+      "source_url": "https://jobs.lever.co/wyetechllc/45695c73-72e6-46a9-afff-18c10c1e7a16",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1143,
+      "ts": "2026-05-11T19:23:19.369522",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7629,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1142,
+      "ts": "2026-05-11T19:23:19.369519",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7629,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1141,
+      "ts": "2026-05-11T19:23:19.363834",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7628,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133838007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1140,
+      "ts": "2026-05-11T19:23:19.363830",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7628,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133838007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1139,
+      "ts": "2026-05-11T14:14:25.078496",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7616,
+      "source_url": "https://jobs.lever.co/mistral/281f4a57-dbe2-40b5-a35f-e180e15a4f12",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1138,
+      "ts": "2026-05-11T14:14:25.078493",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7616,
+      "source_url": "https://jobs.lever.co/mistral/281f4a57-dbe2-40b5-a35f-e180e15a4f12",
+      "snippet": "\u200d"
+    },
     {
       "id": 1137,
       "ts": "2026-05-09T01:27:47.000583",
@@ -881,226 +1051,6 @@
       "job_id": 7050,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5128622007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1049,
-      "ts": "2026-05-05T01:24:56.707305",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7033,
-      "source_url": "https://jobs.lever.co/wyetechllc/117282bc-d52b-4c79-bdc2-197c96e932e5",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1048,
-      "ts": "2026-05-05T01:24:56.652004",
-      "kind": "injection_attempt",
-      "pattern": "jailbreak_marker",
-      "severity": "medium",
-      "job_id": 7024,
-      "source_url": "https://job-boards.greenhouse.io/reddit/jobs/7891887",
-      "snippet": "jailbreak"
-    },
-    {
-      "id": 1047,
-      "ts": "2026-05-05T01:24:56.533407",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 7004,
-      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5209865008",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1046,
-      "ts": "2026-05-05T01:24:56.488533",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 6998,
-      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5207760008",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1045,
-      "ts": "2026-05-04T19:10:15.437106",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6974,
-      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1044,
-      "ts": "2026-05-04T19:10:15.437105",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6974,
-      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1043,
-      "ts": "2026-05-04T19:10:15.437104",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6974,
-      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1042,
-      "ts": "2026-05-04T19:10:15.437104",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6974,
-      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1041,
-      "ts": "2026-05-04T19:10:15.437103",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6974,
-      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1040,
-      "ts": "2026-05-04T19:10:15.437100",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6974,
-      "source_url": "https://jobs.lever.co/wyetechllc/f47b77ce-dabe-4045-ad38-7d76d3f4e296",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1039,
-      "ts": "2026-05-04T19:10:15.433256",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6973,
-      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1038,
-      "ts": "2026-05-04T19:10:15.433255",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6973,
-      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1037,
-      "ts": "2026-05-04T19:10:15.433255",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6973,
-      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1036,
-      "ts": "2026-05-04T19:10:15.433254",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6973,
-      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1035,
-      "ts": "2026-05-04T19:10:15.433253",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6973,
-      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1034,
-      "ts": "2026-05-04T19:10:15.433250",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6973,
-      "source_url": "https://jobs.lever.co/wyetechllc/5a6c1d50-a897-4c21-a643-a3383d627748",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1033,
-      "ts": "2026-05-04T19:10:15.420481",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 6968,
-      "source_url": "https://stripe.com/jobs/search?gh_jid=7875540",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1032,
-      "ts": "2026-05-04T19:10:15.200139",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 6925,
-      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5181852008",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1031,
-      "ts": "2026-05-04T19:10:15.153591",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6914,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5127530007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1030,
-      "ts": "2026-05-04T19:10:15.153589",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6914,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5127530007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1029,
-      "ts": "2026-05-04T19:10:15.145903",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 6912,
-      "source_url": "https://job-boards.greenhouse.io/smartsheet/jobs/7764396",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1028,
-      "ts": "2026-05-04T13:17:08.458373",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 6902,
-      "source_url": "https://jobs.lever.co/mistral/18be2b70-c05d-48e4-82ac-e5cb462c96c0",
-      "snippet": "\u200d"
     }
   ]
 }
