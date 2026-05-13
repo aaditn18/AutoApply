@@ -1,7 +1,17 @@
 {
   "window_days": 1,
-  "count": 7,
+  "count": 6,
   "events": [
+    {
+      "id": 1162,
+      "ts": "2026-05-13T08:29:05.022951",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 7874,
+      "source_url": "https://jobs.ashbyhq.com/replit/d0e0dd7d-59d1-4de8-afbb-54aea680b51d/application",
+      "snippet": "\u200d"
+    },
     {
       "id": 1161,
       "ts": "2026-05-13T01:48:15.007744",
@@ -50,26 +60,6 @@
       "severity": "medium",
       "job_id": 7819,
       "source_url": "https://stripe.com/jobs/search?gh_jid=7144975",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1156,
-      "ts": "2026-05-12T08:17:17.433829",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7726,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5110558007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1155,
-      "ts": "2026-05-12T08:17:17.433826",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7726,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5110558007",
       "snippet": "\u200b"
     }
   ]
