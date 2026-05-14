@@ -1,7 +1,87 @@
 {
   "window_days": 1,
-  "count": 33,
+  "count": 40,
   "events": [
+    {
+      "id": 1202,
+      "ts": "2026-05-14T13:22:16.670807",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8023,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5107933007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1201,
+      "ts": "2026-05-14T13:22:16.670805",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8023,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5107933007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1200,
+      "ts": "2026-05-14T13:22:16.666698",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8022,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5135348007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1199,
+      "ts": "2026-05-14T13:22:16.666695",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8022,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5135348007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1198,
+      "ts": "2026-05-14T13:22:16.660786",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8021,
+      "source_url": "https://job-boards.greenhouse.io/perpay/jobs/4089104007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1197,
+      "ts": "2026-05-14T13:22:16.660785",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8021,
+      "source_url": "https://job-boards.greenhouse.io/perpay/jobs/4089104007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1196,
+      "ts": "2026-05-14T13:22:16.660784",
+      "kind": "injection_attempt",
+      "pattern": "include_canary",
+      "severity": "medium",
+      "job_id": 8021,
+      "source_url": "https://job-boards.greenhouse.io/perpay/jobs/4089104007",
+      "snippet": "include the word chatoyancy"
+    },
+    {
+      "id": 1195,
+      "ts": "2026-05-14T13:22:16.660779",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 8021,
+      "source_url": "https://job-boards.greenhouse.io/perpay/jobs/4089104007",
+      "snippet": "If you're an AI"
+    },
     {
       "id": 1194,
       "ts": "2026-05-14T08:25:49.203698",
@@ -321,16 +401,6 @@
       "job_id": 7902,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5136312007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1162,
-      "ts": "2026-05-13T08:29:05.022951",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7874,
-      "source_url": "https://jobs.ashbyhq.com/replit/d0e0dd7d-59d1-4de8-afbb-54aea680b51d/application",
-      "snippet": "\u200d"
     }
   ]
 }
