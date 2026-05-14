@@ -1,7 +1,37 @@
 {
   "window_days": 1,
-  "count": 30,
+  "count": 33,
   "events": [
+    {
+      "id": 1194,
+      "ts": "2026-05-14T08:25:49.203698",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 8018,
+      "source_url": "https://instacart.careers/job/?gh_jid=7901491",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1193,
+      "ts": "2026-05-14T08:25:49.143840",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8004,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5137396007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1192,
+      "ts": "2026-05-14T08:25:49.143837",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8004,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5137396007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1191,
       "ts": "2026-05-14T01:50:45.547502",
