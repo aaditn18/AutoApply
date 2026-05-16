@@ -1,7 +1,87 @@
 {
   "window_days": 7,
-  "count": 87,
+  "count": 86,
   "events": [
+    {
+      "id": 1223,
+      "ts": "2026-05-16T01:28:43.452420",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8219,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5139192007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1222,
+      "ts": "2026-05-16T01:28:43.452418",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8219,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5139192007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1221,
+      "ts": "2026-05-16T01:28:43.447780",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8218,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5134929007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1220,
+      "ts": "2026-05-16T01:28:43.447775",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8218,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5134929007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1219,
+      "ts": "2026-05-15T19:11:11.010833",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 8200,
+      "source_url": "https://job-boards.greenhouse.io/gitlab/jobs/8539288002",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1218,
+      "ts": "2026-05-15T08:34:59.544686",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 8158,
+      "source_url": "https://careers.airbnb.com/positions/7902817?gh_jid=7902817",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1217,
+      "ts": "2026-05-15T08:34:59.535449",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8155,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5137511007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1216,
+      "ts": "2026-05-15T08:34:59.535446",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8155,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5137511007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1215,
       "ts": "2026-05-15T01:48:05.444725",
@@ -781,96 +861,6 @@
       "job_id": 7616,
       "source_url": "https://jobs.lever.co/mistral/281f4a57-dbe2-40b5-a35f-e180e15a4f12",
       "snippet": "\u200d"
-    },
-    {
-      "id": 1137,
-      "ts": "2026-05-09T01:27:47.000583",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 7572,
-      "source_url": "https://www.samsara.com/company/careers/roles/7891607?gh_jid=7891607",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1136,
-      "ts": "2026-05-09T01:27:46.995163",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7571,
-      "source_url": "https://www.samsara.com/company/careers/roles/7852950?gh_jid=7852950",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1135,
-      "ts": "2026-05-09T01:27:46.853525",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7548,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1134,
-      "ts": "2026-05-09T01:27:46.853523",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7548,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1133,
-      "ts": "2026-05-08T19:02:32.285585",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7539,
-      "source_url": "https://jobs.lever.co/mistral/8a74fb66-c6ae-40eb-981d-d07ca17593be",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1132,
-      "ts": "2026-05-08T19:02:32.285582",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7539,
-      "source_url": "https://jobs.lever.co/mistral/8a74fb66-c6ae-40eb-981d-d07ca17593be",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1131,
-      "ts": "2026-05-08T19:02:32.116876",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7504,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5124017007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1130,
-      "ts": "2026-05-08T19:02:32.116874",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 7504,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5124017007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1129,
-      "ts": "2026-05-08T13:04:18.309737",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 7496,
-      "source_url": "https://careers.airbnb.com/positions/7902817?gh_jid=7902817",
-      "snippet": "to AI"
     }
   ]
 }
