@@ -1,7 +1,37 @@
 {
   "window_days": 1,
-  "count": 14,
+  "count": 17,
   "events": [
+    {
+      "id": 1243,
+      "ts": "2026-05-20T01:54:07.725203",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8533,
+      "source_url": "https://jobs.ashbyhq.com/replit/5841bc76-5657-46c2-942e-0860f02ea3ec/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1242,
+      "ts": "2026-05-20T01:54:07.530624",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8501,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141107007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1241,
+      "ts": "2026-05-20T01:54:07.530621",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8501,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141107007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1240,
       "ts": "2026-05-19T19:32:56.828399",
