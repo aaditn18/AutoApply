@@ -1,7 +1,47 @@
 {
   "window_days": 1,
-  "count": 21,
+  "count": 25,
   "events": [
+    {
+      "id": 1272,
+      "ts": "2026-05-21T19:32:58.098666",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8770,
+      "source_url": "https://jobs.lever.co/mistral/29d52ffe-b3af-4510-80a7-9a1165ed487d",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1271,
+      "ts": "2026-05-21T19:32:57.899889",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 8729,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5118172008",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1270,
+      "ts": "2026-05-21T19:32:57.821844",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8716,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5144256007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1269,
+      "ts": "2026-05-21T19:32:57.821842",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8716,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5144256007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1268,
       "ts": "2026-05-21T14:32:55.074700",
