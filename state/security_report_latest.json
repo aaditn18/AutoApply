@@ -1,26 +1,5 @@
 {
   "window_days": 1,
-  "count": 2,
-  "events": [
-    {
-      "id": 1302,
-      "ts": "2026-05-23T12:52:09.802234",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8951,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5145080007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1301,
-      "ts": "2026-05-23T12:52:09.802230",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8951,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5145080007",
-      "snippet": "\u200b"
-    }
-  ]
+  "count": 0,
+  "events": []
 }
