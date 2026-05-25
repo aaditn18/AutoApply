@@ -1,5 +1,16 @@
 {
   "window_days": 1,
-  "count": 0,
-  "events": []
+  "count": 1,
+  "events": [
+    {
+      "id": 1303,
+      "ts": "2026-05-25T19:11:28.199764",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8974,
+      "source_url": "https://jobs.ashbyhq.com/replit/234c9a82-2857-4691-af83-308100806df3/application",
+      "snippet": "\u200d"
+    }
+  ]
 }
