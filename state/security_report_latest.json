@@ -1,7 +1,17 @@
 {
   "window_days": 1,
-  "count": 19,
+  "count": 20,
   "events": [
+    {
+      "id": 1323,
+      "ts": "2026-05-27T08:56:13.892151",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9118,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/4502508008",
+      "snippet": "to AI"
+    },
     {
       "id": 1322,
       "ts": "2026-05-27T01:58:04.006389",
