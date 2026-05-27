@@ -1,7 +1,197 @@
 {
   "window_days": 7,
-  "count": 75,
+  "count": 79,
   "events": [
+    {
+      "id": 1322,
+      "ts": "2026-05-27T01:58:04.006389",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9107,
+      "source_url": "https://jobs.ashbyhq.com/replit/4b290489-9ce6-45f9-bbc8-e1baa4bd8b6f/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1321,
+      "ts": "2026-05-27T01:58:04.003282",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9106,
+      "source_url": "https://jobs.ashbyhq.com/replit/649b284a-75c3-4d58-9958-4db2740e6f8d/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1320,
+      "ts": "2026-05-27T01:58:04.000062",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9105,
+      "source_url": "https://jobs.ashbyhq.com/replit/3a657901-8b8e-47cd-a122-e45881eef124/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1319,
+      "ts": "2026-05-27T01:58:03.996690",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9104,
+      "source_url": "https://jobs.ashbyhq.com/replit/75477d6d-82e2-413c-b355-ec9426e56555/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1318,
+      "ts": "2026-05-27T01:58:03.993483",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9103,
+      "source_url": "https://jobs.ashbyhq.com/replit/eedcefbc-7ed6-41ea-9ba9-865ac23bcf8b/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1317,
+      "ts": "2026-05-27T01:58:03.958325",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9096,
+      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7747067",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1316,
+      "ts": "2026-05-27T01:58:03.854666",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9077,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5147007007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1315,
+      "ts": "2026-05-27T01:58:03.854664",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9077,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5147007007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1314,
+      "ts": "2026-05-27T01:58:03.846877",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9076,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5147050007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1313,
+      "ts": "2026-05-27T01:58:03.846874",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9076,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5147050007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1312,
+      "ts": "2026-05-26T19:52:01.999555",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9062,
+      "source_url": "https://jobs.ashbyhq.com/replit/ccab8626-7245-4ed9-9c99-b77df70b2dc8/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1311,
+      "ts": "2026-05-26T19:52:01.990051",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9058,
+      "source_url": "https://jobs.ashbyhq.com/skydio/2b312ffb-26c3-4b7f-8904-acbc4e51934b/application",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1310,
+      "ts": "2026-05-26T19:52:01.805529",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9017,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5183053008",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1309,
+      "ts": "2026-05-26T19:52:01.772322",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9009,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5146876007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1308,
+      "ts": "2026-05-26T19:52:01.772319",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9009,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5146876007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1307,
+      "ts": "2026-05-26T19:52:01.768020",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9008,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5121384007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1306,
+      "ts": "2026-05-26T19:52:01.768016",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9008,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5121384007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1305,
+      "ts": "2026-05-26T14:29:50.413339",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8987,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5145273007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1304,
+      "ts": "2026-05-26T14:29:50.413335",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 8987,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5145273007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1303,
       "ts": "2026-05-25T19:11:28.199764",
@@ -600,156 +790,6 @@
       "severity": "medium",
       "job_id": 8561,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5142727007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1243,
-      "ts": "2026-05-20T01:54:07.725203",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8533,
-      "source_url": "https://jobs.ashbyhq.com/replit/5841bc76-5657-46c2-942e-0860f02ea3ec/application",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1242,
-      "ts": "2026-05-20T01:54:07.530624",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8501,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141107007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1241,
-      "ts": "2026-05-20T01:54:07.530621",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8501,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141107007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1240,
-      "ts": "2026-05-19T19:32:56.828399",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8431,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5136004007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1239,
-      "ts": "2026-05-19T19:32:56.828396",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8431,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5136004007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1238,
-      "ts": "2026-05-19T19:32:56.824657",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8430,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5082193007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1237,
-      "ts": "2026-05-19T19:32:56.824655",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8430,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5082193007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1236,
-      "ts": "2026-05-19T19:32:56.821416",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8429,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141095007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1235,
-      "ts": "2026-05-19T19:32:56.821415",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8429,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141095007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1234,
-      "ts": "2026-05-19T19:32:56.815781",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8428,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5115850007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1233,
-      "ts": "2026-05-19T19:32:56.815779",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8428,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5115850007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1232,
-      "ts": "2026-05-19T08:54:13.596799",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8386,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141100007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1231,
-      "ts": "2026-05-19T08:54:13.596794",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8386,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5141100007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1230,
-      "ts": "2026-05-19T08:54:13.585255",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8385,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5139686007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1229,
-      "ts": "2026-05-19T08:54:13.585250",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8385,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5139686007",
       "snippet": "\u200b"
     }
   ]
