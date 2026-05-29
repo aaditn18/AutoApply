@@ -3,6 +3,16 @@
   "count": 22,
   "events": [
     {
+      "id": 1371,
+      "ts": "2026-05-29T14:37:25.660659",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9437,
+      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5233951008",
+      "snippet": "to AI"
+    },
+    {
       "id": 1370,
       "ts": "2026-05-29T09:04:22.720676",
       "kind": "injection_attempt",
@@ -211,16 +221,6 @@
       "job_id": 9312,
       "source_url": "https://job-boards.greenhouse.io/perpay/jobs/4034121007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1349,
-      "ts": "2026-05-28T09:39:13.180294",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 9300,
-      "source_url": "https://careers.airbnb.com/positions/7957370?gh_jid=7957370",
-      "snippet": "to AI"
     }
   ]
 }
