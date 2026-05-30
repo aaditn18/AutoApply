@@ -3,6 +3,16 @@
   "count": 10,
   "events": [
     {
+      "id": 1381,
+      "ts": "2026-05-30T18:55:06.792790",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9561,
+      "source_url": "https://stripe.com/jobs/search?gh_jid=7952048",
+      "snippet": "to LLMs"
+    },
+    {
       "id": 1380,
       "ts": "2026-05-30T12:56:27.195600",
       "kind": "injection_attempt",
@@ -91,16 +101,6 @@
       "job_id": 9488,
       "source_url": "https://jobs.ashbyhq.com/replit/73831fe4-c4d5-4e27-91b4-f7f83a99cb73/application",
       "snippet": "\u200d"
-    },
-    {
-      "id": 1371,
-      "ts": "2026-05-29T14:37:25.660659",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 9437,
-      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5233951008",
-      "snippet": "to AI"
     }
   ]
 }
