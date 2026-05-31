@@ -1,6 +1,6 @@
 {
   "window_days": 1,
-  "count": 3,
+  "count": 2,
   "events": [
     {
       "id": 1383,
@@ -21,16 +21,6 @@
       "job_id": 9570,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5143750007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1381,
-      "ts": "2026-05-30T18:55:06.792790",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 9561,
-      "source_url": "https://stripe.com/jobs/search?gh_jid=7952048",
-      "snippet": "to LLMs"
     }
   ]
 }
