@@ -1,7 +1,47 @@
 {
   "window_days": 7,
-  "count": 79,
+  "count": 83,
   "events": [
+    {
+      "id": 1385,
+      "ts": "2026-06-01T02:07:09.113588",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9574,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5150899007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1384,
+      "ts": "2026-06-01T02:07:09.113584",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9574,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5150899007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1383,
+      "ts": "2026-05-31T13:05:12.795097",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9570,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5143750007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1382,
+      "ts": "2026-05-31T13:05:12.795094",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9570,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5143750007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1381,
       "ts": "2026-05-30T18:55:06.792790",
