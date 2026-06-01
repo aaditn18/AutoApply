@@ -1,7 +1,47 @@
 {
   "window_days": 1,
-  "count": 4,
+  "count": 8,
   "events": [
+    {
+      "id": 1389,
+      "ts": "2026-06-01T11:02:42.412907",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9586,
+      "source_url": "https://jobs.lever.co/mistral/ef656934-7246-4d93-b341-c907c348c444",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1388,
+      "ts": "2026-06-01T11:02:42.407868",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9585,
+      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1387,
+      "ts": "2026-06-01T11:02:42.407866",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9585,
+      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1386,
+      "ts": "2026-06-01T11:02:42.407863",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9585,
+      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
+      "snippet": "to AI"
+    },
     {
       "id": 1385,
       "ts": "2026-06-01T02:07:09.113588",
