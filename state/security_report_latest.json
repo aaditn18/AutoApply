@@ -1,7 +1,47 @@
 {
   "window_days": 1,
-  "count": 6,
+  "count": 10,
   "events": [
+    {
+      "id": 1393,
+      "ts": "2026-06-01T21:19:03.613837",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9667,
+      "source_url": "https://jobs.ashbyhq.com/replit/00fc1868-26bf-4918-8011-d42fe40637ee/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1392,
+      "ts": "2026-06-01T21:19:03.609324",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9666,
+      "source_url": "https://jobs.ashbyhq.com/replit/ed38d0f5-fc84-4fc6-bab0-1ad2753f2307/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1391,
+      "ts": "2026-06-01T21:19:03.537014",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9655,
+      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7786302",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1390,
+      "ts": "2026-06-01T21:19:03.537010",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9655,
+      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7786302",
+      "snippet": "\u200b"
+    },
     {
       "id": 1389,
       "ts": "2026-06-01T11:02:42.412907",
