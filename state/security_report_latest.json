@@ -1,7 +1,27 @@
 {
   "window_days": 1,
-  "count": 10,
+  "count": 8,
   "events": [
+    {
+      "id": 1397,
+      "ts": "2026-06-02T15:50:07.152421",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9762,
+      "source_url": "https://jobs.lever.co/mistral/03863192-718a-45f9-9c43-bb053d085543",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1396,
+      "ts": "2026-06-02T15:50:07.152419",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9762,
+      "source_url": "https://jobs.lever.co/mistral/03863192-718a-45f9-9c43-bb053d085543",
+      "snippet": "\u200d"
+    },
     {
       "id": 1395,
       "ts": "2026-06-02T09:56:23.291722",
@@ -61,46 +81,6 @@
       "job_id": 9655,
       "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7786302",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1389,
-      "ts": "2026-06-01T11:02:42.412907",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9586,
-      "source_url": "https://jobs.lever.co/mistral/ef656934-7246-4d93-b341-c907c348c444",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1388,
-      "ts": "2026-06-01T11:02:42.407868",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9585,
-      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1387,
-      "ts": "2026-06-01T11:02:42.407866",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 9585,
-      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1386,
-      "ts": "2026-06-01T11:02:42.407863",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 9585,
-      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
-      "snippet": "to AI"
     }
   ]
 }
