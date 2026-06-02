@@ -1,7 +1,87 @@
 {
   "window_days": 7,
-  "count": 83,
+  "count": 90,
   "events": [
+    {
+      "id": 1393,
+      "ts": "2026-06-01T21:19:03.613837",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9667,
+      "source_url": "https://jobs.ashbyhq.com/replit/00fc1868-26bf-4918-8011-d42fe40637ee/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1392,
+      "ts": "2026-06-01T21:19:03.609324",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9666,
+      "source_url": "https://jobs.ashbyhq.com/replit/ed38d0f5-fc84-4fc6-bab0-1ad2753f2307/application",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1391,
+      "ts": "2026-06-01T21:19:03.537014",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9655,
+      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7786302",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1390,
+      "ts": "2026-06-01T21:19:03.537010",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9655,
+      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7786302",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1389,
+      "ts": "2026-06-01T11:02:42.412907",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9586,
+      "source_url": "https://jobs.lever.co/mistral/ef656934-7246-4d93-b341-c907c348c444",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1388,
+      "ts": "2026-06-01T11:02:42.407868",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9585,
+      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1387,
+      "ts": "2026-06-01T11:02:42.407866",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9585,
+      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1386,
+      "ts": "2026-06-01T11:02:42.407863",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9585,
+      "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
+      "snippet": "to AI"
+    },
     {
       "id": 1385,
       "ts": "2026-06-01T02:07:09.113588",
@@ -821,16 +901,6 @@
       "job_id": 8987,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5145273007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1303,
-      "ts": "2026-05-25T19:11:28.199764",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 8974,
-      "source_url": "https://jobs.ashbyhq.com/replit/234c9a82-2857-4691-af83-308100806df3/application",
-      "snippet": "\u200d"
     }
   ]
 }
