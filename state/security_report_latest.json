@@ -1,6 +1,6 @@
 {
   "window_days": 1,
-  "count": 10,
+  "count": 8,
   "events": [
     {
       "id": 1393,
@@ -81,26 +81,6 @@
       "job_id": 9585,
       "source_url": "https://jobs.lever.co/mistral/5719bb00-13d0-4bac-ad9d-ad974f84f959",
       "snippet": "to AI"
-    },
-    {
-      "id": 1385,
-      "ts": "2026-06-01T02:07:09.113588",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9574,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5150899007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1384,
-      "ts": "2026-06-01T02:07:09.113584",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9574,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5150899007",
-      "snippet": "\u200b"
     }
   ]
 }
