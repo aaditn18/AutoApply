@@ -1,7 +1,67 @@
 {
   "window_days": 1,
-  "count": 14,
+  "count": 18,
   "events": [
+    {
+      "id": 1413,
+      "ts": "2026-06-03T10:27:49.905853",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9878,
+      "source_url": "https://jobs.lever.co/mistral/db67d7a2-bcec-4151-9b3a-8212ddabf419",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1412,
+      "ts": "2026-06-03T10:27:49.905851",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9878,
+      "source_url": "https://jobs.lever.co/mistral/db67d7a2-bcec-4151-9b3a-8212ddabf419",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1411,
+      "ts": "2026-06-03T10:27:49.893776",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9875,
+      "source_url": "https://jobs.lever.co/mistral/b2498ec4-51e7-46b7-b258-d9bc40b6e39e",
+      "snippet": "\u200d"
+    },
+    {
+      "id": 1410,
+      "ts": "2026-06-03T10:27:49.888702",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9874,
+      "source_url": "https://stripe.com/jobs/search?gh_jid=7975826",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1409,
+      "ts": "2026-06-03T10:27:49.888698",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9874,
+      "source_url": "https://stripe.com/jobs/search?gh_jid=7975826",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1408,
+      "ts": "2026-06-03T10:27:49.871250",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9869,
+      "source_url": "https://www.asana.com/jobs/apply/7978671?gh_jid=7978671",
+      "snippet": "to LLM"
+    },
     {
       "id": 1407,
       "ts": "2026-06-03T02:16:24.017470",
@@ -121,26 +181,6 @@
       "job_id": 9762,
       "source_url": "https://jobs.lever.co/mistral/03863192-718a-45f9-9c43-bb053d085543",
       "snippet": "\u200d"
-    },
-    {
-      "id": 1395,
-      "ts": "2026-06-02T09:56:23.291722",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9699,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5152570007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1394,
-      "ts": "2026-06-02T09:56:23.291718",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9699,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5152570007",
-      "snippet": "\u200b"
     }
   ]
 }
