@@ -1,7 +1,37 @@
 {
   "window_days": 1,
-  "count": 15,
+  "count": 14,
   "events": [
+    {
+      "id": 1407,
+      "ts": "2026-06-03T02:16:24.017470",
+      "kind": "injection_attempt",
+      "pattern": "ai_address",
+      "severity": "medium",
+      "job_id": 9840,
+      "source_url": "https://careers.airbnb.com/positions/7973847?gh_jid=7973847",
+      "snippet": "to AI"
+    },
+    {
+      "id": 1406,
+      "ts": "2026-06-03T02:16:23.959391",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9829,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153705007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1405,
+      "ts": "2026-06-03T02:16:23.959388",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 9829,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153705007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1404,
       "ts": "2026-06-02T20:32:48.199015",
@@ -110,46 +140,6 @@
       "severity": "medium",
       "job_id": 9699,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5152570007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1393,
-      "ts": "2026-06-01T21:19:03.613837",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9667,
-      "source_url": "https://jobs.ashbyhq.com/replit/00fc1868-26bf-4918-8011-d42fe40637ee/application",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1392,
-      "ts": "2026-06-01T21:19:03.609324",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9666,
-      "source_url": "https://jobs.ashbyhq.com/replit/ed38d0f5-fc84-4fc6-bab0-1ad2753f2307/application",
-      "snippet": "\u200d"
-    },
-    {
-      "id": 1391,
-      "ts": "2026-06-01T21:19:03.537014",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9655,
-      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7786302",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1390,
-      "ts": "2026-06-01T21:19:03.537010",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9655,
-      "source_url": "https://www.pinterestcareers.com/jobs/?gh_jid=7786302",
       "snippet": "\u200b"
     }
   ]
