@@ -1,6 +1,6 @@
 {
   "window_days": 1,
-  "count": 40,
+  "count": 37,
   "events": [
     {
       "id": 1444,
@@ -371,36 +371,6 @@
       "job_id": 9869,
       "source_url": "https://www.asana.com/jobs/apply/7978671?gh_jid=7978671",
       "snippet": "to LLM"
-    },
-    {
-      "id": 1407,
-      "ts": "2026-06-03T02:16:24.017470",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 9840,
-      "source_url": "https://careers.airbnb.com/positions/7973847?gh_jid=7973847",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1406,
-      "ts": "2026-06-03T02:16:23.959391",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9829,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153705007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1405,
-      "ts": "2026-06-03T02:16:23.959388",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 9829,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153705007",
-      "snippet": "\u200b"
     }
   ]
 }
