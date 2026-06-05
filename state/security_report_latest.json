@@ -1,7 +1,67 @@
 {
   "window_days": 1,
-  "count": 30,
+  "count": 36,
   "events": [
+    {
+      "id": 1480,
+      "ts": "2026-06-05T19:26:27.180674",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10227,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5157805007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1479,
+      "ts": "2026-06-05T19:26:27.180672",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10227,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5157805007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1478,
+      "ts": "2026-06-05T19:26:27.177181",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10226,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1477,
+      "ts": "2026-06-05T19:26:27.177179",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10226,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5133257007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1476,
+      "ts": "2026-06-05T19:26:27.169235",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10225,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153192007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1475,
+      "ts": "2026-06-05T19:26:27.169231",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10225,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153192007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1474,
       "ts": "2026-06-05T14:16:02.903644",
