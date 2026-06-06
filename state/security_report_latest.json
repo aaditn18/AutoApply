@@ -1,6 +1,6 @@
 {
   "window_days": 1,
-  "count": 19,
+  "count": 17,
   "events": [
     {
       "id": 1482,
@@ -171,26 +171,6 @@
       "job_id": 10190,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5156564007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1465,
-      "ts": "2026-06-05T01:58:47.506471",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 10167,
-      "source_url": "https://app.careerpuck.com/job-board/lyft/job/8445467002?gh_jid=8445467002",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1464,
-      "ts": "2026-06-05T01:58:47.443774",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 10155,
-      "source_url": "https://job-boards.greenhouse.io/anthropic/jobs/5227810008",
-      "snippet": "to AI"
     }
   ]
 }
