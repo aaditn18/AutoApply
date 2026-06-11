@@ -1,7 +1,27 @@
 {
   "window_days": 1,
-  "count": 24,
+  "count": 17,
   "events": [
+    {
+      "id": 1541,
+      "ts": "2026-06-11T02:08:55.473167",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10677,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5134929007",
+      "snippet": "\u200b"
+    },
+    {
+      "id": 1540,
+      "ts": "2026-06-11T02:08:55.473164",
+      "kind": "injection_attempt",
+      "pattern": "zero_width_unicode",
+      "severity": "medium",
+      "job_id": 10677,
+      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5134929007",
+      "snippet": "\u200b"
+    },
     {
       "id": 1539,
       "ts": "2026-06-10T20:03:42.350851",
@@ -151,96 +171,6 @@
       "job_id": 10618,
       "source_url": "https://instacart.careers/job/?gh_jid=7996528",
       "snippet": "to AI"
-    },
-    {
-      "id": 1524,
-      "ts": "2026-06-10T01:57:24.339242",
-      "kind": "injection_attempt",
-      "pattern": "ai_address",
-      "severity": "medium",
-      "job_id": 10587,
-      "source_url": "https://careers.airbnb.com/positions/7993306?gh_jid=7993306",
-      "snippet": "to AI"
-    },
-    {
-      "id": 1523,
-      "ts": "2026-06-10T01:57:24.274792",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10576,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5159651007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1522,
-      "ts": "2026-06-10T01:57:24.274790",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10576,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5159651007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1521,
-      "ts": "2026-06-10T01:57:24.266950",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10575,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5148820007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1520,
-      "ts": "2026-06-10T01:57:24.266948",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10575,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5148820007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1519,
-      "ts": "2026-06-10T01:57:24.262698",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10574,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5159663007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1518,
-      "ts": "2026-06-10T01:57:24.262696",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10574,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5159663007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1517,
-      "ts": "2026-06-10T01:57:24.257509",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10573,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153307007",
-      "snippet": "\u200b"
-    },
-    {
-      "id": 1516,
-      "ts": "2026-06-10T01:57:24.257506",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10573,
-      "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5153307007",
-      "snippet": "\u200b"
     }
   ]
 }
