@@ -1,6 +1,6 @@
 {
   "window_days": 7,
-  "count": 59,
+  "count": 58,
   "events": [
     {
       "id": 1541,
@@ -581,16 +581,6 @@
       "job_id": 10347,
       "source_url": "https://job-boards.greenhouse.io/thetradedesk/jobs/5147434007",
       "snippet": "\u200b"
-    },
-    {
-      "id": 1483,
-      "ts": "2026-06-08T02:08:36.403299",
-      "kind": "injection_attempt",
-      "pattern": "zero_width_unicode",
-      "severity": "medium",
-      "job_id": 10338,
-      "source_url": "https://jobs.ashbyhq.com/replit/764fddd2-f81e-4c1f-9ab4-81ae086d4086/application",
-      "snippet": "\u200d"
     }
   ]
 }
